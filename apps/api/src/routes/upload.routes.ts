@@ -19,7 +19,7 @@ export async function uploadRoutes(fastify: FastifyInstance) {
 
     const data = await request.file({
       limits: {
-        fileSize: 50 * 1024 * 1024, // 50MB limit
+        fileSize: 20 * 1024 * 1024, // 20MB limit
       },
     });
 

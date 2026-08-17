@@ -75,8 +75,8 @@ export const MessageInput: React.FC<MessageInputProps> = ({ onSend }) => {
     if (!files || files.length === 0) return;
 
     const file = files[0];
-    if (file.size > 50 * 1024 * 1024) {
-      alert('文件大小不能超过 50MB');
+    if (file.size > 20 * 1024 * 1024) {
+      alert('文件大小不能超过 20MB');
       return;
     }
 
