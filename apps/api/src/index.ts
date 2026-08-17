@@ -27,7 +27,7 @@ async function startServer() {
 
     const fastify = Fastify({
       logger: false,
-      bodyLimit: 30 * 1024 * 1024, // 30MB
+      bodyLimit: 100 * 1024 * 1024, // 100MB
     });
 
     // 2. Middlewares
@@ -48,7 +48,8 @@ async function startServer() {
 
     await fastify.register(multipart, {
       limits: {
-        fileSize: 20 * 1024 * 1024, // 20MB
+        fileSize: 50 * 1024 * 1024, // 50MB
+        fieldSize: 50 * 1024 * 1024,
       },
     });
 
