@@ -9,7 +9,7 @@ on:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     permissions:
       contents: read
       packages: write
@@ -27,7 +27,7 @@ jobs:
           docker buildx create --use --name mybuilder
           docker buildx inspect mybuilder --bootstrap
 
-      - name: Build and push Docker image
+      - name: Build and push Docker image with GHA caching
         run: |
           IMAGE_NAME="ghcr.io/${{ github.repository }}"
           
@@ -35,10 +35,12 @@ jobs:
           TAG_LATEST="${IMAGE_NAME}:latest"
           TAG_SHA="${IMAGE_NAME}:${{ github.sha }}"
           
-          echo "Building and pushing multi-platform image to ${IMAGE_NAME}..."
+          echo "Building and pushing multi-platform image with GHA cache..."
           docker buildx build \
             --platform linux/amd64,linux/arm64 \
             --provenance=false \
+            --cache-from type=gha \
+            --cache-to type=gha,mode=max \
             -t "${TAG_LATEST}" \
             -t "${TAG_SHA}" \
             --push \

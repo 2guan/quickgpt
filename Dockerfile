@@ -1,5 +1,5 @@
-# Stage 1: Build & Dependencies (Node.js 24)
-FROM node:24-alpine AS builder
+# Stage 1: Build & Dependencies (runs natively on the fast host platform without slow QEMU emulation)
+FROM --platform=$BUILDPLATFORM node:24-alpine AS builder
 
 WORKDIR /app
 
@@ -8,7 +8,7 @@ COPY package*.json ./
 COPY apps/api/package*.json ./apps/api/
 COPY apps/web/package*.json ./apps/web/
 
-# Clean install dependencies
+# Clean install dependencies at native CPU speed
 RUN npm ci
 
 # Copy source files
