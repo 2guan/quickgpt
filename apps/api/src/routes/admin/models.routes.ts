@@ -6,6 +6,7 @@ import {
   updateModel,
   deleteModel,
   clearAllModels,
+  batchUpdateModelOrder,
 } from '../../services/model.service.js';
 
 export async function adminModelRoutes(fastify: FastifyInstance) {
@@ -49,6 +50,26 @@ export async function adminModelRoutes(fastify: FastifyInstance) {
 
     const created = createModel(parsed.data);
     return { model: created };
+  });
+
+  // Reorder Models (Batch update order_index)
+  fastify.put('/api/admin/models/reorder', async (request, reply) => {
+    const schema = z.object({
+      orders: z.array(
+        z.object({
+          id: z.string().min(1),
+          order_index: z.number(),
+        })
+      ),
+    });
+
+    const parsed = schema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: '输入参数错误' });
+    }
+
+    batchUpdateModelOrder(parsed.data.orders);
+    return { success: true };
   });
 
   // Update Model

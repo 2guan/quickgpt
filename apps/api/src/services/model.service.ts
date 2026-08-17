@@ -45,7 +45,7 @@ export function getAllAdminModels(): ModelEntity[] {
     SELECT m.*, c.name as channel_name, c.priority as channel_priority
     FROM models m
     LEFT JOIN channels c ON m.channel_id = c.id
-    ORDER BY c.priority DESC, m.order_index ASC, m.created_at DESC
+    ORDER BY m.is_active DESC, m.order_index ASC, c.priority DESC, m.created_at DESC
   `);
   return stmt.all() as unknown as ModelEntity[];
 }
@@ -88,7 +88,7 @@ export function createModel(data: Partial<ModelEntity>): ModelEntity {
     data.enable_followup ?? 0,
     data.followup_model_id || '',
     data.is_active ?? 1,
-    data.order_index ?? 0,
+    data.order_index ?? 20,
     now,
     now
   );
@@ -263,7 +263,7 @@ export function batchImportModels(channelId: string, modelIds: string[]): number
           enable_followup, followup_model_id, is_active, order_index, 
           created_at, updated_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, 1, 1, 0, '', 1, 0, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, 1, 1, 0, '', 1, 20, ?, ?)
       `);
       stmt.run(id, trimmed, trimmed, trimmed, channelId, JSON.stringify(caps), now, now);
       importedCount++;
@@ -271,6 +271,16 @@ export function batchImportModels(channelId: string, modelIds: string[]): number
   }
 
   return importedCount;
+}
+
+export function batchUpdateModelOrder(orders: Array<{ id: string; order_index: number }>): void {
+  const now = new Date().toISOString();
+  const stmt = db.prepare('UPDATE models SET order_index = ?, updated_at = ? WHERE id = ?');
+  for (const item of orders) {
+    if (item.id && typeof item.order_index === 'number') {
+      stmt.run(item.order_index, now, item.id);
+    }
+  }
 }
 
 export function clearAllModels(): number {

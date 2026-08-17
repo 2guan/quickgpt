@@ -105,6 +105,8 @@ export const adminApi = {
   updateModel: (id: string, data: any) => request<{ model: Model }>(`/api/admin/models/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteModel: (id: string) => request<{ success: boolean }>(`/api/admin/models/${id}`, { method: 'DELETE' }),
   clearAllModels: () => request<{ success: boolean; count: number; message: string }>('/api/admin/models/clear-all', { method: 'DELETE' }),
+  reorderModels: (orders: Array<{ id: string; order_index: number }>) =>
+    request<{ success: boolean }>('/api/admin/models/reorder', { method: 'PUT', body: JSON.stringify({ orders }) }),
 
   getUsers: () => request<{ users: User[] }>('/api/admin/users'),
   updateUser: (id: string, data: any) => request<{ success: boolean }>(`/api/admin/users/${id}`, { method: 'PUT', body: JSON.stringify(data) }),

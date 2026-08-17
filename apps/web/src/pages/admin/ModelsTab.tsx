@@ -19,12 +19,15 @@ import {
   BrainCircuit,
   MessageSquareText,
   RotateCw,
+  GripVertical,
+  Check,
 } from 'lucide-react';
 
 export const ModelsTab: React.FC = () => {
   const [models, setModels] = useState<Model[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
   const [loading, setLoading] = useState(true);
+  const [savingOrder, setSavingOrder] = useState(false);
 
   // Filters & Sorting
   const [search, setSearch] = useState('');
@@ -33,8 +36,12 @@ export const ModelsTab: React.FC = () => {
   const [visibilityFilter, setVisibilityFilter] = useState<'all' | '1' | '0'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | '1' | '0'>('all');
 
-  const [sortBy, setSortBy] = useState<'display_name' | 'model_id' | 'order_index' | 'channel_id' | 'is_active'>('order_index');
+  const [sortBy, setSortBy] = useState<'order_index' | 'display_name' | 'model_id' | 'channel_id' | 'is_active'>('order_index');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+
+  // Drag and Drop state
+  const [draggedModelId, setDraggedModelId] = useState<string | null>(null);
+  const [dragOverModelId, setDragOverModelId] = useState<string | null>(null);
 
   // Edit / Add modal
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -121,6 +128,9 @@ export const ModelsTab: React.FC = () => {
   };
 
   // Filter & Sort Models
+  // Rules:
+  // 1. Inactive models (is_active === 0) are automatically placed at the bottom
+  // 2. Active models are sorted according to sortBy & sortOrder (default: order_index ASC)
   const filteredAndSortedModels = models
     .filter((m) => {
       if (channelFilter && m.channel_id !== channelFilter) return false;
@@ -147,8 +157,14 @@ export const ModelsTab: React.FC = () => {
       return true;
     })
     .sort((a, b) => {
-      let valA: any = a[sortBy] || '';
-      let valB: any = b[sortBy] || '';
+      // 1. Inactive models always go to the bottom
+      if (a.is_active !== b.is_active) {
+        return a.is_active ? -1 : 1;
+      }
+
+      // 2. Sort within same active status
+      let valA: any = a[sortBy] ?? '';
+      let valB: any = b[sortBy] ?? '';
       if (sortBy === 'order_index' || sortBy === 'is_active') {
         valA = Number(valA);
         valB = Number(valB);
@@ -157,6 +173,75 @@ export const ModelsTab: React.FC = () => {
       if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
       return 0;
     });
+
+  // Drag and Drop Handlers
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    setDraggedModelId(id);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', id);
+  };
+
+  const handleDragOver = (e: React.DragEvent, id: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverModelId !== id) {
+      setDragOverModelId(id);
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDraggedModelId(null);
+    setDragOverModelId(null);
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    if (!draggedModelId || draggedModelId === targetId) {
+      handleDragEnd();
+      return;
+    }
+
+    const currentList = [...filteredAndSortedModels];
+    const sourceIdx = currentList.findIndex((m) => m.id === draggedModelId);
+    const targetIdx = currentList.findIndex((m) => m.id === targetId);
+
+    if (sourceIdx === -1 || targetIdx === -1) {
+      handleDragEnd();
+      return;
+    }
+
+    // Move dragged item
+    const [moved] = currentList.splice(sourceIdx, 1);
+    currentList.splice(targetIdx, 0, moved);
+
+    // Re-index all active items sequentially (10, 20, 30...)
+    const updatedOrders: Array<{ id: string; order_index: number }> = [];
+    const newModelsMap = new Map<string, number>();
+
+    currentList.forEach((item, idx) => {
+      const newOrder = (idx + 1) * 10;
+      updatedOrders.push({ id: item.id, order_index: newOrder });
+      newModelsMap.set(item.id, newOrder);
+    });
+
+    // Update local state immediately
+    setModels((prev) =>
+      prev.map((m) => (newModelsMap.has(m.id) ? { ...m, order_index: newModelsMap.get(m.id)! } : m))
+    );
+
+    handleDragEnd();
+
+    // Persist to backend
+    setSavingOrder(true);
+    try {
+      await adminApi.reorderModels(updatedOrders);
+    } catch (err: any) {
+      alert(`保存排序失败: ${err.message}`);
+      fetchModelsAndChannels();
+    } finally {
+      setSavingOrder(false);
+    }
+  };
 
   const renderSortIcon = (col: typeof sortBy) => {
     if (sortBy !== col) return <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-60" />;
@@ -199,7 +284,7 @@ export const ModelsTab: React.FC = () => {
             className="p-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl transition-all active:scale-95 disabled:opacity-50 border border-slate-200/60 dark:border-slate-700"
             title="刷新"
           >
-            <RotateCw className={`w-4 h-4 ${loading ? 'animate-spin text-emerald-600' : ''}`} />
+            <RotateCw className={`w-4 h-4 ${loading || savingOrder ? 'animate-spin text-emerald-600' : ''}`} />
           </button>
 
           <button
@@ -214,7 +299,7 @@ export const ModelsTab: React.FC = () => {
                 enable_search_fallback: 1,
                 enable_followup: 0,
                 is_active: 1,
-                order_index: 0,
+                order_index: 20, // Default order_index 20
               });
               setIsModalOpen(true);
             }}
@@ -284,8 +369,8 @@ export const ModelsTab: React.FC = () => {
           className="px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-200 outline-hidden"
         >
           <option value="all">全部状态</option>
-          <option value="1">✅ 启用</option>
-          <option value="0">⏸️ 停用</option>
+          <option value="1">✅ 启用中</option>
+          <option value="0">⏸️ 已停用 (置底)</option>
         </select>
 
         {(search || capabilityFilter || channelFilter || visibilityFilter !== 'all' || statusFilter !== 'all') && (
@@ -304,12 +389,19 @@ export const ModelsTab: React.FC = () => {
         )}
       </div>
 
-      {/* Models Table with Column Sorting */}
+      {/* Drag & Drop Reorder Tip */}
+      <div className="flex items-center justify-between px-2 text-[11px] text-slate-400">
+        <span>💡 提示：按住左侧 ⠿ 拖动手柄可直接上下拖动更新模型排序；停用模型将自动置于列表最底部</span>
+        {savingOrder && <span className="text-emerald-600 animate-pulse font-medium">正在保存最新排序...</span>}
+      </div>
+
+      {/* Models Table with Drag-and-Drop and Column Sorting */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs text-slate-600 dark:text-slate-300">
             <thead className="bg-slate-50/90 dark:bg-slate-800/90 border-b border-slate-200/80 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-semibold select-none">
               <tr>
+                <th className="w-10 px-3 py-3 text-center">排序</th>
                 <th
                   onClick={() => handleSort('display_name')}
                   className="px-4 py-3 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/60 transition-colors"
@@ -355,7 +447,7 @@ export const ModelsTab: React.FC = () => {
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {filteredAndSortedModels.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-12 text-slate-400 text-xs">
+                  <td colSpan={9} className="text-center py-12 text-slate-400 text-xs">
                     {loading ? '正在加载模型...' : '暂无匹配的模型'}
                   </td>
                 </tr>
@@ -368,8 +460,30 @@ export const ModelsTab: React.FC = () => {
                     // ignore
                   }
 
+                  const isDragging = draggedModelId === m.id;
+                  const isDragOver = dragOverModelId === m.id;
+
                   return (
-                    <tr key={m.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors">
+                    <tr
+                      key={m.id}
+                      draggable={!loading}
+                      onDragStart={(e) => handleDragStart(e, m.id)}
+                      onDragOver={(e) => handleDragOver(e, m.id)}
+                      onDragEnd={handleDragEnd}
+                      onDrop={(e) => handleDrop(e, m.id)}
+                      className={`transition-all ${
+                        isDragging ? 'opacity-40 bg-slate-100 dark:bg-slate-800' : ''
+                      } ${
+                        isDragOver ? 'border-t-2 border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/30' : ''
+                      } ${
+                        !m.is_active ? 'opacity-60 bg-slate-50/50 dark:bg-slate-900/40' : 'hover:bg-slate-50 dark:hover:bg-slate-800/60'
+                      }`}
+                    >
+                      {/* Drag Handle */}
+                      <td className="w-10 px-3 py-3 text-center cursor-grab active:cursor-grabbing text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                        <GripVertical className="w-4 h-4 mx-auto" />
+                      </td>
+
                       {/* Display Name */}
                       <td className="px-4 py-3 font-semibold text-slate-800 dark:text-slate-200">
                         <div className="flex items-center gap-2">
@@ -379,6 +493,9 @@ export const ModelsTab: React.FC = () => {
                             }`}
                           />
                           <span>{m.display_name}</span>
+                          {!m.is_active && (
+                            <span className="text-[10px] text-slate-400 font-normal">(已停用)</span>
+                          )}
                         </div>
                       </td>
 
@@ -421,8 +538,10 @@ export const ModelsTab: React.FC = () => {
                       </td>
 
                       {/* Order Index */}
-                      <td className="px-4 py-3 font-mono text-xs text-slate-500">
-                        {m.order_index}
+                      <td className="px-4 py-3 font-mono text-xs">
+                        <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-md font-semibold border border-slate-200 dark:border-slate-700">
+                          {m.order_index}
+                        </span>
                       </td>
 
                       {/* Active & Visibility Switches */}
@@ -625,11 +744,11 @@ export const ModelsTab: React.FC = () => {
               <div className="grid grid-cols-2 gap-3 pt-1">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    排序权重 (越小越靠前)
+                    排序权重 (默认 20，越小越靠前)
                   </label>
                   <input
                     type="number"
-                    value={editingModel.order_index ?? 0}
+                    value={editingModel.order_index ?? 20}
                     onChange={(e) => setEditingModel({ ...editingModel, order_index: parseInt(e.target.value, 10) || 0 })}
                     className="w-full px-3 py-2 text-xs font-mono bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-100 outline-hidden"
                   />
