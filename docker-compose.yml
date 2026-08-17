@@ -1,0 +1,20 @@
+services:
+  quickgpt:
+    image: ghcr.io/2guan/quickgpt:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    pull_policy: missing
+    container_name: quickgpt
+    restart: unless-stopped
+    ports:
+      - "3200:3200"
+    environment:
+      - PORT=3200
+      - HOST=0.0.0.0
+      - DATA_DIR=/data
+      - JWT_SECRET=quickgpt-production-secret-key-2026
+      - DEFAULT_ADMIN_USERNAME=admin
+      - DEFAULT_ADMIN_PASSWORD=admin2026
+    volumes:
+      - ./data:/data

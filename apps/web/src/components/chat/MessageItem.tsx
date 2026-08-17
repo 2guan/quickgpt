@@ -1,0 +1,264 @@
+import React, { useState } from 'react';
+import { Message, MessageAttachment } from '../../types/index.js';
+import { MarkdownRenderer } from './MarkdownRenderer.js';
+import { FollowUpChips } from './FollowUpChips.js';
+import {
+  Bot,
+  User,
+  Copy,
+  Check,
+  Volume2,
+  VolumeX,
+  Sparkles,
+  Globe,
+  ChevronDown,
+  ChevronRight,
+  FileText,
+  Loader2,
+  AlertCircle,
+} from 'lucide-react';
+
+interface MessageGroupProps {
+  userMessage?: Message;
+  assistantMessages: Message[];
+  onFollowUpSelect: (text: string) => void;
+}
+
+export const MessageItem: React.FC<MessageGroupProps> = ({
+  userMessage,
+  assistantMessages,
+  onFollowUpSelect,
+}) => {
+  return (
+    <div className="py-4 space-y-4 max-w-5xl mx-auto w-full">
+      {/* 1. User Message */}
+      {userMessage && <UserMessageBubble message={userMessage} />}
+
+      {/* 2. Assistant Responses (Grid for 1~4 models) */}
+      {assistantMessages.length > 0 && (
+        <div
+          className={`grid gap-4 ${
+            assistantMessages.length === 1
+              ? 'grid-cols-1'
+              : assistantMessages.length === 2
+              ? 'grid-cols-1 md:grid-cols-2'
+              : assistantMessages.length === 3
+              ? 'grid-cols-1 md:grid-cols-3'
+              : 'grid-cols-1 md:grid-cols-2'
+          }`}
+        >
+          {assistantMessages.map((astMsg) => (
+            <AssistantCard
+              key={astMsg.id}
+              message={astMsg}
+              onFollowUpSelect={onFollowUpSelect}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const UserMessageBubble: React.FC<{ message: Message }> = ({ message }) => {
+  let attachments: MessageAttachment[] = [];
+  try {
+    attachments = JSON.parse(message.attachments_json || '[]');
+  } catch {
+    // ignore
+  }
+
+  return (
+    <div className="flex justify-end gap-3 px-2 sm:px-4">
+      <div className="flex flex-col items-end max-w-[85%] sm:max-w-[75%] space-y-2">
+        {/* Attached files preview */}
+        {attachments.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 justify-end">
+            {attachments.map((att, idx) => (
+              <div
+                key={idx}
+                className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-700 dark:text-slate-200 shadow-2xs"
+              >
+                <FileText className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <span className="font-medium truncate max-w-[150px]">{att.name}</span>
+                {att.size && (
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                    {(att.size / (1024 * 1024)).toFixed(1)}MB
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Text bubble */}
+        <div className="bg-[#f4f4f5] dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-2xl rounded-tr-sm px-4 py-2.5 shadow-2xs text-[14.5px] leading-relaxed break-words whitespace-pre-wrap">
+          {message.content}
+        </div>
+      </div>
+
+      <div className="w-8 h-8 rounded-full bg-slate-800 dark:bg-emerald-700 text-white flex items-center justify-center text-xs font-semibold shrink-0 shadow-xs">
+        <User className="w-4 h-4" />
+      </div>
+    </div>
+  );
+};
+
+const AssistantCard: React.FC<{
+  message: Message;
+  onFollowUpSelect: (text: string) => void;
+}> = ({ message, onFollowUpSelect }) => {
+  const [copied, setCopied] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [showReasoning, setShowReasoning] = useState(true);
+  const [showSearch, setShowSearch] = useState(false);
+
+  const handleCopy = () => {
+    if (!message.content) return;
+    navigator.clipboard.writeText(message.content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleTTS = () => {
+    if (!window.speechSynthesis || !message.content) return;
+    if (isSpeaking) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+      return;
+    }
+
+    const utterance = new SpeechSynthesisUtterance(message.content);
+    utterance.lang = 'zh-CN';
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+    window.speechSynthesis.speak(utterance);
+    setIsSpeaking(true);
+  };
+
+  let searchResults: any[] = [];
+  try {
+    searchResults = JSON.parse(message.search_results_json || '[]');
+  } catch {
+    // ignore
+  }
+
+  return (
+    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs p-4 sm:p-5 flex flex-col justify-between transition-all hover:shadow-md">
+      <div>
+        {/* Model header bar */}
+        <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-3">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center text-emerald-700 dark:text-emerald-400 shrink-0">
+              <Bot className="w-4 h-4" />
+            </div>
+            <div>
+              <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                {message.model_id || 'AI 助手'}
+              </span>
+              {message.isStreaming && (
+                <span className="ml-2 inline-flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400">
+                  <Loader2 className="w-3 h-3 animate-spin" /> 生成中...
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <button
+              onClick={handleCopy}
+              disabled={!message.content}
+              title="复制回答"
+              className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors disabled:opacity-40"
+            >
+              {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+            </button>
+            <button
+              onClick={handleTTS}
+              disabled={!message.content}
+              title={isSpeaking ? '停止朗读' : '语音朗读'}
+              className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors disabled:opacity-40"
+            >
+              {isSpeaking ? <VolumeX className="w-3.5 h-3.5 text-red-500" /> : <Volume2 className="w-3.5 h-3.5" />}
+            </button>
+          </div>
+        </div>
+
+        {/* Web Search Citations drawer if any */}
+        {searchResults.length > 0 && (
+          <div className="mb-3 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700 p-2.5 text-xs">
+            <button
+              onClick={() => setShowSearch(!showSearch)}
+              className="w-full flex items-center justify-between text-slate-600 dark:text-slate-300 font-medium"
+            >
+              <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
+                <Globe className="w-3.5 h-3.5" />
+                <span>已参考 {searchResults.length} 篇最新检索网页</span>
+              </div>
+              {showSearch ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+            </button>
+            {showSearch && (
+              <div className="mt-2 space-y-1.5 pt-2 border-t border-slate-200/60 dark:border-slate-700">
+                {searchResults.map((sr, sIdx) => (
+                  <a
+                    key={sIdx}
+                    href={sr.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block p-1.5 rounded bg-white dark:bg-slate-900 hover:bg-emerald-50 dark:hover:bg-slate-800 border border-slate-200/60 dark:border-slate-700 text-[11px] text-slate-700 dark:text-slate-200 hover:text-emerald-700 dark:hover:text-emerald-400 truncate"
+                  >
+                    [{sIdx + 1}] {sr.title}
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Reasoning / Thinking accordion with full Markdown & KaTeX rendering */}
+        {message.reasoning_content && (
+          <div className="mb-3 rounded-xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/70 dark:border-amber-900/50 p-3 text-xs">
+            <button
+              onClick={() => setShowReasoning(!showReasoning)}
+              className="w-full flex items-center justify-between text-amber-800 dark:text-amber-300 font-medium"
+            >
+              <div className="flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                <span>思考过程 (Reasoning Process)</span>
+              </div>
+              {showReasoning ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+            </button>
+            {showReasoning && (
+              <div className="mt-2.5 pt-2.5 border-t border-amber-200/50 dark:border-amber-900/40 text-slate-700 dark:text-slate-300 text-[13px] leading-relaxed">
+                <MarkdownRenderer content={message.reasoning_content} />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Main Answer Markdown Content */}
+        {message.content ? (
+          <div className="text-slate-800 dark:text-slate-100">
+            <MarkdownRenderer content={message.content} />
+          </div>
+        ) : message.isStreaming ? (
+          <div className="flex items-center gap-2 py-4 text-slate-400 dark:text-slate-500 text-xs">
+            <Loader2 className="w-4 h-4 animate-spin text-emerald-600 dark:text-emerald-400" />
+            <span>思考并组织语言中...</span>
+          </div>
+        ) : (
+          <div className="p-3 bg-red-50/80 dark:bg-red-950/40 border border-red-200/80 dark:border-red-900/60 rounded-xl text-red-700 dark:text-red-300 text-xs flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>未获取到有效回答（可能模型未响应或返回异常）</span>
+          </div>
+        )}
+      </div>
+
+      {/* Follow-up suggestions */}
+      <FollowUpChips
+        suggestionsJson={message.followup_suggestions_json}
+        onSelect={onFollowUpSelect}
+      />
+    </div>
+  );
+};

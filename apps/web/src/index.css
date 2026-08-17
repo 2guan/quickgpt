@@ -1,0 +1,117 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-white dark:bg-[#131316] text-slate-800 dark:text-slate-100 antialiased font-sans transition-colors duration-150;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Custom modern scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* Markdown and Math enhancements */
+.prose {
+  max-width: 100%;
+  line-height: 1.65;
+}
+
+.prose p {
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.prose pre {
+  margin-top: 0.75rem;
+  margin-bottom: 0.75rem;
+  padding: 0;
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+.prose code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.dark .prose {
+  color: #e2e8f0;
+}
+
+.dark .prose strong {
+  color: #f8fafc;
+}
+
+.dark .prose h1,
+.dark .prose h2,
+.dark .prose h3,
+.dark .prose h4 {
+  color: #f8fafc;
+}
+
+.dark .prose blockquote {
+  color: #cbd5e1;
+  border-left-color: #334155;
+}
+
+.dark .prose th {
+  background-color: #1e293b;
+  color: #f1f5f9;
+}
+
+.dark .prose td {
+  border-color: #334155;
+  color: #cbd5e1;
+}
+
+/* KaTeX inline vs block display */
+.katex {
+  font-size: 1.05em;
+  text-rendering: auto;
+}
+
+.katex-display {
+  display: block;
+  margin: 0.85rem 0 !important;
+  text-align: center;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.35rem 0;
+}
+
+.katex-display > .katex {
+  display: inline-block;
+  text-align: initial;
+}
+
+.dark .katex {
+  color: #f1f5f9;
+}
+
+/* Mobile no horizontal overflow guarantee */
+@media (max-width: 768px) {
+  .chat-bubble-container {
+    max-width: 100% !important;
+    word-break: break-word;
+  }
+}
