@@ -1,5 +1,5 @@
-# Stage 1: Build & Dependencies
-FROM node:22-alpine AS builder
+# Stage 1: Build & Dependencies (Node.js 24)
+FROM node:24-alpine AS builder
 
 WORKDIR /app
 
@@ -16,14 +16,14 @@ COPY tsconfig.json ./
 COPY apps/api ./apps/api
 COPY apps/web ./apps/web
 
-# Build frontend and backend distributions
+# Build frontend SPA and backend API distributions
 RUN npm run build
 
 # Prune devDependencies to keep only lean production node_modules
 RUN npm prune --omit=dev && npm cache clean --force
 
-# Stage 2: Ultra-lean Production Runtime
-FROM node:22-alpine AS runner
+# Stage 2: Ultra-lean Production Runtime (Node.js 24)
+FROM node:24-alpine AS runner
 
 WORKDIR /app
 
@@ -32,10 +32,12 @@ ENV PORT=3200
 ENV HOST=0.0.0.0
 ENV DATA_DIR=/data
 
-# Copy pre-pruned lean production node_modules from builder
+# 1. Copy stable production dependencies layer (cached across builds unless dependencies change)
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/apps/api/package*.json ./apps/api/
+
+# 2. Copy compiled application distributions (lightweight ~1MB layer for fast incremental pull)
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/apps/web/dist ./apps/web/dist
 
