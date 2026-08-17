@@ -397,10 +397,40 @@ export async function handleStreamChat({
 
   // Assemble Attachment extracted texts into context
   let attachmentContextText = '';
+  const base64Images: string[] = [];
+
   if (attachments && attachments.length > 0) {
     for (const att of attachments) {
       if (att.text) {
         attachmentContextText += `\n\n【用户上传附件内容: ${att.name}】\n${att.text}\n`;
+      }
+
+      // Check if image for Vision Model support
+      const isImg = att.type?.startsWith('image/') || /\.(png|jpe?g|webp|gif|svg)$/i.test(att.name || att.url || '');
+      if (isImg && att.url) {
+        let filename = path.basename(att.url);
+        let localPath = path.join(ENV.UPLOADS_DIR, filename);
+        if (!fs.existsSync(localPath)) {
+          const row = db
+            .prepare('SELECT file_path FROM uploads WHERE file_name = ? OR file_path = ? ORDER BY created_at DESC LIMIT 1')
+            .get(filename, filename) as { file_path: string } | undefined;
+          if (row?.file_path) {
+            localPath = path.join(ENV.UPLOADS_DIR, row.file_path);
+          }
+        }
+
+        if (fs.existsSync(localPath)) {
+          const buffer = fs.readFileSync(localPath);
+          const ext = path.extname(localPath).toLowerCase();
+          const mime =
+            ext === '.png' ? 'image/png' :
+            ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' :
+            ext === '.webp' ? 'image/webp' :
+            ext === '.gif' ? 'image/gif' :
+            ext === '.svg' ? 'image/svg+xml' :
+            att.type || 'image/png';
+          base64Images.push(`data:${mime};base64,${buffer.toString('base64')}`);
+        }
       }
     }
   }
@@ -422,11 +452,35 @@ export async function handleStreamChat({
 
   payloadMessages.push({ role: 'system', content: combinedSystemPrompt });
 
-  for (const m of messages) {
-    payloadMessages.push({
-      role: m.role,
-      content: m.content,
-    });
+  for (let i = 0; i < messages.length; i++) {
+    const m = messages[i];
+    const isLastUserMessage = m.role === 'user' && i === messages.length - 1;
+
+    if (isLastUserMessage && base64Images.length > 0) {
+      const contentParts: any[] = [];
+      if (m.content) {
+        contentParts.push({ type: 'text', text: m.content });
+      } else {
+        contentParts.push({ type: 'text', text: '请查看并分析上传的图片。' });
+      }
+      for (const imgUrl of base64Images) {
+        contentParts.push({
+          type: 'image_url',
+          image_url: {
+            url: imgUrl,
+          },
+        });
+      }
+      payloadMessages.push({
+        role: 'user',
+        content: contentParts,
+      });
+    } else {
+      payloadMessages.push({
+        role: m.role,
+        content: m.content,
+      });
+    }
   }
 
   let finalContentProduced = false;

@@ -213,7 +213,7 @@ export const MediaTab: React.FC = () => {
             </div>
           ) : (
             mediaList.map((media) => {
-              const fileUrl = `/uploads/${media.file_name}`;
+              const fileUrl = `/uploads/${media.file_path || media.file_name}`;
               return (
                 <div
                   key={media.id}
@@ -291,7 +291,7 @@ export const MediaTab: React.FC = () => {
                   </tr>
                 ) : (
                   mediaList.map((media) => {
-                    const fileUrl = `/uploads/${media.file_name}`;
+                    const fileUrl = `/uploads/${media.file_path || media.file_name}`;
                     return (
                       <tr
                         key={media.id}
@@ -402,7 +402,7 @@ export const MediaTab: React.FC = () => {
             {/* Image Preview Container */}
             <div className="bg-slate-950 flex items-center justify-center p-4 min-h-[300px] max-h-[55vh] overflow-hidden">
               <img
-                src={`/uploads/${selectedMedia.file_name}`}
+                src={`/uploads/${selectedMedia.file_path || selectedMedia.file_name}`}
                 alt=""
                 className="max-h-[50vh] max-w-full object-contain rounded-lg shadow-lg"
               />
@@ -418,7 +418,7 @@ export const MediaTab: React.FC = () => {
                       onClick={() => handleCopyPrompt(selectedMedia.extracted_text)}
                       className="flex items-center gap-1 hover:underline text-[11px]"
                     >
-                      {copied ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                      {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                       <span>{copied ? '已复制' : '复制提示词'}</span>
                     </button>
                   </div>
@@ -437,7 +437,7 @@ export const MediaTab: React.FC = () => {
 
                 <div className="flex items-center gap-2">
                   <a
-                    href={`/uploads/${selectedMedia.file_name}`}
+                    href={`/uploads/${selectedMedia.file_path || selectedMedia.file_name}`}
                     download={selectedMedia.file_name}
                     className="flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-medium transition-all"
                   >
