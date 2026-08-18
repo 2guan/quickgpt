@@ -119,6 +119,10 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
     let explicitLayout: SlideData['layout'] | null = null;
     const tableLines: string[] = [];
 
+    // Check if this section has multiple H3 headings (which serve as card headers like ### 🔷 PAMS ...)
+    const h3Count = rawLines.filter((l) => l.trim().startsWith('### ')).length;
+    const hasH3Cards = h3Count >= 2;
+
     for (let lineIdx = 0; lineIdx < rawLines.length; lineIdx++) {
       const rawLine = rawLines[lineIdx];
       const trimmed = rawLine.trim();
@@ -152,11 +156,11 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
         title = trimmed.replace(/^#\s+/, '').trim();
       } else if (trimmed.startsWith('## ') && !title) {
         title = trimmed.replace(/^##\s+/, '').trim();
-      } else if (trimmed.startsWith('### ') && !subtitle && items.length === 0) {
+      } else if (trimmed.startsWith('### ') && !subtitle && (!hasH3Cards || items.length === 0)) {
         // First ### before any cards is the slide's subtitle
         subtitle = trimmed.replace(/^###\s+/, '').trim();
       } else if (trimmed.startsWith('### ') || (trimmed.startsWith('#### ') && items.length > 0)) {
-        // ### or #### after subtitle represents a column card title (e.g. ### 🔷 PAMS ...)
+        // ### or #### represents a column card title (e.g. ### 🔷 PAMS ...)
         const h3Title = trimmed.replace(/^#+\s+/, '').trim();
         items.push({ title: h3Title, description: '', bullets: [] });
       } else if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
@@ -175,29 +179,26 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
           const cleaned = trimmed.replace(/^[-*]\s+|\d+[\.、]\s*/, '').trim();
           rawBullets.push(cleaned);
 
-          const boldMatch = cleaned.match(/^\*\*([^*]+)\*\*[：:\s]*(.*)$/);
-          const bracketMatch = cleaned.match(/^【([^】]+)】[：:\s]*(.*)$/);
-          const colonMatch = cleaned.match(/^([^：:\s]{2,16})[：:](.+)$/);
-
-          // If this top-level bullet has bold/bracket/colon title, it is definitely a standalone card
-          if (boldMatch) {
-            items.push({ title: boldMatch[1].trim(), description: boldMatch[2].trim(), bullets: [] });
-          } else if (bracketMatch) {
-            items.push({ tag: bracketMatch[1].trim(), title: bracketMatch[1].trim(), description: bracketMatch[2].trim(), bullets: [] });
-          } else if (colonMatch && (colonMatch[1].startsWith('阶段') || colonMatch[1].startsWith('Skill') || colonMatch[1].startsWith('Step') || colonMatch[1].length <= 10)) {
-            items.push({ title: colonMatch[1].trim(), description: colonMatch[2].trim(), bullets: [] });
-          } else if (items.length > 0 && items[items.length - 1].title && (items[items.length - 1].bullets?.length || 0) > 0) {
-            // An un-indented bullet following an H3 card block
-            const lastItem = items[items.length - 1];
-            if (!lastItem.bullets) lastItem.bullets = [];
-            lastItem.bullets.push(cleaned);
-          } else if (items.length > 0 && items[items.length - 1].title && !items[items.length - 1].description) {
-            // First bullet under an H3 card header
+          if (hasH3Cards && items.length > 0) {
+            // When cards are defined by H3 headers, ALL subsequent bullets belong to the active H3 card
             const lastItem = items[items.length - 1];
             if (!lastItem.bullets) lastItem.bullets = [];
             lastItem.bullets.push(cleaned);
           } else {
-            items.push({ description: cleaned, bullets: [] });
+            const boldMatch = cleaned.match(/^\*\*([^*]+)\*\*[：:\s]*(.*)$/);
+            const bracketMatch = cleaned.match(/^【([^】]+)】[：:\s]*(.*)$/);
+            const colonMatch = cleaned.match(/^([^：:\s]{2,16})[：:](.+)$/);
+
+            // If this top-level bullet has bold/bracket/colon title, it is a standalone card
+            if (boldMatch) {
+              items.push({ title: boldMatch[1].trim(), description: boldMatch[2].trim(), bullets: [] });
+            } else if (bracketMatch) {
+              items.push({ tag: bracketMatch[1].trim(), title: bracketMatch[1].trim(), description: bracketMatch[2].trim(), bullets: [] });
+            } else if (colonMatch && (colonMatch[1].startsWith('阶段') || colonMatch[1].startsWith('Skill') || colonMatch[1].startsWith('Step') || colonMatch[1].length <= 10)) {
+              items.push({ title: colonMatch[1].trim(), description: colonMatch[2].trim(), bullets: [] });
+            } else {
+              items.push({ description: cleaned, bullets: [] });
+            }
           }
         } else if (!title) {
           title = trimmed;
