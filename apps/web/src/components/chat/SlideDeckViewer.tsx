@@ -152,13 +152,13 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
         title = trimmed.replace(/^#\s+/, '').trim();
       } else if (trimmed.startsWith('## ') && !title) {
         title = trimmed.replace(/^##\s+/, '').trim();
-      } else if (trimmed.startsWith('### ')) {
-        const h3Text = trimmed.replace(/^###\s+/, '').trim();
-        if (!subtitle) {
-          subtitle = h3Text;
-        } else {
-          sectionTitle = h3Text;
-        }
+      } else if (trimmed.startsWith('### ') && !subtitle && items.length === 0) {
+        // First ### before any cards is the slide's subtitle
+        subtitle = trimmed.replace(/^###\s+/, '').trim();
+      } else if (trimmed.startsWith('### ') || (trimmed.startsWith('#### ') && items.length > 0)) {
+        // ### or #### after subtitle represents a column card title (e.g. ### 🔷 PAMS ...)
+        const h3Title = trimmed.replace(/^#+\s+/, '').trim();
+        items.push({ title: h3Title, description: '', bullets: [] });
       } else if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
         tableLines.push(trimmed);
       } else {
@@ -175,44 +175,38 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
           const cleaned = trimmed.replace(/^[-*]\s+|\d+[\.、]\s*/, '').trim();
           rawBullets.push(cleaned);
 
-          const boldMatch = cleaned.match(/^\*\*([^*]+)\*\*[：:\s]*(.*)$/);
-          const bracketMatch = cleaned.match(/^【([^】]+)】[：:\s]*(.*)$/);
-          const colonMatch = cleaned.match(/^([^：:\s]{2,16})[：:](.+)$/);
-
-          if (boldMatch) {
-            items.push({ title: boldMatch[1].trim(), description: boldMatch[2].trim(), bullets: [] });
-          } else if (bracketMatch) {
-            items.push({ tag: bracketMatch[1].trim(), title: bracketMatch[1].trim(), description: bracketMatch[2].trim(), bullets: [] });
-          } else if (colonMatch) {
-            items.push({ title: colonMatch[1].trim(), description: colonMatch[2].trim(), bullets: [] });
+          // If we already have card items started via ###, bullets belong to the last item
+          if (items.length > 0 && items[items.length - 1].title) {
+            const lastItem = items[items.length - 1];
+            if (!lastItem.bullets) lastItem.bullets = [];
+            lastItem.bullets.push(cleaned);
           } else {
-            // Check if this is an italic tagline under previous item
-            if (trimmed.startsWith('*') && trimmed.endsWith('*') && items.length > 0) {
-              const lastItem = items[items.length - 1];
-              const tagText = trimmed.replace(/^\*|\*$/g, '').trim();
-              if (!lastItem.description) {
-                lastItem.description = tagText;
-              } else {
-                if (!lastItem.bullets) lastItem.bullets = [];
-                lastItem.bullets.push(tagText);
-              }
+            const boldMatch = cleaned.match(/^\*\*([^*]+)\*\*[：:\s]*(.*)$/);
+            const bracketMatch = cleaned.match(/^【([^】]+)】[：:\s]*(.*)$/);
+            const colonMatch = cleaned.match(/^([^：:\s]{2,16})[：:](.+)$/);
+
+            if (boldMatch) {
+              items.push({ title: boldMatch[1].trim(), description: boldMatch[2].trim(), bullets: [] });
+            } else if (bracketMatch) {
+              items.push({ tag: bracketMatch[1].trim(), title: bracketMatch[1].trim(), description: bracketMatch[2].trim(), bullets: [] });
+            } else if (colonMatch) {
+              items.push({ title: colonMatch[1].trim(), description: colonMatch[2].trim(), bullets: [] });
             } else {
               items.push({ description: cleaned, bullets: [] });
             }
           }
         } else if (!title) {
           title = trimmed;
-        } else if (!subtitle && rawBullets.length === 0 && tableLines.length === 0) {
+        } else if (!subtitle && rawBullets.length === 0 && tableLines.length === 0 && items.length === 0) {
           subtitle = trimmed;
-        } else if (items.length > 0 && trimmed.startsWith('*') && trimmed.endsWith('*')) {
-          // Italic tagline under previous item
+        } else if (items.length > 0) {
+          // Non-bullet text under an existing card item (e.g. **解决痛点**：...)
           const lastItem = items[items.length - 1];
-          const tagText = trimmed.replace(/^\*|\*$/g, '').trim();
           if (!lastItem.description) {
-            lastItem.description = tagText;
+            lastItem.description = trimmed;
           } else {
             if (!lastItem.bullets) lastItem.bullets = [];
-            lastItem.bullets.push(tagText);
+            lastItem.bullets.push(trimmed);
           }
         } else {
           rawBullets.push(trimmed);
