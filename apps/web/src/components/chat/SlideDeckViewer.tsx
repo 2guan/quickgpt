@@ -156,13 +156,43 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
         title = trimmed.replace(/^#\s+/, '').trim();
       } else if (trimmed.startsWith('## ') && !title) {
         title = trimmed.replace(/^##\s+/, '').trim();
-      } else if (trimmed.startsWith('### ') && !subtitle && items.length === 0 && !hasH3Cards) {
-        // Only treat as subtitle if there is only 1 H3 in the entire slide
-        subtitle = trimmed.replace(/^###\s+/, '').trim();
-      } else if (trimmed.startsWith('### ') || (trimmed.startsWith('#### ') && items.length > 0)) {
-        // Multiple ### in a slide are ALWAYS column/stage card titles (e.g. ### 🔹 Step 1..., ### 🔷 PAMS...)
-        const h3Title = trimmed.replace(/^#+\s+/, '').trim();
-        items.push({ title: h3Title, description: '', bullets: [] });
+      } else if (trimmed.startsWith('### ')) {
+        const h3Content = trimmed.replace(/^###\s+/, '').trim();
+        // Determine if this first H3 is a slide subtitle or the first card header
+        if (!subtitle && items.length === 0) {
+          // Look ahead to see if the next non-empty line is another ###
+          let nextNonEmptyLine = '';
+          for (let nextIdx = lineIdx + 1; nextIdx < rawLines.length; nextIdx++) {
+            const nextTrim = rawLines[nextIdx].trim();
+            if (nextTrim) {
+              nextNonEmptyLine = nextTrim;
+              break;
+            }
+          }
+
+          if (nextNonEmptyLine.startsWith('### ')) {
+            // Consecutive ###: e.g. ## Title \n ### Subtitle \n ### Card1 -> this first one is subtitle
+            subtitle = h3Content;
+          } else if (h3Content.startsWith('Step') || h3Content.startsWith('🔹 Step') || h3Content.startsWith('Skill') || h3Content.startsWith('阶段')) {
+            // First H3 is directly a step/skill card
+            items.push({ title: h3Content, description: '', bullets: [] });
+          } else if (h3Count >= 3) {
+            // E.g. 1 subtitle H3 + 2 card H3s (total 3) -> first one is subtitle
+            subtitle = h3Content;
+          } else if (h3Count === 1) {
+            // Only 1 H3 in entire slide -> slide subtitle
+            subtitle = h3Content;
+          } else {
+            // 2 H3s in total: if has bullets right after without another H3, this is card 1
+            items.push({ title: h3Content, description: '', bullets: [] });
+          }
+        } else {
+          // Subsequent ### headers are ALWAYS card items
+          items.push({ title: h3Content, description: '', bullets: [] });
+        }
+      } else if (trimmed.startsWith('#### ') && items.length > 0) {
+        const h4Title = trimmed.replace(/^####\s+/, '').trim();
+        items.push({ title: h4Title, description: '', bullets: [] });
       } else if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
         tableLines.push(trimmed);
       } else {
