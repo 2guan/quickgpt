@@ -6,8 +6,39 @@ export interface SearchResultItem {
   snippet: string;
 }
 
+/**
+ * Intelligent keyword extraction from conversational user prompts:
+ * Strips polite openers (早上好、你好、请问、帮我查查...) and question suffixes (...怎么样、是多少、是什么、吗、呢...)
+ * e.g. "早上好，北京天气怎么样" -> "北京天气"
+ */
+export function extractSearchKeywords(rawQuery: string): string {
+  if (!rawQuery) return '';
+
+  let query = rawQuery.trim();
+
+  // 1. Remove markdown and code blocks
+  query = query.replace(/```[\s\S]*?```/g, '').replace(/`[^`]+`/g, '');
+
+  // 2. Remove polite greetings, conversational prefixes, and imperative phrases
+  const prefixRegex = /^(?:你好|您好|哈喽|hello|hi|hey|早上好|中午好|下午好|晚上好|早安|晚安|请问|请帮我|帮我|麻烦帮我|请告诉我|我想知道|我想了解|查一下|搜一下|检索一下|了解一下|给我查|能不能告诉我|可以告诉我)[\s,，:：!！\?？\n]*/i;
+  while (prefixRegex.test(query)) {
+    query = query.replace(prefixRegex, '').trim();
+  }
+
+  // 3. Remove conversational question endings and modal particles
+  const suffixRegex = /[\s,，]*(?:怎么样|如何|是多少|有哪些|是什么|有哪些最新消息|最新进展是什么|吗|呢|吧|呀|啊|？|\?|！|!)+$/i;
+  query = query.replace(suffixRegex, '').trim();
+
+  // 4. Fallback to original cleaned string if stripping emptied the query
+  if (!query || query.length < 2) {
+    query = rawQuery.trim().replace(/^[\s,，:：!！\?？]+|[\s,，:：!！\?？]+$/g, '');
+  }
+
+  return query;
+}
+
 export async function performWebSearch(query: string, maxResults = 5): Promise<SearchResultItem[]> {
-  const cleanQuery = query.trim();
+  const cleanQuery = extractSearchKeywords(query);
   if (!cleanQuery) return [];
 
   try {
