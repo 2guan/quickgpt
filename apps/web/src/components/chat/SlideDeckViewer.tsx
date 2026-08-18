@@ -368,22 +368,22 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
             />
           )}
 
-          {/* Slide Body Content (Clean presentation layout, completely overflow-hidden) */}
-          <div className="flex-1 min-h-0 overflow-hidden flex flex-col justify-center my-auto">
+          {/* Slide Body Content (Clean presentation layout with dynamic auto-scaling typography and wrapping) */}
+          <div className="flex-1 min-h-0 flex flex-col justify-center my-auto overflow-hidden">
             {/* Title & Subtitle */}
-            <div className={`shrink-0 ${currentSlide.layout === 'cover' ? 'text-center my-auto' : 'mb-3'}`}>
+            <div className={`shrink-0 ${currentSlide.layout === 'cover' ? 'text-center my-auto space-y-2' : 'mb-2 sm:mb-3'}`}>
               <h2
-                className={`font-bold tracking-tight leading-snug line-clamp-2 ${
+                className={`font-bold tracking-tight leading-tight break-words ${
                   currentSlide.layout === 'cover'
-                    ? 'text-2xl sm:text-3xl lg:text-4xl text-white drop-shadow-xs'
-                    : 'text-base sm:text-lg lg:text-xl text-slate-900 dark:text-white'
+                    ? 'text-xl sm:text-3xl lg:text-4xl text-white drop-shadow-xs'
+                    : 'text-sm sm:text-base lg:text-lg font-bold text-slate-900 dark:text-white'
                 }`}
               >
                 {currentSlide.title}
               </h2>
               {currentSlide.subtitle && (
                 <p
-                  className={`mt-1.5 text-xs sm:text-sm line-clamp-2 leading-relaxed ${
+                  className={`text-xs sm:text-sm leading-snug break-words ${
                     currentSlide.layout === 'cover'
                       ? 'text-slate-200'
                       : 'text-slate-500 dark:text-slate-400 font-medium'
@@ -394,27 +394,38 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
               )}
             </div>
 
-            {/* Bullets List (Auto space distribution, no scrollbars) */}
+            {/* Bullets List (Full wrapping, compact dynamic line-height and gap) */}
             {currentSlide.bullets && currentSlide.bullets.length > 0 && (
-              <div className="grid gap-2 sm:gap-2.5 overflow-hidden">
-                {currentSlide.bullets.slice(0, 5).map((b, bIdx) => (
-                  <div
-                    key={bIdx}
-                    className="flex items-start gap-2.5 p-2 sm:p-2.5 rounded-xl bg-slate-50/90 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 text-[12px] sm:text-[13px] font-medium leading-snug overflow-hidden"
-                  >
+              <div
+                className={`grid overflow-hidden ${
+                  currentSlide.bullets.length > 3 ? 'gap-1.5 sm:gap-2' : 'gap-2 sm:gap-3'
+                }`}
+              >
+                {currentSlide.bullets.map((b, bIdx) => {
+                  const isDense = (currentSlide.bullets?.length || 0) >= 4;
+                  return (
                     <div
-                      className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0"
-                      style={{ backgroundColor: activeTheme.accent }}
-                    />
-                    <span className="text-slate-700 dark:text-slate-200 line-clamp-2 break-words leading-snug">{b}</span>
-                  </div>
-                ))}
+                      key={bIdx}
+                      className={`flex items-start gap-2 sm:gap-2.5 rounded-lg bg-slate-50/90 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800/80 font-medium transition-all ${
+                        isDense ? 'p-1.5 sm:p-2 text-[11px] sm:text-xs' : 'p-2 sm:p-2.5 text-xs sm:text-[13px]'
+                      }`}
+                    >
+                      <div
+                        className="w-1.5 h-1.5 rounded-full mt-1 shrink-0"
+                        style={{ backgroundColor: activeTheme.accent }}
+                      />
+                      <span className="text-slate-700 dark:text-slate-200 break-words leading-relaxed whitespace-normal flex-1">
+                        {b}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
 
           {/* Slide Footer */}
-          <div className="flex items-center justify-between pt-2.5 mt-2 text-[10px] sm:text-xs text-slate-400 dark:text-slate-500 border-t border-slate-100 dark:border-slate-800/60 shrink-0">
+          <div className="flex items-center justify-between pt-2 mt-1.5 text-[10px] sm:text-xs text-slate-400 dark:text-slate-500 border-t border-slate-100 dark:border-slate-800/60 shrink-0">
             <span>QuickGPT AI Slide Deck</span>
             <span className="font-mono font-medium">
               {safeIdx + 1} / {totalSlides}
