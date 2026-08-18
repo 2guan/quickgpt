@@ -87,22 +87,29 @@ export async function streamSynthesizeSpeech(
     throw new Error('没有可朗读的有效文本内容');
   }
 
-  // 1. Find candidate TTS model and its active channel
+  // 1. Check global system settings for global_tts_model_id and global_tts_voice
+  const globalTTSModelStmt = db.prepare("SELECT value FROM system_settings WHERE key = 'global_tts_model_id'");
+  const globalTTSModelId = (globalTTSModelStmt.get() as { value: string } | undefined)?.value || '';
+
+  const globalTTSVoiceStmt = db.prepare("SELECT value FROM system_settings WHERE key = 'global_tts_voice'");
+  const globalTTSVoice = (globalTTSVoiceStmt.get() as { value: string } | undefined)?.value || 'Chloe';
+
+  const preferredModelId = req.modelId || globalTTSModelId;
   let modelRow: any = null;
 
-  if (req.modelId) {
+  if (preferredModelId) {
     const stmt = db.prepare(`
       SELECT m.*, c.base_url as channel_base_url, c.api_key as channel_api_key, c.status as channel_status
       FROM models m
       JOIN channels c ON m.channel_id = c.id
-      WHERE m.model_id = ? AND m.is_active = 1 AND c.status = 1
+      WHERE (m.model_id = ? OR m.id = ? OR m.real_model_id = ?) AND m.is_active = 1 AND c.status = 1
       ORDER BY c.priority DESC
       LIMIT 1
     `);
-    modelRow = stmt.get(req.modelId);
+    modelRow = stmt.get(preferredModelId, preferredModelId, preferredModelId);
   }
 
-  // If no specific model requested or not found, look for any active TTS model (e.g. mimo-v2.5-tts, mimo-*, tts-*)
+  // If no specific model found, look for any active TTS model (e.g. mimo-v2.5-tts, mimo-*, tts-*)
   if (!modelRow) {
     const stmt = db.prepare(`
       SELECT m.*, c.base_url as channel_base_url, c.api_key as channel_api_key, c.status as channel_status
@@ -131,7 +138,7 @@ export async function streamSynthesizeSpeech(
   const baseUrl = modelRow.channel_base_url.replace(/\/+$/, '');
   const apiKey = modelRow.channel_api_key;
   const modelName = modelRow.real_model_id || modelRow.model_id;
-  const voice = req.voice || 'Chloe';
+  const voice = req.voice || globalTTSVoice || 'Chloe';
 
   const isMimoTTS = modelName.toLowerCase().includes('mimo');
 

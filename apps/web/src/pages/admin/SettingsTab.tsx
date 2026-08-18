@@ -12,6 +12,7 @@ import {
   Image as ImageIcon,
   Trash2,
   ExternalLink,
+  Volume2,
 } from 'lucide-react';
 
 export const SettingsTab: React.FC = () => {
@@ -485,6 +486,53 @@ export const SettingsTab: React.FC = () => {
             </select>
             <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
               建议指定轻量且响应极快的大模型（如 gpt-4o-mini, qwen-turbo, deepseek-chat 等），在回答完毕后秒级输出追问提示。
+            </p>
+          </div>
+        </div>
+
+        {/* 5. Speech Synthesis / TTS Configuration */}
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-2xs space-y-4 text-xs w-full">
+          <div className="font-bold text-sm text-slate-800 dark:text-slate-100 flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-slate-800">
+            <Volume2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+            <span>语音朗读与语音合成设置 (Text-to-Speech / TTS)</span>
+          </div>
+
+          <div>
+            <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              全局统一朗读模型 (Global TTS Model)
+            </label>
+            <select
+              value={settings.global_tts_model_id || ''}
+              onChange={(e) => setSettings({ ...settings, global_tts_model_id: e.target.value })}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-xl focus:bg-white dark:focus:bg-slate-800 focus:border-emerald-500 focus:outline-hidden"
+            >
+              <option value="">自动检测活跃 TTS 模型 (如 mimo-v2.5-tts / tts-1)</option>
+              {models
+                .filter((m) => m.is_active)
+                .map((m) => (
+                  <option key={m.id} value={m.model_id}>
+                    {m.display_name} ({m.model_id})
+                  </option>
+                ))}
+            </select>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
+              支持小米 MiMo-V2.5-TTS（低延迟流式 PCM16/WAV 极速播报）以及标准 OpenAI /v1/audio/speech 语音模型。未配置时自动使用浏览器本地语音合成。
+            </p>
+          </div>
+
+          <div>
+            <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              默认音色名称 (Default Voice)
+            </label>
+            <input
+              type="text"
+              value={settings.global_tts_voice || 'Chloe'}
+              onChange={(e) => setSettings({ ...settings, global_tts_voice: e.target.value })}
+              placeholder="如：Chloe, 冰糖, 茉莉, alloy, nova 等"
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-xl focus:bg-white dark:focus:bg-slate-800 focus:border-emerald-500 focus:outline-hidden"
+            />
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
+              小米 MiMo 官方常用音色：Chloe, 冰糖, 茉莉；OpenAI 官方常用音色：alloy, nova, shimmer, echo。
             </p>
           </div>
         </div>
