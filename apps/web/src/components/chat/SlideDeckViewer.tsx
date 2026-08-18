@@ -801,56 +801,119 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
               });
             }
           } else {
-            // 9. STANDARD ELEGANT STACKED CARDS
-            const bulletList = s.bullets.length > 0 ? s.bullets : items.map((it) => `${it.title ? it.title + ': ' : ''}${it.description || ''}`);
-            const bulletCount = bulletList.length;
-            const rowGap = 0.1;
-            const cardH = (cardTotalHeight - (bulletCount - 1) * rowGap) / Math.max(1, bulletCount);
+            // 9. HIGH-DENSITY & STANDARD ITEM CARDS (Dual Column for >= 6 items in PPTX export)
+            const allItems: SlideItem[] = s.items && s.items.length > 0
+              ? s.items
+              : s.bullets.map((b) => ({ description: b }));
+            const count = allItems.length;
 
-            bulletList.forEach((b, bIdx) => {
-              const cardY = contentStartY + bIdx * (cardH + rowGap);
+            if (count >= 6) {
+              // 2 Columns in PPTX
+              const rowsPerCol = Math.ceil(Math.min(count, 10) / 2);
+              const colW = (8.8 - 0.2) / 2;
+              const rowGap = 0.08;
+              const cardH = (cardTotalHeight - (rowsPerCol - 1) * rowGap) / rowsPerCol;
 
-              slide.addShape(pres.ShapeType.roundRect, {
-                x: 0.6,
-                y: cardY,
-                w: 8.8,
-                h: cardH,
-                rectRadius: 0.08,
-                fill: { color: 'FFFFFF' },
-                line: { color: 'E2E8F0', width: 1 },
-              });
+              allItems.slice(0, 10).forEach((it, iIdx) => {
+                const col = Math.floor(iIdx / rowsPerCol);
+                const row = iIdx % rowsPerCol;
+                const cardX = 0.6 + col * (colW + 0.2);
+                const cardY = contentStartY + row * (cardH + rowGap);
 
-              slide.addShape(pres.ShapeType.ellipse, {
-                x: 0.8,
-                y: cardY + cardH / 2 - 0.1,
-                w: 0.2,
-                h: 0.2,
-                fill: { color: hexAccent },
-              });
-              slide.addText(`${bIdx + 1}`, {
-                x: 0.8,
-                y: cardY + cardH / 2 - 0.1,
-                w: 0.2,
-                h: 0.2,
-                fontSize: 8,
-                bold: true,
-                color: 'FFFFFF',
-                align: 'center',
-                valign: 'middle',
-              });
+                slide.addShape(pres.ShapeType.roundRect, {
+                  x: cardX,
+                  y: cardY,
+                  w: colW,
+                  h: cardH,
+                  rectRadius: 0.06,
+                  fill: { color: 'FFFFFF' },
+                  line: { color: 'E2E8F0', width: 1 },
+                });
 
-              slide.addText(cleanMarkdownText(b), {
-                x: 1.1,
-                y: cardY,
-                w: 8.1,
-                h: cardH,
-                fontSize: 10,
-                color: '334155',
-                fontFace: 'Microsoft YaHei',
-                valign: 'middle',
-                breakLine: true,
+                slide.addShape(pres.ShapeType.ellipse, {
+                  x: cardX + 0.1,
+                  y: cardY + cardH / 2 - 0.09,
+                  w: 0.18,
+                  h: 0.18,
+                  fill: { color: hexAccent },
+                });
+                slide.addText(`${iIdx + 1}`, {
+                  x: cardX + 0.1,
+                  y: cardY + cardH / 2 - 0.09,
+                  w: 0.18,
+                  h: 0.18,
+                  fontSize: 7.5,
+                  bold: true,
+                  color: 'FFFFFF',
+                  align: 'center',
+                  valign: 'middle',
+                });
+
+                const label = it.title ? `${it.title}: ${it.description || ''}` : it.description || '';
+                slide.addText(cleanMarkdownText(label), {
+                  x: cardX + 0.35,
+                  y: cardY,
+                  w: colW - 0.45,
+                  h: cardH,
+                  fontSize: 9,
+                  color: '334155',
+                  fontFace: 'Microsoft YaHei',
+                  valign: 'middle',
+                  breakLine: true,
+                });
               });
-            });
+            } else {
+              // 1 Column in PPTX
+              const bulletList = s.bullets.length > 0 ? s.bullets : allItems.map((it) => `${it.title ? it.title + ': ' : ''}${it.description || ''}`);
+              const bulletCount = bulletList.length;
+              const rowGap = 0.1;
+              const cardH = (cardTotalHeight - (bulletCount - 1) * rowGap) / Math.max(1, bulletCount);
+
+              bulletList.forEach((b, bIdx) => {
+                const cardY = contentStartY + bIdx * (cardH + rowGap);
+
+                slide.addShape(pres.ShapeType.roundRect, {
+                  x: 0.6,
+                  y: cardY,
+                  w: 8.8,
+                  h: cardH,
+                  rectRadius: 0.08,
+                  fill: { color: 'FFFFFF' },
+                  line: { color: 'E2E8F0', width: 1 },
+                });
+
+                slide.addShape(pres.ShapeType.ellipse, {
+                  x: 0.8,
+                  y: cardY + cardH / 2 - 0.1,
+                  w: 0.2,
+                  h: 0.2,
+                  fill: { color: hexAccent },
+                });
+                slide.addText(`${bIdx + 1}`, {
+                  x: 0.8,
+                  y: cardY + cardH / 2 - 0.1,
+                  w: 0.2,
+                  h: 0.2,
+                  fontSize: 8,
+                  bold: true,
+                  color: 'FFFFFF',
+                  align: 'center',
+                  valign: 'middle',
+                });
+
+                slide.addText(cleanMarkdownText(b), {
+                  x: 1.1,
+                  y: cardY,
+                  w: 8.1,
+                  h: cardH,
+                  fontSize: 10,
+                  color: '334155',
+                  fontFace: 'Microsoft YaHei',
+                  valign: 'middle',
+                  breakLine: true,
+                });
+              });
+            }
           }
 
           // Slide Number Indicator
@@ -1224,16 +1287,54 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                     )}
                   </div>
                 ) : (
-                  /* 9. STANDARD ELEGANT STACKED LIST */
-                  currentSlide.bullets && currentSlide.bullets.length > 0 && (
-                    <div className="grid gap-2 my-auto w-full overflow-hidden">
-                      {currentSlide.bullets.map((b, bIdx) => {
-                        const isDense = (currentSlide.bullets?.length || 0) >= 5;
-                        return (
+                  /* 9. HIGH-DENSITY & STANDARD ITEM CARDS (Auto Dual-Column for >= 6 items) */
+                  (() => {
+                    const allItems: SlideItem[] = currentSlide.items && currentSlide.items.length > 0
+                      ? currentSlide.items
+                      : currentSlide.bullets.map((b) => ({ description: b }));
+                    const count = allItems.length;
+
+                    if (count >= 6) {
+                      // 2-Column High Density Grid for 6~10 items
+                      return (
+                        <div className="grid grid-cols-2 gap-1.5 sm:gap-2 my-auto w-full overflow-hidden">
+                          {allItems.slice(0, 10).map((it, idx) => (
+                            <div
+                              key={idx}
+                              className={`flex items-start gap-1.5 rounded-lg bg-slate-50/90 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/60 shadow-2xs font-medium transition-all ${
+                                count > 8 ? 'p-1 text-[9px] sm:text-[10px]' : 'p-1.5 sm:p-2 text-[10px] sm:text-[11px]'
+                              }`}
+                            >
+                              <span
+                                className="flex items-center justify-center w-3.5 h-3.5 rounded-md text-[8.5px] font-bold text-white shrink-0 mt-0.5"
+                                style={{ backgroundColor: activeTheme.accent }}
+                              >
+                                {idx + 1}
+                              </span>
+                              <div className="flex-1 min-w-0">
+                                {it.title && (
+                                  <span className="font-bold text-slate-900 dark:text-slate-100 mr-1 inline">
+                                    {renderFormattedText(it.title)}:
+                                  </span>
+                                )}
+                                <span className="text-slate-700 dark:text-slate-200 break-words leading-tight">
+                                  {renderFormattedText(it.description || '')}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    }
+
+                    // 1-Column Stacked Cards for <= 5 items
+                    return (
+                      <div className="grid gap-2 my-auto w-full overflow-hidden">
+                        {allItems.map((it, bIdx) => (
                           <div
                             key={bIdx}
                             className={`flex items-start gap-2.5 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/60 shadow-2xs font-medium transition-all ${
-                              isDense ? 'p-1.5 sm:p-2 text-[11px]' : 'p-2.5 sm:p-3 text-xs sm:text-[13px]'
+                              count === 5 ? 'p-1.5 sm:p-2 text-[11px]' : 'p-2.5 sm:p-3 text-xs sm:text-[13px]'
                             }`}
                           >
                             <span
@@ -1242,14 +1343,21 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                             >
                               {bIdx + 1}
                             </span>
-                            <span className="text-slate-700 dark:text-slate-200 break-words leading-relaxed whitespace-normal flex-1">
-                              {renderFormattedText(b)}
-                            </span>
+                            <div className="flex-1 min-w-0">
+                              {it.title && (
+                                <span className="font-bold text-slate-900 dark:text-slate-100 mr-1 inline">
+                                  {renderFormattedText(it.title)}:
+                                </span>
+                              )}
+                              <span className="text-slate-700 dark:text-slate-200 break-words leading-relaxed whitespace-normal">
+                                {renderFormattedText(it.description || '')}
+                              </span>
+                            </div>
                           </div>
-                        );
-                      })}
-                    </div>
-                  )
+                        ))}
+                      </div>
+                    );
+                  })()
                 )}
               </>
             )}
