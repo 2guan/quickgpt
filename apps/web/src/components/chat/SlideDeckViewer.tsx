@@ -118,6 +118,9 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
     let sectionTitle = '';
     let explicitLayout: SlideData['layout'] | null = null;
     const tableLines: string[] = [];
+    const quoteBlocks: string[][] = [];
+    let currentQuoteBlock: string[] = [];
+    let lastLineWasQuote = false;
 
     // Check if this section has multiple H3 headings (which serve as card headers like ### 🔷 PAMS ...)
     const h3Count = rawLines.filter((l) => l.trim().startsWith('### ')).length;
@@ -126,7 +129,14 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
     for (let lineIdx = 0; lineIdx < rawLines.length; lineIdx++) {
       const rawLine = rawLines[lineIdx];
       const trimmed = rawLine.trim();
-      if (!trimmed) continue;
+      if (!trimmed) {
+        if (lastLineWasQuote && currentQuoteBlock.length > 0) {
+          quoteBlocks.push([...currentQuoteBlock]);
+          currentQuoteBlock = [];
+          lastLineWasQuote = false;
+        }
+        continue;
+      }
 
       const layoutMatch = trimmed.match(/<!--\s*layout:\s*(cover|grid2|grid3|grid4|grid5|grid6|timeline|stats|quote|table|content)\s*-->/i);
       if (layoutMatch) {
@@ -147,9 +157,16 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
       if (trimmed.startsWith('> ')) {
         const qContent = trimmed.replace(/^>\s*/, '').trim();
         if (qContent) {
-          quoteText = quoteText ? `${quoteText}\n${qContent}` : qContent;
+          currentQuoteBlock.push(qContent);
+          lastLineWasQuote = true;
         }
         continue;
+      } else {
+        if (lastLineWasQuote && currentQuoteBlock.length > 0) {
+          quoteBlocks.push([...currentQuoteBlock]);
+          currentQuoteBlock = [];
+          lastLineWasQuote = false;
+        }
       }
 
       if (trimmed.startsWith('# ')) {
@@ -248,6 +265,43 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
           items.push({ description: trimmed, bullets: [] });
         }
       }
+    }
+
+    if (currentQuoteBlock.length > 0) {
+      quoteBlocks.push([...currentQuoteBlock]);
+    }
+
+    // Process Quote Blocks
+    if (quoteBlocks.length >= 2) {
+      // Multiple quote blocks (e.g. 3-step quotes: Step 1, Step 2, Step 3)
+      const quoteItems: SlideItem[] = [];
+      quoteBlocks.forEach((block) => {
+        if (block.length >= 2) {
+          const b1 = block[0].replace(/^\*\*|\*\*$/g, '').trim();
+          const b2 = block.slice(1).map((l) => l.replace(/^\*\*|\*\*$/g, '').trim()).join('\n');
+          quoteItems.push({ title: b1, description: b2, bullets: [] });
+        } else if (block.length === 1) {
+          const line = block[0];
+          const boldMatch = line.match(/^\*\*([^*]+)\*\*[：:\s]*(.*)$/);
+          if (boldMatch) {
+            quoteItems.push({ title: boldMatch[1].trim(), description: boldMatch[2].trim(), bullets: [] });
+          } else {
+            quoteItems.push({ description: line, bullets: [] });
+          }
+        }
+      });
+
+      // Check if there was trailing conclusion text parsed into items
+      if (items.length > 0) {
+        const trailing = items.map((it) => `${it.title ? it.title + ': ' : ''}${it.description || ''}`).join('\n');
+        if (trailing) {
+          quoteText = trailing;
+        }
+      }
+      items.length = 0;
+      items.push(...quoteItems);
+    } else if (quoteBlocks.length === 1) {
+      quoteText = quoteBlocks[0].join('\n');
     }
 
     // Parse Markdown Table if present
@@ -446,14 +500,40 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
           if (s.subtitle) {
             slide.addText(cleanMarkdownText(s.subtitle), {
               x: 1.0,
-              y: 3.1,
+              y: 2.9,
               w: 8.0,
-              h: 0.6,
+              h: 0.5,
               fontSize: 11.5,
               color: 'CBD5E1',
               align: 'center',
               fontFace: 'Microsoft YaHei',
               breakLine: true,
+            });
+          }
+
+          // Highlight Quote / Notes Pill on Cover
+          const coverPill = s.notes || s.quoteText;
+          if (coverPill && !s.table) {
+            slide.addShape(pres.ShapeType.roundRect, {
+              x: 1.2,
+              y: s.subtitle ? 3.6 : 3.2,
+              w: 7.6,
+              h: 0.46,
+              rectRadius: 0.23,
+              fill: { color: 'FFFFFF', transparency: 85 },
+              line: { color: 'FFFFFF', width: 0.6, transparency: 60 },
+            });
+            slide.addText(cleanMarkdownText(coverPill), {
+              x: 1.3,
+              y: s.subtitle ? 3.6 : 3.2,
+              w: 7.4,
+              h: 0.46,
+              fontSize: 9.5,
+              bold: true,
+              color: 'FFFFFF',
+              align: 'center',
+              valign: 'middle',
+              fontFace: 'Microsoft YaHei',
             });
           }
 
@@ -840,12 +920,8 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
             const totalWidth = 8.8;
             const colGap = 0.2;
             const colWidth = (totalWidth - 2 * colGap) / 3;
-            const maxBullets = Math.max(
-              items[0]?.bullets?.length || 0,
-              items[1]?.bullets?.length || 0,
-              items[2]?.bullets?.length || 0
-            );
-            const grid3H = maxBullets >= 3 ? 2.25 : 1.95;
+            const hasLongContent = items.some((it) => (it.bullets && it.bullets.length > 0) || (it.description && it.description.length > 30));
+            const grid3H = hasLongContent ? 2.85 : 2.2;
             const notesGap = 0.25;
             const notesH = s.notes ? 0.38 : 0;
             const totalBlockH = grid3H + (s.notes ? notesGap + notesH : 0);
@@ -895,18 +971,18 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                   x: cardX + 0.15,
                   y: curY,
                   w: colWidth - 0.3,
-                  h: 0.4,
+                  h: 0.38,
                   fontSize: 8.5,
                   color: '64748B',
                   fontFace: 'Microsoft YaHei',
                   valign: 'top',
                   breakLine: true,
                 });
-                curY += 0.42;
+                curY += 0.4;
               }
 
               if (item.bullets && item.bullets.length > 0) {
-                const bulletLines = item.bullets.map((b) => `•  ${cleanMarkdownText(b)}`).join('\n');
+                const bulletLines = item.bullets.map((b) => `•  ${cleanMarkdownText(b)}`).join('\n\n');
                 slide.addText(bulletLines, {
                   x: cardX + 0.15,
                   y: curY,
@@ -945,7 +1021,7 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
           } else if (s.layout === 'grid4' && items.length >= 4) {
             // 6. 2x2 MATRIX GRID (grid4) - Centered
             const cellW = 4.25;
-            const cellH = 1.45;
+            const cellH = 1.6;
             const rowGap = 0.15;
             const notesGap = 0.2;
             const notesH = s.notes ? 0.32 : 0;
@@ -1044,12 +1120,12 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
               });
             }
           } else if (s.layout === 'grid5' || s.layout === 'grid6') {
-            // 7. 6-CARD / 5-CARD MATRICES - Centered
+            // 7. 6-CARD / 5-CARD MATRICES - Centered with nested sub-bullet support
             const count = Math.min(items.length, s.layout === 'grid6' ? 6 : 5);
             const cols = 3;
             const rows = 2;
             const cellW = (8.8 - (cols - 1) * 0.2) / cols;
-            const cellH = 1.35;
+            const cellH = 1.45;
             const rowGap = 0.15;
             const grid6Y = getCenteredY(2 * cellH + rowGap);
 
@@ -1089,12 +1165,18 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                 breakLine: true,
               });
 
-              slide.addText(cleanMarkdownText(item.description || ''), {
+              let desc = cleanMarkdownText(item.description || '');
+              if (item.bullets && item.bullets.length > 0) {
+                const subText = item.bullets.map((b) => `• ${cleanMarkdownText(b)}`).join('\n');
+                desc = desc ? `${desc}\n${subText}` : subText;
+              }
+
+              slide.addText(desc, {
                 x: cardX + 0.12,
                 y: cardY + 0.35,
                 w: cellW - 0.24,
                 h: cellH - 0.42,
-                fontSize: 8,
+                fontSize: 7.5,
                 color: '475569',
                 fontFace: 'Microsoft YaHei',
                 valign: 'top',
@@ -1102,113 +1184,149 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
               });
             });
           } else if (s.layout === 'quote') {
-            // 8. QUOTE LAYOUT - Centered
-            const quoteMainText = cleanMarkdownText(
-              s.quoteText || s.bullets[0] || s.title || ''
-            );
+            // 8. QUOTE LAYOUT - Centered & 1:1 with Web View
             const hasItems = items.length > 0;
-            const quoteH = hasItems ? 1.05 : 1.8;
-            const takeH = hasItems ? 1.25 : 0;
-            const notesH = s.notes ? 0.32 : 0;
-            const totalQuoteBlockH = quoteH + (hasItems ? 0.35 + takeH : 0) + (s.notes ? 0.25 + notesH : 0);
-            const quoteStartY = getCenteredY(totalQuoteBlockH);
-
-            slide.addShape(pres.ShapeType.roundRect, {
-              x: 0.6,
-              y: quoteStartY,
-              w: 8.8,
-              h: quoteH,
-              rectRadius: 0.1,
-              fill: { color: 'F0FDF4' },
-              line: { color: hexAccent, width: 1 },
-            });
-
-            slide.addText(quoteMainText, {
-              x: 0.8,
-              y: quoteStartY + 0.05,
-              w: 8.4,
-              h: quoteH - 0.1,
-              fontSize: hasItems ? 10 : 13,
-              bold: true,
-              color: '065F46',
-              align: hasItems ? 'left' : 'center',
-              valign: 'middle',
-              fontFace: 'Microsoft YaHei',
-              breakLine: true,
-            });
-
-            let curY = quoteStartY + quoteH + 0.15;
-
-            if (s.sectionTitle) {
-              slide.addText(cleanMarkdownText(s.sectionTitle), {
-                x: 0.6,
-                y: curY,
-                w: 8.8,
-                h: 0.3,
-                fontSize: 11,
-                bold: true,
-                color: '0F172A',
-                fontFace: 'Microsoft YaHei',
-              });
-              curY += 0.35;
-            }
 
             if (hasItems) {
+              // 3 Cards on Top + Conclusion Banner on Bottom
               const takeCount = Math.min(items.length, 3);
               const takeW = (8.8 - (takeCount - 1) * 0.2) / takeCount;
+              const takeH = 1.6;
+              const quoteBannerH = s.quoteText ? 0.75 : 0;
+              const gap = 0.25;
+              const totalBlockH = takeH + (s.quoteText ? gap + quoteBannerH : 0);
+              const quoteStartY = getCenteredY(totalBlockH);
+
+              // 3 Top Cards
               items.slice(0, 3).forEach((it, tIdx) => {
                 const tX = 0.6 + tIdx * (takeW + 0.2);
 
                 slide.addShape(pres.ShapeType.roundRect, {
                   x: tX,
-                  y: curY,
+                  y: quoteStartY,
                   w: takeW,
                   h: takeH,
-                  rectRadius: 0.08,
+                  rectRadius: 0.1,
                   fill: { color: 'FFFFFF' },
-                  line: { color: 'E2E8F0', width: 0.75 },
+                  line: { color: 'E2E8F0', width: 0.8 },
                 });
 
                 if (it.title) {
+                  slide.addShape(pres.ShapeType.roundRect, {
+                    x: tX + 0.15,
+                    y: quoteStartY + 0.16,
+                    w: 0.05,
+                    h: 0.2,
+                    rectRadius: 0.025,
+                    fill: { color: hexAccent },
+                  });
+
                   slide.addText(cleanMarkdownText(it.title), {
-                    x: tX + 0.1,
-                    y: curY + 0.08,
-                    w: takeW - 0.2,
-                    h: 0.28,
-                    fontSize: 9,
+                    x: tX + 0.25,
+                    y: quoteStartY + 0.1,
+                    w: takeW - 0.38,
+                    h: 0.3,
+                    fontSize: 10,
                     bold: true,
                     color: '0F172A',
                     fontFace: 'Microsoft YaHei',
+                    breakLine: true,
+                  });
+
+                  slide.addShape(pres.ShapeType.rect, {
+                    x: tX + 0.15,
+                    y: quoteStartY + 0.42,
+                    w: takeW - 0.3,
+                    h: 0.01,
+                    fill: { color: 'E2E8F0' },
                   });
                 }
 
                 slide.addText(cleanMarkdownText(it.description || ''), {
-                  x: tX + 0.1,
-                  y: curY + (it.title ? 0.36 : 0.1),
-                  w: takeW - 0.2,
-                  h: takeH - (it.title ? 0.42 : 0.16),
-                  fontSize: 8,
+                  x: tX + 0.15,
+                  y: quoteStartY + (it.title ? 0.5 : 0.15),
+                  w: takeW - 0.3,
+                  h: takeH - (it.title ? 0.6 : 0.25),
+                  fontSize: 9,
                   color: '475569',
                   valign: 'top',
                   fontFace: 'Microsoft YaHei',
                   breakLine: true,
                 });
               });
-              curY += takeH + 0.2;
-            }
 
-            if (s.notes) {
-              slide.addText(cleanMarkdownText(s.notes), {
-                x: 1.0,
-                y: curY,
-                w: 8.0,
-                h: 0.3,
-                fontSize: 9.5,
-                bold: true,
-                color: hexAccent,
-                align: 'center',
-                fontFace: 'Microsoft YaHei',
+              // Bottom Conclusion Banner
+              if (s.quoteText) {
+                const bannerY = quoteStartY + takeH + gap;
+                slide.addShape(pres.ShapeType.roundRect, {
+                  x: 0.6,
+                  y: bannerY,
+                  w: 8.8,
+                  h: quoteBannerH,
+                  rectRadius: 0.08,
+                  fill: { color: 'F0FDF4' },
+                  line: { color: hexAccent, width: 0.8 },
+                });
+
+                slide.addText(cleanMarkdownText(s.quoteText), {
+                  x: 0.8,
+                  y: bannerY,
+                  w: 8.4,
+                  h: quoteBannerH,
+                  fontSize: 10,
+                  bold: true,
+                  color: '065F46',
+                  align: 'center',
+                  valign: 'middle',
+                  fontFace: 'Microsoft YaHei',
+                  breakLine: true,
+                });
+              }
+            } else {
+              // Single Large Centered Quote Banner
+              const quoteMainText = cleanMarkdownText(s.quoteText || s.bullets[0] || s.title || '');
+              const quoteH = 1.8;
+              const notesH = s.notes ? 0.35 : 0;
+              const totalBlockH = quoteH + (s.notes ? 0.25 + notesH : 0);
+              const quoteStartY = getCenteredY(totalBlockH);
+
+              slide.addShape(pres.ShapeType.roundRect, {
+                x: 0.6,
+                y: quoteStartY,
+                w: 8.8,
+                h: quoteH,
+                rectRadius: 0.12,
+                fill: { color: 'F0FDF4' },
+                line: { color: hexAccent, width: 1 },
               });
+
+              slide.addText(quoteMainText, {
+                x: 0.9,
+                y: quoteStartY,
+                w: 8.2,
+                h: quoteH,
+                fontSize: 13,
+                bold: true,
+                color: '065F46',
+                align: 'center',
+                valign: 'middle',
+                fontFace: 'Microsoft YaHei',
+                breakLine: true,
+              });
+
+              if (s.notes) {
+                slide.addText(cleanMarkdownText(s.notes), {
+                  x: 1.0,
+                  y: quoteStartY + quoteH + 0.25,
+                  w: 8.0,
+                  h: notesH,
+                  fontSize: 9.5,
+                  bold: true,
+                  color: hexAccent,
+                  align: 'center',
+                  fontFace: 'Microsoft YaHei',
+                });
+              }
             }
           } else if (s.layout === 'table' && s.table) {
             // 9. NATIVE POWERPOINT TABLE (table) - Centered
@@ -1794,77 +1912,98 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                     {currentSlide.items.slice(0, currentSlide.layout === 'grid6' ? 6 : 5).map((item, idx) => (
                       <div
                         key={idx}
-                        className="p-2 rounded-xl bg-slate-50/90 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700/60 shadow-2xs flex flex-col"
+                        className="p-2.5 rounded-xl bg-slate-50/90 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700/60 shadow-2xs flex flex-col justify-between"
                       >
-                        <div className="flex items-center gap-1 mb-1 shrink-0">
-                          <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: activeTheme.accent }} />
-                          <span className="text-[10.5px] font-bold text-slate-800 dark:text-slate-100 truncate flex-1">
-                            {item.title || `要点 ${idx + 1}`}
-                          </span>
+                        <div>
+                          <div className="flex items-center gap-1.5 mb-1 shrink-0 pb-1 border-b border-slate-200/60 dark:border-slate-700/50">
+                            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: activeTheme.accent }} />
+                            <span className="text-[11px] font-bold text-slate-800 dark:text-slate-100 truncate flex-1">
+                              {renderFormattedText(item.title || `要点 ${idx + 1}`)}
+                            </span>
+                          </div>
+                          {item.description && (
+                            <p className="text-[9.5px] sm:text-[10px] text-slate-600 dark:text-slate-300 leading-tight break-words whitespace-normal mb-1">
+                              {renderFormattedText(item.description)}
+                            </p>
+                          )}
+                          {item.bullets && item.bullets.length > 0 && (
+                            <div className="space-y-0.5 mt-0.5">
+                              {item.bullets.map((sub, sIdx) => (
+                                <div key={sIdx} className="flex items-start gap-1 text-[9px] sm:text-[9.5px] text-slate-600 dark:text-slate-300 leading-tight">
+                                  <span className="text-slate-400 font-bold shrink-0">•</span>
+                                  <span className="break-words flex-1">{renderFormattedText(sub)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                        <p className="text-[9.5px] sm:text-[10px] text-slate-600 dark:text-slate-300 leading-tight break-words whitespace-normal flex-1">
-                          {renderFormattedText(item.description || '')}
-                        </p>
                       </div>
                     ))}
                   </div>
                 ) : /* 8. QUOTE / HIGHLIGHT CALLOUT (quote) */
                 currentSlide.layout === 'quote' ? (
-                  <div className="flex flex-col my-auto w-full space-y-2 max-h-[320px] overflow-hidden">
-                    {/* Golden Quote Banner */}
-                    <div className="p-3 rounded-xl bg-linear-to-r from-emerald-500/10 via-teal-500/5 to-transparent border-l-4 border-emerald-500 text-left">
-                      <div className="text-[11px] sm:text-xs md:text-[13px] font-bold text-slate-900 dark:text-slate-100 leading-relaxed break-words">
-                        {renderFormattedText(
-                          currentSlide.quoteText ||
-                            currentSlide.bullets[0] ||
-                            currentSlide.title ||
-                            ''
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Secondary Section / Takeaways (e.g. 3-step strategy cards) */}
-                    {currentSlide.sectionTitle && (
-                      <div className="text-[11px] sm:text-xs font-bold text-slate-800 dark:text-slate-200 mt-1">
-                        {renderFormattedText(currentSlide.sectionTitle)}
-                      </div>
-                    )}
-
-                    {currentSlide.items && currentSlide.items.length > 0 && (
-                      <div
-                        className={`grid gap-2 w-full ${
-                          currentSlide.items.length === 3
-                            ? 'grid-cols-1 sm:grid-cols-3'
-                            : currentSlide.items.length === 2
-                            ? 'grid-cols-2'
-                            : 'grid-cols-1'
-                        }`}
-                      >
-                        {currentSlide.items.slice(0, 3).map((it, idx) => (
-                          <div
-                            key={idx}
-                            className="p-2.5 rounded-xl bg-white dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/70 shadow-2xs flex flex-col justify-between"
-                          >
-                            <div>
-                              {it.title && (
-                                <div className="text-[10.5px] sm:text-[11px] font-bold text-slate-900 dark:text-slate-100 mb-1 flex items-center gap-1">
-                                  <span
-                                    className="w-1.5 h-1.5 rounded-full shrink-0"
-                                    style={{ backgroundColor: activeTheme.accent }}
-                                  />
-                                  <span className="truncate">{renderFormattedText(it.title)}</span>
+                  <div className="flex flex-col my-auto w-full space-y-3 max-h-[320px] overflow-hidden">
+                    {currentSlide.items && currentSlide.items.length > 0 ? (
+                      <>
+                        {/* Top 3 Pillar Cards */}
+                        <div
+                          className={`grid gap-2.5 w-full ${
+                            currentSlide.items.length === 3
+                              ? 'grid-cols-1 sm:grid-cols-3'
+                              : currentSlide.items.length === 2
+                              ? 'grid-cols-2'
+                              : 'grid-cols-1'
+                          }`}
+                        >
+                          {currentSlide.items.slice(0, 3).map((it, idx) => (
+                            <div
+                              key={idx}
+                              className="p-3 rounded-2xl bg-white dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/70 shadow-2xs flex flex-col justify-between"
+                            >
+                              <div>
+                                {it.title && (
+                                  <div className="text-[11.5px] sm:text-xs font-bold text-slate-900 dark:text-slate-100 mb-1.5 flex items-center gap-1.5 pb-1 border-b border-slate-100 dark:border-slate-700/60">
+                                    <span
+                                      className="w-1.5 h-3 rounded-full shrink-0"
+                                      style={{ backgroundColor: activeTheme.accent }}
+                                    />
+                                    <span className="break-words flex-1">{renderFormattedText(it.title)}</span>
+                                  </div>
+                                )}
+                                <div className="text-[10px] sm:text-[10.5px] text-slate-600 dark:text-slate-300 leading-snug break-words">
+                                  {renderFormattedText(it.description || '')}
                                 </div>
-                              )}
-                              <div className="text-[9.5px] sm:text-[10px] text-slate-600 dark:text-slate-300 leading-snug break-words">
-                                {renderFormattedText(it.description || '')}
                               </div>
                             </div>
+                          ))}
+                        </div>
+
+                        {/* Bottom Conclusion Banner */}
+                        {currentSlide.quoteText && (
+                          <div className="p-3 rounded-xl bg-linear-to-r from-emerald-500/15 via-teal-500/10 to-emerald-500/5 border border-emerald-300/80 dark:border-emerald-700/80 text-center">
+                            <div className="text-[11px] sm:text-xs md:text-[12.5px] font-bold text-emerald-950 dark:text-emerald-100 leading-relaxed break-words">
+                              {renderFormattedText(currentSlide.quoteText)}
+                            </div>
                           </div>
-                        ))}
-                      </div>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        {/* Single Centered Golden Quote Banner */}
+                        <div className="p-4 rounded-2xl bg-linear-to-r from-emerald-500/15 via-teal-500/10 to-transparent border-l-4 border-emerald-500 text-left">
+                          <div className="text-xs sm:text-sm md:text-base font-bold text-slate-900 dark:text-slate-100 leading-relaxed break-words">
+                            {renderFormattedText(
+                              currentSlide.quoteText ||
+                                currentSlide.bullets[0] ||
+                                currentSlide.title ||
+                                ''
+                            )}
+                          </div>
+                        </div>
+                      </>
                     )}
 
-                    {/* Thank you / interactive footer */}
+                    {/* Thank you / interactive footer notes */}
                     {currentSlide.notes && (
                       <div className="text-center pt-1">
                         <span className="inline-block px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/70 dark:border-emerald-900/50 text-[10.5px] sm:text-xs font-bold text-emerald-700 dark:text-emerald-300">
