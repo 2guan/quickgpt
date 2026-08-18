@@ -145,11 +145,21 @@ const AssistantCard: React.FC<{
       .trim();
   };
 
+  const audioCtxRef = React.useRef<AudioContext | null>(null);
+  const isCancelledRef = React.useRef<boolean>(false);
+
   const handleTTS = async () => {
     if (!message.content) return;
 
-    // 1. If currently playing or loading, cancel and reset
+    // 1. If currently playing or loading, cancel and reset immediately
     if (isSpeaking || isLoadingTTS) {
+      isCancelledRef.current = true;
+      if (audioCtxRef.current) {
+        try {
+          audioCtxRef.current.close();
+        } catch {}
+        audioCtxRef.current = null;
+      }
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current.src = '';
@@ -163,10 +173,11 @@ const AssistantCard: React.FC<{
       return;
     }
 
+    isCancelledRef.current = false;
     setIsLoadingTTS(true);
 
     try {
-      // 2. Request backend streaming Xiaomi MiMo / OpenAI TTS with token & credentials
+      // 2. Request backend streaming Xiaomi MiMo / OpenAI TTS
       const token = localStorage.getItem('token');
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
@@ -185,40 +196,109 @@ const AssistantCard: React.FC<{
         }),
       });
 
-      if (res.ok && res.headers.get('content-type')?.includes('audio')) {
-        const blob = await res.blob();
-        const audioUrl = URL.createObjectURL(blob);
-        const audio = new Audio(audioUrl);
-        audioRef.current = audio;
+      if (res.ok && res.body && res.headers.get('content-type')?.includes('audio')) {
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioContextClass) {
+          const audioCtx = new AudioContextClass({ sampleRate: 24000 });
+          audioCtxRef.current = audioCtx;
 
-        audio.onplay = () => {
-          setIsLoadingTTS(false);
-          setIsSpeaking(true);
-        };
-        audio.onended = () => {
-          setIsSpeaking(false);
-          setIsLoadingTTS(false);
-          URL.revokeObjectURL(audioUrl);
-          audioRef.current = null;
-        };
-        audio.onerror = (e) => {
-          console.warn('[TTS] Audio playback error:', e);
-          setIsSpeaking(false);
-          setIsLoadingTTS(false);
-          URL.revokeObjectURL(audioUrl);
-          audioRef.current = null;
-        };
+          const reader = res.body.getReader();
+          let nextPlayTime = audioCtx.currentTime;
+          let hasStartedPlaying = false;
+          let receivedHeader = false;
+          let pendingBytes = new Uint8Array(0);
 
-        try {
-          await audio.play();
-          return;
-        } catch (playErr) {
-          console.warn('[TTS] Direct audio.play() blocked, falling back to Web Speech:', playErr);
+          while (true) {
+            const { done, value } = await reader.read();
+            if (isCancelledRef.current) {
+              try {
+                reader.cancel();
+              } catch {}
+              break;
+            }
+
+            if (done) break;
+
+            if (value && value.length > 0) {
+              // Combine with pending bytes
+              const combined = new Uint8Array(pendingBytes.length + value.length);
+              combined.set(pendingBytes, 0);
+              combined.set(value, pendingBytes.length);
+
+              let offset = 0;
+              // Skip 44-byte WAV header on initial stream chunk
+              if (!receivedHeader) {
+                if (combined.length < 44) {
+                  pendingBytes = combined;
+                  continue;
+                }
+                offset = 44;
+                receivedHeader = true;
+              }
+
+              // Process 16-bit PCM samples (2 bytes per sample)
+              const pcmBytesLength = combined.length - offset;
+              const usableBytes = pcmBytesLength - (pcmBytesLength % 2);
+
+              if (usableBytes > 0) {
+                const sampleCount = usableBytes / 2;
+                const float32Data = new Float32Array(sampleCount);
+                const dataView = new DataView(combined.buffer, combined.byteOffset + offset, usableBytes);
+
+                for (let i = 0; i < sampleCount; i++) {
+                  // Convert Int16 to Float32 [-1.0, 1.0]
+                  const int16 = dataView.getInt16(i * 2, true);
+                  float32Data[i] = int16 < 0 ? int16 / 0x8000 : int16 / 0x7fff;
+                }
+
+                const audioBuffer = audioCtx.createBuffer(1, sampleCount, 24000);
+                audioBuffer.copyToChannel(float32Data, 0);
+
+                const source = audioCtx.createBufferSource();
+                source.buffer = audioBuffer;
+                source.connect(audioCtx.destination);
+
+                const startTime = Math.max(audioCtx.currentTime, nextPlayTime);
+                source.start(startTime);
+                nextPlayTime = startTime + audioBuffer.duration;
+
+                if (!hasStartedPlaying) {
+                  hasStartedPlaying = true;
+                  setIsLoadingTTS(false);
+                  setIsSpeaking(true);
+                }
+
+                // Preserve trailing unaligned byte
+                const remainingStart = offset + usableBytes;
+                if (remainingStart < combined.length) {
+                  pendingBytes = combined.slice(remainingStart);
+                } else {
+                  pendingBytes = new Uint8Array(0);
+                }
+              } else {
+                pendingBytes = combined.slice(offset);
+              }
+            }
+          }
+
+          if (hasStartedPlaying) {
+            // Monitor when playback finishes
+            const remainingDuration = (nextPlayTime - audioCtx.currentTime) * 1000;
+            setTimeout(() => {
+              if (audioCtxRef.current === audioCtx) {
+                setIsSpeaking(false);
+                setIsLoadingTTS(false);
+              }
+            }, Math.max(0, remainingDuration + 150));
+            return;
+          }
         }
       }
     } catch (err: any) {
-      console.warn('[TTS] Backend TTS fetch failed, falling back to Web Speech:', err.message);
+      console.warn('[TTS] Streaming TTS error, falling back to Web Speech:', err.message);
     }
+
+    if (isCancelledRef.current) return;
 
     // 3. Fallback to browser Web Speech API
     setIsLoadingTTS(false);

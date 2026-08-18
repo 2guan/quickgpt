@@ -390,8 +390,8 @@ export async function handleStreamChat({
   let searchResults: SearchResultItem[] = [];
   let searchContextText = '';
 
-  // If search enabled in chat bar or model has auto search fallback enabled
-  if (enableSearch || Boolean(primaryCandidate.enable_search_fallback)) {
+  // Only trigger web search when user explicitly turns on the search button in the chat input
+  if (enableSearch) {
     reply.raw.write(`data: ${JSON.stringify({ status: '正在生成搜索关键词并检索...', modelId })}\n\n`);
     const searchQueries = await generateSearchQueriesWithLLM(userLastMsg, modelId);
     searchResults = await executeMultiQueryWebSearch(searchQueries, 3);
