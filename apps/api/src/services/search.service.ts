@@ -36,20 +36,34 @@ export function extractSearchKeywords(rawQuery: string): string {
     }
   }
 
-  // 4. Remove conversational question endings and modal particles
+  // 4. Tourism / travel intent entity normalizer (e.g. "巴厘岛9月适合玩儿什么" -> "巴厘岛旅游攻略")
+  if (/(?:玩儿什么|玩什么|旅游|旅行|攻略|景点|玩乐|度假|好玩)/.test(query)) {
+    let place = query
+      .replace(/\d+月(?:份)?/g, '')
+      .replace(/(?:适合玩儿什么|适合玩什么|玩儿什么|玩什么|有什么好玩的|好玩吗|怎么玩|怎么去|好不好|怎么样|是多少|是什么|有哪些|如何|有什么|玩乐|推荐|攻略|旅游|旅行|去哪|好去处)/g, '')
+      .replace(/(?:今天|今日|明天|后天|现在|目前|实时|最近|这几天|当地|九月|八月|十月|7月|8月|9月|10月)/g, '')
+      .replace(/[\s,，:：!！\?？\n\(\)（）\-_]+/g, '')
+      .trim();
+
+    if (place.length >= 2) {
+      return `${place}旅游攻略`;
+    }
+  }
+
+  // 5. Remove conversational question endings and modal particles
   const suffixRegex = /[\s,，]*(?:怎么样|如何|是多少|有哪些|是什么|有哪些最新消息|最新进展是什么|最新动态是什么|动态是什么|最新消息|最新动态|最新进展|吗|呢|吧|呀|啊|？|\?|！|!)+$/i;
   query = query.replace(suffixRegex, '').trim();
 
-  // 5. Remove temporal prefixes if substantive phrase follows
+  // 6. Remove temporal prefixes if substantive phrase follows
   query = query.replace(/^(?:今天|今日|现在|目前|当下|实时|最新的|最新)[\s,，]*(?=[\u4e00-\u9fa5a-zA-Z0-9]{2,})/i, '').trim();
 
-  // 6. Remove redundant grammatical particle "的" between Chinese nouns
+  // 7. Remove redundant grammatical particle "的" between Chinese nouns
   query = query.replace(/([\u4e00-\u9fa5]{2,})的([\u4e00-\u9fa5]{2,})/g, '$1$2');
 
-  // 7. Strip spaces within Chinese characters to prevent search engines from splitting compound words
+  // 8. Strip spaces within Chinese characters to prevent search engines from splitting compound words
   query = query.replace(/([\u4e00-\u9fa5])\s+([\u4e00-\u9fa5])/g, '$1$2');
 
-  // 8. Fallback to original cleaned string if stripping emptied the query
+  // 9. Fallback to original cleaned string if stripping emptied the query
   if (!query || query.length < 2) {
     query = rawQuery.trim().replace(/^[\s,，:：!！\?？]+|[\s,，:：!！\?？]+$/g, '');
   }
@@ -109,6 +123,17 @@ export async function generateSearchQueriesWithLLM(
       const chatUrls = getChatUrlCandidates(cand.channel_base_url);
       const url = chatUrls[0];
 
+      const systemPrompt = `你是一个专业的搜索引擎关键词提炼专家。请将用户的问题转换为最适合在搜索引擎精准检索的高质量核心检索短语（共提炼 1 到 ${queryCount} 个，每个短语长度在 ${queryMaxLen} 字以内）。
+【规则与要求】：
+1. 搜索引擎对口语疑问助词、虚词、冗余数字（如"玩儿什么"、"有哪些"、"怎么样"、"冷不冷"、"9月"）极其敏感，容易导致检索失败。
+2. 请将问题抽象提炼为标准的实体与核心主题词组合（连续中文词组，严禁带有标点符号和空格）。
+   范例：
+   - "巴厘岛9月适合玩儿什么？" -> ["巴厘岛旅游攻略", "巴厘岛最佳旅游时间", "巴厘岛旅游"]
+   - "巴厘岛今天有没有雨？" -> ["巴厘岛天气", "巴厘岛天气预报"]
+   - "今天北京冷不冷？" -> ["北京天气", "北京气温"]
+   - "中国空间站最新动态是什么？" -> ["中国空间站", "中国空间站最新动态"]
+3. 只返回纯 JSON 字符串数组，例如：["短语1", "短语2"]。严禁输出任何思考过程或解释。`;
+
       const res = await fetch(url, {
         method: 'POST',
         headers: {
@@ -121,7 +146,7 @@ export async function generateSearchQueriesWithLLM(
           messages: [
             {
               role: 'system',
-              content: `你是一个搜索引擎关键词生成助手。请根据用户提问，提炼生成 1 到 ${queryCount} 个最适合用于搜索引擎（如 Bing/Google）检索的核心搜索短语（每个短语长度不得超过 ${queryMaxLen} 个字）。只返回 JSON 字符串数组，例如：["短语1", "短语2", "短语3"]。绝对不要输出任何思考过程、问候或多余解释，只输出纯 JSON 数组。`,
+              content: systemPrompt,
             },
             {
               role: 'user',
@@ -278,7 +303,14 @@ export async function performWebSearch(query: string, maxResults = 3): Promise<S
             const itemSnippet = pMatch
               ? pMatch[1].replace(/<[^>]+>/g, '').replace(/&ensp;|&nbsp;|&#0183;|&#176;/g, ' ').replace(/\s+/g, ' ').trim()
               : '';
-            if (itemTitle && itemUrl.startsWith('http')) {
+            // Filter out single-character dictionary definitions (e.g. "巴（汉语文字）") when querying multi-character topics
+            const isSingleCharDict =
+              cleanQuery.length >= 2 &&
+              /^(?:[\u4e00-\u9fa5]（(?:汉语文字|汉语国学|汉字|压强|拼音)）|[\u4e00-\u9fa5]的意思|[\u4e00-\u9fa5]的解释)/.test(
+                itemTitle
+              );
+
+            if (itemTitle && itemUrl.startsWith('http') && !isSingleCharDict) {
               results.push({
                 title: itemTitle,
                 url: itemUrl,
@@ -294,44 +326,6 @@ export async function performWebSearch(query: string, maxResults = 3): Promise<S
       }
     } catch (err: any) {
       console.warn(`[Search] Bing Web fallback notice: ${err.message}`);
-    }
-
-    // 3. Fallback: Official Bing Real-Time RSS Stream
-    try {
-      const bingRssUrl = `https://www.bing.com/search?q=${encodeURIComponent(cleanQuery)}&format=rss`;
-      const response = await fetch(bingRssUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
-          'Accept': 'application/rss+xml, application/xml, text/xml, */*',
-        },
-        signal: AbortSignal.timeout(4000),
-      });
-
-      if (response.ok) {
-        const xml = await response.text();
-        const itemMatches = [...xml.matchAll(/<item>[\s\S]*?<title>([\s\S]*?)<\/title>[\s\S]*?<link>([\s\S]*?)<\/link>[\s\S]*?<description>([\s\S]*?)<\/description>[\s\S]*?<\/item>/g)];
-        
-        if (itemMatches.length > 0) {
-          const results: SearchResultItem[] = [];
-          for (let i = 0; i < Math.min(itemMatches.length, maxResults); i++) {
-            const rawTitle = itemMatches[i][1].replace(/<!\[CDATA\[|\]\]>/g, '').replace(/<[^>]+>/g, '').trim();
-            const rawLink = itemMatches[i][2].replace(/<!\[CDATA\[|\]\]>/g, '').trim();
-            const rawSnippet = itemMatches[i][3].replace(/<!\[CDATA\[|\]\]>/g, '').replace(/<[^>]+>/g, '').trim();
-            if (rawTitle && rawLink.startsWith('http')) {
-              results.push({
-                title: rawTitle,
-                url: rawLink,
-                snippet: rawSnippet,
-              });
-            }
-          }
-          if (results.length > 0) {
-            return results;
-          }
-        }
-      }
-    } catch {
-      // ignore
     }
 
     return [];
