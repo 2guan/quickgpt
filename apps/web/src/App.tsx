@@ -67,19 +67,19 @@ export const App: React.FC = () => {
     );
   }
 
-  // If user is not logged in, show Chat UI with Login Modal or open login prompt
+  // If user is not logged in, show clean standalone Login / Register screen
   if (!user) {
     return (
-      <div className="h-screen w-screen relative">
-        <ChatPage onOpenAdmin={() => setIsLoginModalOpen(true)} />
-        <LoginModal
-          isOpen={true}
-          onClose={() => {}}
-          onSwitchToRegister={() => setIsRegisterModalOpen(true)}
-        />
-        {isRegisterModalOpen && (
+      <div className="h-screen w-screen bg-[#f8fafc] dark:bg-[#131316] flex items-center justify-center p-4 transition-colors">
+        {!isRegisterModalOpen ? (
+          <LoginModal
+            isOpen={true}
+            onClose={() => {}}
+            onSwitchToRegister={() => setIsRegisterModalOpen(true)}
+          />
+        ) : (
           <RegisterModal
-            isOpen={isRegisterModalOpen}
+            isOpen={true}
             onClose={() => setIsRegisterModalOpen(false)}
             onSwitchToLogin={() => setIsRegisterModalOpen(false)}
           />
