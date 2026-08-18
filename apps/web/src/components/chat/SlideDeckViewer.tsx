@@ -7,6 +7,10 @@ import {
   Download,
   Maximize2,
   Minimize2,
+  Code,
+  FileText,
+  Copy,
+  Check,
 } from 'lucide-react';
 
 export interface SlideItem {
@@ -211,9 +215,22 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
   const [themeIdx, setThemeIdx] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isSourceMode, setIsSourceMode] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const activeTheme = COLOR_THEMES[themeIdx];
   const totalSlides = slides.length;
+
+  const handleCopyRaw = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(rawCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // ignore
+    }
+  };
 
   const safeIdx = Math.min(currentIdx, Math.max(0, totalSlides - 1));
   const currentSlide = slides[safeIdx] || slides[0] || { title: '暂无内容', bullets: [], items: [], layout: 'content' };
@@ -876,52 +893,97 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
       <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200/70 dark:border-slate-800 text-xs">
         <div className="flex items-center gap-2">
           <div className="p-1 rounded-lg bg-orange-100 dark:bg-orange-950/70 text-orange-600 dark:text-orange-400">
-            <Presentation className="w-4 h-4" />
+            {isSourceMode ? <Code className="w-4 h-4" /> : <Presentation className="w-4 h-4" />}
           </div>
           <span className="font-semibold text-slate-800 dark:text-slate-200">
-            AI 幻灯片演示 ({safeIdx + 1} / {totalSlides} 页)
+            {isSourceMode ? 'PPT 源码视图 (Markdown)' : `AI 幻灯片演示 (${safeIdx + 1} / ${totalSlides} 页)`}
           </span>
         </div>
 
         <div className="flex items-center gap-1.5">
-          {/* Theme Palette Switcher */}
-          <div className="flex items-center gap-1 bg-white dark:bg-slate-900 px-2 py-1 rounded-xl border border-slate-200/80 dark:border-slate-700">
-            {COLOR_THEMES.map((theme, i) => (
+          {/* Toggle View: Slide Presentation vs Raw Text */}
+          <button
+            onClick={() => setIsSourceMode(!isSourceMode)}
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-xl font-medium border transition-all active:scale-95 ${
+              isSourceMode
+                ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700 shadow-2xs'
+                : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200/80 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
+            }`}
+            title={isSourceMode ? '返回 PPT 交互式演示预览' : '切换为 Markdown / 文本源码视图'}
+          >
+            {isSourceMode ? (
+              <>
+                <Presentation className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">PPT 演示</span>
+              </>
+            ) : (
+              <>
+                <FileText className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">纯文本/源码</span>
+              </>
+            )}
+          </button>
+
+          {!isSourceMode && (
+            <>
+              {/* Theme Palette Switcher */}
+              <div className="flex items-center gap-1 bg-white dark:bg-slate-900 px-2 py-1 rounded-xl border border-slate-200/80 dark:border-slate-700">
+                {COLOR_THEMES.map((theme, i) => (
+                  <button
+                    key={theme.id}
+                    onClick={() => setThemeIdx(i)}
+                    className={`w-3.5 h-3.5 rounded-full transition-transform ${
+                      themeIdx === i ? 'scale-125 ring-2 ring-emerald-500' : 'hover:opacity-80'
+                    }`}
+                    style={{ backgroundColor: theme.accent }}
+                    title={theme.name}
+                  />
+                ))}
+              </div>
+
+              {/* Export PPTX Button */}
               <button
-                key={theme.id}
-                onClick={() => setThemeIdx(i)}
-                className={`w-3.5 h-3.5 rounded-full transition-transform ${
-                  themeIdx === i ? 'scale-125 ring-2 ring-emerald-500' : 'hover:opacity-80'
-                }`}
-                style={{ backgroundColor: theme.accent }}
-                title={theme.name}
-              />
-            ))}
-          </div>
+                onClick={handleExportPPTX}
+                disabled={isExporting}
+                className="flex items-center gap-1 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-medium transition-all shadow-2xs active:scale-95 disabled:opacity-50"
+                title="导出为 Office / WPS 原生 .pptx 文件"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">{isExporting ? '生成中...' : '下载 PPTX'}</span>
+              </button>
 
-          {/* Export PPTX Button */}
-          <button
-            onClick={handleExportPPTX}
-            disabled={isExporting}
-            className="flex items-center gap-1 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-medium transition-all shadow-2xs active:scale-95 disabled:opacity-50"
-            title="导出为 Office / WPS 原生 .pptx 文件"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">{isExporting ? '生成中...' : '下载 PPTX'}</span>
-          </button>
+              {/* Fullscreen Mode */}
+              <button
+                onClick={() => setIsFullscreen(!isFullscreen)}
+                className="p-1.5 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-slate-200/60 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                title={isFullscreen ? '退出全屏 (ESC)' : '全屏放映演示'}
+              >
+                {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+              </button>
+            </>
+          )}
 
-          {/* Fullscreen Mode */}
-          <button
-            onClick={() => setIsFullscreen(!isFullscreen)}
-            className="p-1.5 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-slate-200/60 dark:hover:bg-slate-700 rounded-lg transition-colors"
-            title={isFullscreen ? '退出全屏 (ESC)' : '全屏放映演示'}
-          >
-            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-          </button>
+          {isSourceMode && (
+            <button
+              onClick={handleCopyRaw}
+              className="flex items-center gap-1 px-2.5 py-1 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-medium border border-slate-200/80 dark:border-slate-700 transition-all active:scale-95"
+              title="复制全部 PPT Markdown 源码"
+            >
+              {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+              <span className="hidden sm:inline">{copied ? '已复制' : '复制代码'}</span>
+            </button>
+          )}
         </div>
       </div>
 
-      {/* 2. Slide Visual Card Canvas (Strict 16:9 Fixed Ratio Box, No Scrollbars) */}
+      {isSourceMode ? (
+        /* Source Mode: Clean Markdown / Code Text Container */
+        <div className="p-4 bg-slate-900 text-slate-100 font-mono text-xs overflow-x-auto max-h-[500px] leading-relaxed select-text whitespace-pre-wrap">
+          {rawCode}
+        </div>
+      ) : (
+        <>
+          {/* 2. Slide Visual Card Canvas (Strict 16:9 Fixed Ratio Box, No Scrollbars) */}
       <div
         className={`p-3 sm:p-5 flex items-center justify-center bg-slate-100/60 dark:bg-slate-950/40 ${
           isFullscreen ? 'flex-1 overflow-hidden' : ''
@@ -1239,6 +1301,8 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
           <ChevronRight className="w-4 h-4" />
         </button>
       </div>
+        </>
+      )}
     </div>
   );
 };
