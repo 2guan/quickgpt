@@ -8,8 +8,9 @@ export interface SearchResultItem {
 
 /**
  * Intelligent keyword extraction from conversational user prompts:
- * Strips polite openers (早上好、你好、请问、帮我查查...) and question suffixes (...怎么样、是多少、是什么、吗、呢...)
- * e.g. "早上好，北京天气怎么样" -> "北京天气"
+ * Strips polite openers (早上好、你好、请问、帮我查查...), time modifiers (今天、今日...), question suffixes (...怎么样、是多少、是什么、吗、呢...),
+ * and grammatical particles ("的" between nouns).
+ * e.g. "今天巴厘岛的天气怎么样？" -> "巴厘岛天气"
  */
 export function extractSearchKeywords(rawQuery: string): string {
   if (!rawQuery) return '';
@@ -20,16 +21,26 @@ export function extractSearchKeywords(rawQuery: string): string {
   query = query.replace(/```[\s\S]*?```/g, '').replace(/`[^`]+`/g, '');
 
   // 2. Remove polite greetings, conversational prefixes, and imperative phrases
-  const prefixRegex = /^(?:你好|您好|哈喽|hello|hi|hey|早上好|中午好|下午好|晚上好|早安|晚安|请问|请帮我|帮我|麻烦帮我|请告诉我|我想知道|我想了解|查一下|搜一下|检索一下|了解一下|给我查|能不能告诉我|可以告诉我)[\s,，:：!！\?？\n]*/i;
+  const prefixRegex = /^(?:你好|您好|哈喽|hello|hi|hey|早上好|中午好|下午好|晚上好|早安|晚安|请问|请帮我|帮我|麻烦帮我|请告诉我|我想知道|我想了解|查一下|搜一下|检索一下|了解一下|给我查|能不能告诉我|可以告诉我|帮我查查|查查)[\s,，:：!！\?？\n]*/i;
   while (prefixRegex.test(query)) {
     query = query.replace(prefixRegex, '').trim();
   }
 
-  // 3. Remove conversational question endings and modal particles
+  // 3. Remove leading temporal fillers (e.g. 今天巴厘岛天气 -> 巴厘岛天气)
+  const timePrefixRegex = /^(?:今天|今日|现在|目前|当下|实时|最新的|最新)[\s,，]*(?=[\u4e00-\u9fa5a-zA-Z0-9]{2,})/i;
+  const strippedTime = query.replace(timePrefixRegex, '').trim();
+  if (strippedTime.length >= 3) {
+    query = strippedTime;
+  }
+
+  // 4. Remove conversational question endings and modal particles
   const suffixRegex = /[\s,，]*(?:怎么样|如何|是多少|有哪些|是什么|有哪些最新消息|最新进展是什么|吗|呢|吧|呀|啊|？|\?|！|!)+$/i;
   query = query.replace(suffixRegex, '').trim();
 
-  // 4. Fallback to original cleaned string if stripping emptied the query
+  // 5. Remove grammatical particle "的" between nouns (e.g. 巴厘岛的天气 -> 巴厘岛天气)
+  query = query.replace(/([\u4e00-\u9fa5]{2,})的([\u4e00-\u9fa5]{2,})/g, '$1$2');
+
+  // 6. Fallback to original cleaned string if stripping emptied the query
   if (!query || query.length < 2) {
     query = rawQuery.trim().replace(/^[\s,，:：!！\?？]+|[\s,，:：!！\?？]+$/g, '');
   }
@@ -127,17 +138,62 @@ export async function performWebSearch(query: string, maxResults = 5): Promise<S
       }
     }
 
-    // 2. High-speed Built-in Multi-Source Search (Bing RSS & SearXNG JSON)
-    // Attempt A: Official Bing Search Real-Time RSS Stream
+    // 2. High-precision Standard Bing Web Search Engine
+    try {
+      const bingWebUrl = `https://www.bing.com/search?q=${encodeURIComponent(cleanQuery)}`;
+      const response = await fetch(bingWebUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+        },
+        signal: AbortSignal.timeout(6000),
+      });
+
+      if (response.ok) {
+        const html = await response.text();
+        const results: SearchResultItem[] = [];
+        const liMatches = [...html.matchAll(/<li[^>]*class=[\x27\x22]b_algo[\x27\x22][^>]*>([\s\S]*?)<\/li>/g)];
+
+        for (const match of liMatches) {
+          if (results.length >= maxResults) break;
+          const block = match[1];
+          const h2Match = block.match(/<h2[^>]*><a\s+[^>]*href=[\x27\x22](https?:\/\/[^\x27\x22]+)[\x27\x22][^>]*>([\s\S]*?)<\/a><\/h2>/i);
+          const pMatch = block.match(/<div class=[\x27\x22]b_caption[\x27\x22]>[\s\S]*?<p[^>]*>([\s\S]*?)<\/p>/i) || block.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
+
+          if (h2Match) {
+            const itemUrl = h2Match[1];
+            const itemTitle = h2Match[2].replace(/<[^>]+>/g, '').trim();
+            const itemSnippet = pMatch
+              ? pMatch[1].replace(/<[^>]+>/g, '').replace(/&ensp;|&nbsp;|&#0183;|&#176;/g, ' ').replace(/\s+/g, ' ').trim()
+              : '';
+            if (itemTitle && itemUrl.startsWith('http')) {
+              results.push({
+                title: itemTitle,
+                url: itemUrl,
+                snippet: itemSnippet,
+              });
+            }
+          }
+        }
+
+        if (results.length > 0) {
+          return results;
+        }
+      }
+    } catch (err: any) {
+      console.warn(`[Search] Bing Web fallback notice: ${err.message}`);
+    }
+
+    // 3. Fallback: Official Bing Real-Time RSS Stream
     try {
       const bingRssUrl = `https://www.bing.com/search?q=${encodeURIComponent(cleanQuery)}&format=rss`;
       const response = await fetch(bingRssUrl, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
           'Accept': 'application/rss+xml, application/xml, text/xml, */*',
-          'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
         },
-        signal: AbortSignal.timeout(6000),
+        signal: AbortSignal.timeout(4000),
       });
 
       if (response.ok) {
@@ -163,37 +219,8 @@ export async function performWebSearch(query: string, maxResults = 5): Promise<S
           }
         }
       }
-    } catch (err: any) {
-      console.warn(`[Search] Bing RSS fallback notice: ${err.message}`);
-    }
-
-    // Attempt B: High-availability SearXNG fallback instances
-    const fallbackSearx = [
-      'https://search.mdosch.de',
-      'https://priv.au',
-      'https://searx.be',
-    ];
-
-    for (const inst of fallbackSearx) {
-      try {
-        const searxUrl = `${inst}/search?q=${encodeURIComponent(cleanQuery)}&format=json&language=zh-CN`;
-        const res = await fetch(searxUrl, {
-          headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)' },
-          signal: AbortSignal.timeout(4000),
-        });
-        if (res.ok) {
-          const data = (await res.json()) as any;
-          if (Array.isArray(data.results) && data.results.length > 0) {
-            return data.results.slice(0, maxResults).map((r: any) => ({
-              title: r.title || '网页结果',
-              url: r.url || '',
-              snippet: r.content || r.snippet || '',
-            }));
-          }
-        }
-      } catch {
-        // try next instance
-      }
+    } catch {
+      // ignore
     }
 
     return [];
