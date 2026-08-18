@@ -29,6 +29,8 @@ export interface SlideData {
     headers: string[];
     rows: string[][];
   };
+  quoteText?: string;
+  sectionTitle?: string;
   notes?: string;
   layout: 'cover' | 'grid2' | 'grid3' | 'grid4' | 'grid5' | 'grid6' | 'timeline' | 'stats' | 'quote' | 'table' | 'content';
 }
@@ -112,6 +114,8 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
     const rawBullets: string[] = [];
     const items: SlideItem[] = [];
     let notes = '';
+    let quoteText = '';
+    let sectionTitle = '';
     let explicitLayout: SlideData['layout'] | null = null;
     const tableLines: string[] = [];
 
@@ -131,18 +135,30 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
         continue;
       }
 
-      if (trimmed.startsWith('> ') || trimmed.startsWith('”') || trimmed.startsWith('“')) {
-        if (!explicitLayout && rawLines.length <= 3) {
-          explicitLayout = 'quote';
+      if (trimmed.startsWith('🙏') || trimmed.includes('感谢聆听') || trimmed.includes('欢迎交流')) {
+        notes = trimmed.replace(/^#+\s*/, '').trim();
+        continue;
+      }
+
+      if (trimmed.startsWith('> ')) {
+        const qContent = trimmed.replace(/^>\s*/, '').trim();
+        if (qContent) {
+          quoteText = quoteText ? `${quoteText}\n${qContent}` : qContent;
         }
+        continue;
       }
 
       if (trimmed.startsWith('# ')) {
         title = trimmed.replace(/^#\s+/, '').trim();
       } else if (trimmed.startsWith('## ') && !title) {
         title = trimmed.replace(/^##\s+/, '').trim();
-      } else if (trimmed.startsWith('### ') && !subtitle) {
-        subtitle = trimmed.replace(/^###\s+/, '').trim();
+      } else if (trimmed.startsWith('### ')) {
+        const h3Text = trimmed.replace(/^###\s+/, '').trim();
+        if (!subtitle) {
+          subtitle = h3Text;
+        } else {
+          sectionTitle = h3Text;
+        }
       } else if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
         tableLines.push(trimmed);
       } else {
@@ -273,6 +289,8 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
         bullets: rawBullets,
         items,
         table: parsedTable,
+        quoteText,
+        sectionTitle,
         notes,
         layout: computedLayout,
       });
@@ -917,42 +935,44 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
               });
             });
           } else if (s.layout === 'quote') {
-            const quoteMainText = `“ ${cleanMarkdownText(s.title || s.bullets[0] || '')} ”`;
+            const quoteMainText = cleanMarkdownText(
+              s.quoteText || s.bullets[0] || s.title || ''
+            );
             const hasItems = items.length > 0;
 
             slide.addShape(pres.ShapeType.roundRect, {
-              x: 0.8,
+              x: 0.6,
               y: contentStartY + 0.1,
-              w: 8.4,
-              h: cardTotalHeight - 0.2,
-              rectRadius: 0.15,
-              fill: { color: 'FFFFFF' },
+              w: 8.8,
+              h: hasItems ? 1.2 : cardTotalHeight - 0.2,
+              rectRadius: 0.1,
+              fill: { color: 'F0FDF4' },
               line: { color: hexAccent, width: 1 },
             });
 
             slide.addText(quoteMainText, {
-              x: 1.0,
-              y: contentStartY + 0.2,
-              w: 8.0,
+              x: 0.8,
+              y: contentStartY + 0.15,
+              w: 8.4,
               h: hasItems ? 1.0 : 1.8,
-              fontSize: hasItems ? 13 : 16,
+              fontSize: hasItems ? 10.5 : 14,
               bold: true,
-              color: '0F172A',
-              align: 'center',
+              color: '065F46',
+              align: hasItems ? 'left' : 'center',
               valign: 'middle',
               fontFace: 'Microsoft YaHei',
               breakLine: true,
             });
 
-            if (s.subtitle) {
-              slide.addText(`— ${cleanMarkdownText(s.subtitle)}`, {
-                x: 1.0,
-                y: contentStartY + (hasItems ? 1.25 : 2.1),
-                w: 8.0,
+            if (s.sectionTitle) {
+              slide.addText(cleanMarkdownText(s.sectionTitle), {
+                x: 0.6,
+                y: contentStartY + 1.45,
+                w: 8.8,
                 h: 0.35,
-                fontSize: 10.5,
-                color: '64748B',
-                align: 'center',
+                fontSize: 12,
+                bold: true,
+                color: '0F172A',
                 fontFace: 'Microsoft YaHei',
               });
             }
@@ -1598,35 +1618,66 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                   </div>
                 ) : /* 8. QUOTE / HIGHLIGHT CALLOUT (quote) */
                 currentSlide.layout === 'quote' ? (
-                  <div className="my-auto p-4 sm:p-5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700 text-center flex flex-col items-center justify-center space-y-2 max-h-[310px] overflow-hidden">
-                    <span className="text-3xl text-emerald-500 font-serif leading-none">“</span>
-                    <p className="text-xs sm:text-sm md:text-base font-bold text-slate-900 dark:text-slate-100 max-w-xl mx-auto leading-relaxed break-words">
-                      {renderFormattedText(currentSlide.title || currentSlide.bullets[0] || '')}
-                    </p>
-                    {currentSlide.subtitle && (
-                      <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium">
-                        — {renderFormattedText(currentSlide.subtitle)}
-                      </p>
+                  <div className="flex flex-col my-auto w-full space-y-2 max-h-[320px] overflow-hidden">
+                    {/* Golden Quote Banner */}
+                    <div className="p-3 rounded-xl bg-linear-to-r from-emerald-500/10 via-teal-500/5 to-transparent border-l-4 border-emerald-500 text-left">
+                      <div className="text-[11px] sm:text-xs md:text-[13px] font-bold text-slate-900 dark:text-slate-100 leading-relaxed break-words">
+                        {renderFormattedText(
+                          currentSlide.quoteText ||
+                            currentSlide.bullets[0] ||
+                            currentSlide.title ||
+                            ''
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Secondary Section / Takeaways (e.g. 3-step strategy cards) */}
+                    {currentSlide.sectionTitle && (
+                      <div className="text-[11px] sm:text-xs font-bold text-slate-800 dark:text-slate-200 mt-1">
+                        {renderFormattedText(currentSlide.sectionTitle)}
+                      </div>
                     )}
+
                     {currentSlide.items && currentSlide.items.length > 0 && (
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full mt-2 pt-2 border-t border-slate-200/60 dark:border-slate-700/60 text-left">
+                      <div
+                        className={`grid gap-2 w-full ${
+                          currentSlide.items.length === 3
+                            ? 'grid-cols-1 sm:grid-cols-3'
+                            : currentSlide.items.length === 2
+                            ? 'grid-cols-2'
+                            : 'grid-cols-1'
+                        }`}
+                      >
                         {currentSlide.items.slice(0, 3).map((it, idx) => (
-                          <div key={idx} className="p-2 rounded-lg bg-white/80 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/50 text-[10px] sm:text-[11px]">
-                            {it.title && (
-                              <div className="font-bold text-slate-900 dark:text-slate-100 mb-0.5 truncate">
-                                {renderFormattedText(it.title)}
+                          <div
+                            key={idx}
+                            className="p-2.5 rounded-xl bg-white dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/70 shadow-2xs flex flex-col justify-between"
+                          >
+                            <div>
+                              {it.title && (
+                                <div className="text-[10.5px] sm:text-[11px] font-bold text-slate-900 dark:text-slate-100 mb-1 flex items-center gap-1">
+                                  <span
+                                    className="w-1.5 h-1.5 rounded-full shrink-0"
+                                    style={{ backgroundColor: activeTheme.accent }}
+                                  />
+                                  <span className="truncate">{renderFormattedText(it.title)}</span>
+                                </div>
+                              )}
+                              <div className="text-[9.5px] sm:text-[10px] text-slate-600 dark:text-slate-300 leading-snug break-words">
+                                {renderFormattedText(it.description || '')}
                               </div>
-                            )}
-                            <div className="text-slate-600 dark:text-slate-300 leading-snug">
-                              {renderFormattedText(it.description || '')}
                             </div>
                           </div>
                         ))}
                       </div>
                     )}
+
+                    {/* Thank you / interactive footer */}
                     {currentSlide.notes && (
-                      <div className="text-[11px] sm:text-xs font-semibold text-emerald-600 dark:text-emerald-400 mt-1">
-                        {renderFormattedText(currentSlide.notes)}
+                      <div className="text-center pt-1">
+                        <span className="inline-block px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/70 dark:border-emerald-900/50 text-[10.5px] sm:text-xs font-bold text-emerald-700 dark:text-emerald-300">
+                          {renderFormattedText(currentSlide.notes)}
+                        </span>
                       </div>
                     )}
                   </div>
