@@ -59,11 +59,10 @@ export async function generateSearchQueriesWithLLM(
       const chatUrls = getChatUrlCandidates(cand.channel_base_url);
       const url = chatUrls[0];
 
-      const systemPrompt = `你是一个搜索引擎查询优化器。请根据用户的问题，提炼出 1 到 ${queryCount} 个最适合用于搜索引擎检索的核心关键词短语（每个短语长度不超过 ${queryMaxLen} 字）。
-【核心规则】：
-1. 绝对不要在搜索短语中保留口语疑问词（如"玩儿什么"、"适合"、"怎么样"、"有哪些"）或具体月份数字（如"9月"、"九月"），因为包含月份的组合词会导致搜索引擎分词错误退化。
-2. 请提炼为高召回率的实体名词与主题词组合（例如："巴厘岛 旅游 攻略"、"巴厘岛 旅游"、"巴厘岛 旅行 推荐"）。
-3. 只返回纯 JSON 字符串数组，例如：["短语1", "短语2", "短语3"]。绝对不要输出任何思考过程或解释。`;
+      const systemPrompt = `你是一个专业的搜索引擎查询优化器。请根据用户的提问，提炼出 1 到 ${queryCount} 个最适合用于搜索引擎检索的核心关键词短语（每个短语长度在 ${queryMaxLen} 字以内）。
+【要求】：
+1. 提炼出真正具有高信息量的主题词与实体名词短语。
+2. 只返回纯 JSON 字符串数组，例如：["短语1", "短语2", "短语3"]。绝对不要输出任何思考过程或解释。`;
 
       const res = await fetch(url, {
         method: 'POST',
@@ -114,13 +113,12 @@ export async function generateSearchQueriesWithLLM(
     console.warn(`[Search] LLM query generation notice: ${err.message}`);
   }
 
-  // Pure fallback: return the original prompt without any regex processing
+  // Pure fallback: return the original prompt
   return [userPrompt.trim().slice(0, 50)];
 }
 
 /**
- * Executes a single web search using the exact query string returned by the LLM.
- * No regex modification or keyword cleaning is performed.
+ * Executes a single web search using multi-engine fallbacks (Custom APIs -> Mobile Web Search -> Bing Web Search).
  */
 export async function performWebSearch(query: string, maxResults = 3): Promise<SearchResultItem[]> {
   const cleanQuery = query.trim();
@@ -212,7 +210,65 @@ export async function performWebSearch(query: string, maxResults = 3): Promise<S
       }
     }
 
-    // 2. High-precision Standard Bing Web Search Engine
+    // 2. High-precision Mobile Chinese Web Search Engine
+    try {
+      const sogouMobileUrl = `https://m.sogou.com/web/searchList.jsp?keyword=${encodeURIComponent(cleanQuery)}`;
+      const response = await fetch(sogouMobileUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'zh-CN,zh;q=0.9',
+        },
+        signal: AbortSignal.timeout(4500),
+      });
+
+      if (response.ok) {
+        const html = await response.text();
+        const results: SearchResultItem[] = [];
+        const h3Matches = [...html.matchAll(/<h3[^>]*>([\s\S]*?)<\/h3>([\s\S]*?)(?=<h3|$)/gi)];
+
+        for (const m of h3Matches) {
+          if (results.length >= maxResults) break;
+          const rawTitle = m[1].replace(/<[^>]+>/g, '').replace(/&quot;/g, '"').trim();
+          const rest = m[2];
+          const urlMatch =
+            rest.match(/href=[\x27\x22](https?:\/\/[^\x27\x22]+)[\x27\x22]/i) ||
+            m[1].match(/href=[\x27\x22](https?:\/\/[^\x27\x22]+)[\x27\x22]/i);
+          const rawUrl = urlMatch ? urlMatch[1] : `https://m.sogou.com/web/searchList.jsp?keyword=${encodeURIComponent(cleanQuery)}`;
+          const snippet = rest
+            .replace(/<script[\s\S]*?<\/script>/gi, '')
+            .replace(/<style[\s\S]*?<\/style>/gi, '')
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/&quot;/g, '"')
+            .replace(/&nbsp;/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+          const isGarbage =
+            rawTitle.includes('大家还在搜') ||
+            rawTitle.includes('相关搜索') ||
+            rawTitle.includes('为你推荐') ||
+            rawTitle.includes('问过的人') ||
+            rawTitle.length <= 3;
+
+          if (rawTitle && !isGarbage) {
+            results.push({
+              title: rawTitle,
+              url: rawUrl,
+              snippet: snippet.slice(0, 180),
+            });
+          }
+        }
+
+        if (results.length > 0) {
+          return results;
+        }
+      }
+    } catch (err: any) {
+      console.warn(`[Search] Mobile Web search notice: ${err.message}`);
+    }
+
+    // 3. Fallback: High-precision Standard Bing Web Search Engine
     try {
       const bingWebUrl = `https://www.bing.com/search?q=${encodeURIComponent(cleanQuery)}`;
       const response = await fetch(bingWebUrl, {
@@ -242,7 +298,13 @@ export async function performWebSearch(query: string, maxResults = 3): Promise<S
               ? pMatch[1].replace(/<[^>]+>/g, '').replace(/&ensp;|&nbsp;|&#0183;|&#176;/g, ' ').replace(/\s+/g, ' ').trim()
               : '';
 
-            if (itemTitle && itemUrl.startsWith('http')) {
+            // Filter out dictionary noise if searching multi-character terms
+            const isSingleCharDict =
+              cleanQuery.replace(/\s+/g, '').length >= 2 &&
+              (/^(?:[\u4e00-\u9fa5]（|[\u4e00-\u9fa5]的意思|[\u4e00-\u9fa5]的解释|[\u4e00-\u9fa5] bā)/i.test(itemTitle) ||
+                /汉语文字|汉语国学|汉字|压强的非法定计量单位|压强单位|《漢典》|康熙字典|新华字典/.test(itemTitle));
+
+            if (itemTitle && itemUrl.startsWith('http') && !isSingleCharDict) {
               results.push({
                 title: itemTitle,
                 url: itemUrl,
@@ -293,8 +355,8 @@ export async function executeMultiQueryWebSearch(
 
   for (const arr of resultsArrays) {
     for (const item of arr) {
-      if (item.url && !seenUrls.has(item.url)) {
-        seenUrls.add(item.url);
+      if (item.title && !seenUrls.has(item.url || item.title)) {
+        seenUrls.add(item.url || item.title);
         mergedResults.push(item);
         if (mergedResults.length >= maxTotalResults) {
           break;
