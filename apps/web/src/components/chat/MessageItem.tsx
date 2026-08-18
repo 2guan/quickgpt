@@ -159,19 +159,26 @@ const AssistantCard: React.FC<{
     setIsLoadingTTS(true);
 
     try {
-      // 2. Request backend streaming Xiaomi MiMo / OpenAI TTS
+      // 2. Request backend streaming Xiaomi MiMo / OpenAI TTS with token & credentials
+      const token = localStorage.getItem('token');
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const res = await fetch('/api/chat/tts', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        credentials: 'include',
+        headers,
         body: JSON.stringify({
           text: message.content,
           modelId: message.model_id,
         }),
       });
 
-      if (res.ok && res.headers.get('content-type')?.includes('audio/')) {
+      if (res.ok && res.headers.get('content-type')?.includes('audio')) {
         const blob = await res.blob();
         const audioUrl = URL.createObjectURL(blob);
         const audio = new Audio(audioUrl);
@@ -187,29 +194,43 @@ const AssistantCard: React.FC<{
           URL.revokeObjectURL(audioUrl);
           audioRef.current = null;
         };
-        audio.onerror = () => {
+        audio.onerror = (e) => {
+          console.warn('[TTS] Audio playback error:', e);
           setIsSpeaking(false);
           setIsLoadingTTS(false);
           URL.revokeObjectURL(audioUrl);
           audioRef.current = null;
         };
 
-        await audio.play();
-        return;
+        try {
+          await audio.play();
+          return;
+        } catch (playErr) {
+          console.warn('[TTS] Direct audio.play() blocked, falling back to Web Speech:', playErr);
+        }
       }
-    } catch {
-      // Fall through to browser Web Speech API
+    } catch (err: any) {
+      console.warn('[TTS] Backend TTS fetch failed, falling back to Web Speech:', err.message);
     }
 
     // 3. Fallback to browser Web Speech API
     setIsLoadingTTS(false);
     if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
       const cleanText = cleanTextForLocalSpeech(message.content);
       const utterance = new SpeechSynthesisUtterance(cleanText);
       utterance.lang = 'zh-CN';
-      utterance.rate = 1.05;
-      utterance.onend = () => setIsSpeaking(false);
-      utterance.onerror = () => setIsSpeaking(false);
+      utterance.rate = 1.0;
+      utterance.onstart = () => {
+        setIsSpeaking(true);
+      };
+      utterance.onend = () => {
+        setIsSpeaking(false);
+      };
+      utterance.onerror = (e) => {
+        console.warn('[TTS] SpeechSynthesis error:', e);
+        setIsSpeaking(false);
+      };
       window.speechSynthesis.speak(utterance);
       setIsSpeaking(true);
     }

@@ -385,8 +385,8 @@ export async function handleStreamChat({
   let searchResults: SearchResultItem[] = [];
   let searchContextText = '';
 
-  // If search enabled and model needs fallback search
-  if (enableSearch && primaryCandidate.enable_search_fallback) {
+  // If search enabled in chat bar or model has auto search fallback enabled
+  if (enableSearch || Boolean(primaryCandidate.enable_search_fallback)) {
     reply.raw.write(`data: ${JSON.stringify({ status: '正在联网搜索相关信息...', modelId })}\n\n`);
     searchResults = await performWebSearch(userLastMsg);
     if (searchResults.length > 0) {
