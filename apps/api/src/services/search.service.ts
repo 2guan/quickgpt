@@ -58,7 +58,8 @@ export function extractSearchKeywords(rawQuery: string): string {
 }
 
 /**
- * Uses a fast LLM call (e.g. MiMo 2.5 without thinking) to generate 1~3 targeted search queries
+ * Uses a fast LLM call (e.g. MiMo 2.5 without thinking) to generate 1~N targeted search queries
+ * respecting configured query count and maximum query length.
  */
 export async function generateSearchQueriesWithLLM(
   userPrompt: string,
@@ -67,14 +68,29 @@ export async function generateSearchQueriesWithLLM(
   try {
     const { getModelCandidates, getChatUrlCandidates } = await import('./chat.service.js');
     
-    // 1. Check if an admin configured search_query_model_id in system_settings
-    const queryModelStmt = db.prepare("SELECT value FROM system_settings WHERE key = 'search_query_model_id'");
-    const customQueryModel = (queryModelStmt.get() as { value: string } | undefined)?.value;
+    // Read system settings
+    const queryModelRow = db.prepare("SELECT value FROM system_settings WHERE key = 'search_query_model_id'").get() as { value: string } | undefined;
+    const queryCountRow = db.prepare("SELECT value FROM system_settings WHERE key = 'search_query_count'").get() as { value: string } | undefined;
+    const maxLenRow = db.prepare("SELECT value FROM system_settings WHERE key = 'search_query_max_length'").get() as { value: string } | undefined;
+
+    const customQueryModelStr = queryModelRow?.value?.trim() || '';
+    const queryCount = Math.max(1, Math.min(5, parseInt(queryCountRow?.value || '3', 10) || 3));
+    const queryMaxLen = Math.max(10, Math.min(100, parseInt(maxLenRow?.value || '30', 10) || 30));
+
+    // Support comma-separated priority models
+    const configuredModelIds = customQueryModelStr && customQueryModelStr !== 'auto'
+      ? customQueryModelStr.split(',').map((s) => s.trim()).filter(Boolean)
+      : [];
 
     let candidateList: any[] = [];
-    if (customQueryModel && customQueryModel !== 'auto') {
-      candidateList = getModelCandidates(customQueryModel);
+    for (const mid of configuredModelIds) {
+      const cands = getModelCandidates(mid);
+      if (cands.length > 0) {
+        candidateList = cands;
+        break;
+      }
     }
+
     if (candidateList.length === 0 && preferredModelId) {
       candidateList = getModelCandidates(preferredModelId);
     }
@@ -82,7 +98,7 @@ export async function generateSearchQueriesWithLLM(
       candidateList = getModelCandidates('mimo-v2.5');
     }
     if (candidateList.length === 0) {
-      const anyModel = db.prepare("SELECT model_id FROM models WHERE is_active = 1 AND model_type = 'chat' ORDER BY order_index ASC LIMIT 1").get() as { model_id: string } | undefined;
+      const anyModel = db.prepare("SELECT model_id FROM models WHERE is_active = 1 AND model_id NOT LIKE '%tts%' AND model_id NOT LIKE '%image%' ORDER BY order_index ASC LIMIT 1").get() as { model_id: string } | undefined;
       if (anyModel) {
         candidateList = getModelCandidates(anyModel.model_id);
       }
@@ -105,8 +121,7 @@ export async function generateSearchQueriesWithLLM(
           messages: [
             {
               role: 'system',
-              content:
-                '你是一个搜索引擎关键词生成助手。请根据用户提问，提炼生成 1 到 3 个最适合用于搜索引擎（如 Bing/Google）检索的核心搜索短语。只返回 JSON 字符串数组，例如：["短语1", "短语2", "短语3"]。绝对不要输出任何思考过程或解释，只输出纯 JSON 数组。',
+              content: `你是一个搜索引擎关键词生成助手。请根据用户提问，提炼生成 1 到 ${queryCount} 个最适合用于搜索引擎（如 Bing/Google）检索的核心搜索短语（每个短语长度不得超过 ${queryMaxLen} 个字）。只返回 JSON 字符串数组，例如：["短语1", "短语2", "短语3"]。绝对不要输出任何思考过程、问候或多余解释，只输出纯 JSON 数组。`,
             },
             {
               role: 'user',
@@ -114,7 +129,7 @@ export async function generateSearchQueriesWithLLM(
             },
           ],
           temperature: 0.1,
-          max_tokens: 150,
+          max_tokens: 180,
           thinking: { type: 'disabled' },
           stream: false,
         }),
@@ -128,7 +143,10 @@ export async function generateSearchQueriesWithLLM(
         if (jsonMatch) {
           const parsed = JSON.parse(jsonMatch[0]);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            return parsed.slice(0, 3).map((q: any) => String(q).trim()).filter(Boolean);
+            return parsed
+              .slice(0, queryCount)
+              .map((q: any) => String(q).trim().slice(0, queryMaxLen))
+              .filter(Boolean);
           }
         }
       }
@@ -138,7 +156,7 @@ export async function generateSearchQueriesWithLLM(
   }
 
   const fallback = extractSearchKeywords(userPrompt);
-  return fallback ? [fallback] : [userPrompt.slice(0, 50)];
+  return fallback ? [fallback] : [userPrompt.slice(0, 30)];
 }
 
 export async function performWebSearch(query: string, maxResults = 3): Promise<SearchResultItem[]> {
@@ -324,13 +342,22 @@ export async function performWebSearch(query: string, maxResults = 3): Promise<S
 }
 
 /**
- * Concurrently executes web searches for multiple queries and returns deduplicated results
+ * Concurrently executes web searches for multiple queries, applies per-query and total limits,
+ * and returns deduplicated results.
  */
 export async function executeMultiQueryWebSearch(
   queries: string[],
-  resultsPerQuery = 3
+  overrideResultsPerQuery?: number,
+  overrideMaxTotalResults?: number
 ): Promise<SearchResultItem[]> {
   if (!queries || queries.length === 0) return [];
+
+  // Read system settings if not overridden
+  const resultsPerQueryRow = db.prepare("SELECT value FROM system_settings WHERE key = 'search_results_per_query'").get() as { value: string } | undefined;
+  const maxTotalRow = db.prepare("SELECT value FROM system_settings WHERE key = 'search_max_total_results'").get() as { value: string } | undefined;
+
+  const resultsPerQuery = overrideResultsPerQuery || Math.max(1, Math.min(10, parseInt(resultsPerQueryRow?.value || '3', 10) || 3));
+  const maxTotalResults = overrideMaxTotalResults || Math.max(3, Math.min(20, parseInt(maxTotalRow?.value || '9', 10) || 9));
 
   const searchPromises = queries.map((q) => performWebSearch(q, resultsPerQuery));
   const resultsArrays = await Promise.all(searchPromises);
@@ -343,7 +370,13 @@ export async function executeMultiQueryWebSearch(
       if (item.url && !seenUrls.has(item.url)) {
         seenUrls.add(item.url);
         mergedResults.push(item);
+        if (mergedResults.length >= maxTotalResults) {
+          break;
+        }
       }
+    }
+    if (mergedResults.length >= maxTotalResults) {
+      break;
     }
   }
 
