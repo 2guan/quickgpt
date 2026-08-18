@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useChatStore } from '../../stores/chatStore.js';
+import { useSettingsStore } from '../../stores/settingsStore.js';
 import { chatApi } from '../../api/client.js';
 import {
   Paperclip,
@@ -32,6 +33,8 @@ export const MessageInput: React.FC<MessageInputProps> = ({ onSend }) => {
     enableSearch,
     setEnableSearch,
   } = useChatStore();
+
+  const { settings } = useSettingsStore();
 
   const [input, setInput] = useState('');
   const [isUploading, setIsUploading] = useState(false);
@@ -280,7 +283,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({ onSend }) => {
       </div>
 
       <div className="text-center mt-2.5 text-[11px] text-slate-400 dark:text-slate-500 select-none">
-        QuickGPT 可能会产生错误，请核对重要信息。
+        {settings.site_title || 'QuickGPT'} 可能会产生错误，请核对重要信息。
       </div>
     </div>
   );

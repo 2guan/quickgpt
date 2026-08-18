@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { chatApi } from '../api/client.js';
 import { Message } from '../types/index.js';
 import { useThemeStore } from '../stores/themeStore.js';
+import { useSettingsStore } from '../stores/settingsStore.js';
 import { MarkdownRenderer } from '../components/chat/MarkdownRenderer.js';
 import { Bot, User, Share2, Loader2, Sun, Moon, Sparkles, ChevronDown, ChevronRight } from 'lucide-react';
 
@@ -16,9 +17,11 @@ export const SharePage: React.FC<{ shareCode: string; onBackToHome: () => void }
   const [messages, setMessages] = useState<Message[]>([]);
   const [showReasoningMap, setShowReasoningMap] = useState<Record<string, boolean>>({});
   const { isDark, toggleTheme, initTheme } = useThemeStore();
+  const { settings, fetchPublicSettings } = useSettingsStore();
 
   useEffect(() => {
     initTheme();
+    fetchPublicSettings();
     async function loadShare() {
       try {
         const res = await chatApi.getShare(shareCode);
@@ -60,7 +63,7 @@ export const SharePage: React.FC<{ shareCode: string; onBackToHome: () => void }
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 mb-6">{error}</p>
           <button
             onClick={onBackToHome}
-            className="w-full py-2.5 bg-slate-900 dark:bg-emerald-600 hover:bg-slate-800 dark:hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold shadow-sm transition-all"
+            className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-xs transition-all active:scale-98"
           >
             返回首页
           </button>
@@ -75,9 +78,11 @@ export const SharePage: React.FC<{ shareCode: string; onBackToHome: () => void }
       <header className="h-14 bg-white/90 dark:bg-[#18181c]/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 px-4 sm:px-8 flex items-center justify-between sticky top-0 z-20 shadow-2xs">
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white font-bold flex items-center justify-center text-xs shadow-xs">
-            Q
+            {settings.site_title ? settings.site_title.charAt(0).toUpperCase() : 'Q'}
           </div>
-          <span className="font-bold text-slate-800 dark:text-slate-100 text-sm">QuickGPT 公开分享</span>
+          <span className="font-bold text-slate-800 dark:text-slate-100 text-sm">
+            {settings.site_title || 'QuickGPT'} 公开分享
+          </span>
         </div>
 
         <div className="flex items-center gap-2">
@@ -98,7 +103,7 @@ export const SharePage: React.FC<{ shareCode: string; onBackToHome: () => void }
             onClick={onBackToHome}
             className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full text-xs font-medium shadow-xs transition-all active:scale-95"
           >
-            体验 QuickGPT
+            体验 {settings.site_title || 'QuickGPT'}
           </button>
         </div>
       </header>
