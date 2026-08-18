@@ -8,9 +8,10 @@ export interface SearchResultItem {
 
 /**
  * Intelligent keyword extraction from conversational user prompts:
- * Strips polite openers (早上好、你好、请问、帮我查查...), time modifiers (今天、今日...), question suffixes (...怎么样、是多少、是什么、吗、呢...),
- * and grammatical particles ("的" between nouns).
- * e.g. "今天巴厘岛的天气怎么样？" -> "巴厘岛天气"
+ * 1. Strips polite greetings, conversational openers, and imperative phrases
+ * 2. Dedicated weather entity normalizer (e.g. "巴厘岛今天有没有雨" / "今天巴厘岛下雨了吗" -> "巴厘岛天气")
+ * 3. Strips temporal prefixes (今天/今日...), conversational question suffixes (怎么样/是多少/是什么/吗/呢/？),
+ *    grammatical particles ("的" between nouns), and redundant spaces within Chinese phrases.
  */
 export function extractSearchKeywords(rawQuery: string): string {
   if (!rawQuery) return '';
@@ -26,21 +27,34 @@ export function extractSearchKeywords(rawQuery: string): string {
     query = query.replace(prefixRegex, '').trim();
   }
 
-  // 3. Remove leading temporal fillers (e.g. 今天巴厘岛天气 -> 巴厘岛天气)
-  const timePrefixRegex = /^(?:今天|今日|现在|目前|当下|实时|最新的|最新)[\s,，]*(?=[\u4e00-\u9fa5a-zA-Z0-9]{2,})/i;
-  const strippedTime = query.replace(timePrefixRegex, '').trim();
-  if (strippedTime.length >= 3) {
-    query = strippedTime;
+  // 3. Dedicated weather entity extractor:
+  // e.g. "巴厘岛今天有没有雨" / "今天巴厘岛下雨了吗" / "东京冷不冷" -> "{place}天气"
+  if (/(?:天气|下雨|降雨|有雨|有无雨|有没有雨|暴雨|下雪|降雪|冷不?冷|热不?热|气温|温度|晴天|阴天)/.test(query)) {
+    let place = query
+      .replace(/(?:今天|今日|明天|后天|现在|目前|实时|最近|这几天|当地)/g, '')
+      .replace(/(?:有没有|会不?会|有无|是不是|会不会有|会有|是否有|下了|下过|有没有下)/g, '')
+      .replace(/(?:天气|预报|下雨|降雨|有雨|暴雨|大雨|小雨|阵雨|雷阵雨|雨|下雪|降雪|雪|降温|刮风|冷不?冷|热不?热|气温|温度|晴天|阴天|怎么样|如何|是多少|是什么|吗|呢|吧|呀|啊|了|？|\?|！|!|的)/g, '')
+      .trim();
+
+    if (place.length >= 2) {
+      return `${place}天气`;
+    }
   }
 
   // 4. Remove conversational question endings and modal particles
-  const suffixRegex = /[\s,，]*(?:怎么样|如何|是多少|有哪些|是什么|有哪些最新消息|最新进展是什么|吗|呢|吧|呀|啊|？|\?|！|!)+$/i;
+  const suffixRegex = /[\s,，]*(?:怎么样|如何|是多少|有哪些|是什么|有哪些最新消息|最新进展是什么|最新动态是什么|动态是什么|最新消息|最新动态|最新进展|吗|呢|吧|呀|啊|？|\?|！|!)+$/i;
   query = query.replace(suffixRegex, '').trim();
 
-  // 5. Remove grammatical particle "的" between nouns (e.g. 巴厘岛的天气 -> 巴厘岛天气)
+  // 5. Remove temporal prefixes if substantive phrase follows
+  query = query.replace(/^(?:今天|今日|现在|目前|当下|实时|最新的|最新)[\s,，]*(?=[\u4e00-\u9fa5a-zA-Z0-9]{2,})/i, '').trim();
+
+  // 6. Remove redundant grammatical particle "的" between Chinese nouns
   query = query.replace(/([\u4e00-\u9fa5]{2,})的([\u4e00-\u9fa5]{2,})/g, '$1$2');
 
-  // 6. Fallback to original cleaned string if stripping emptied the query
+  // 7. Strip spaces within Chinese characters to prevent search engines from splitting compound words
+  query = query.replace(/([\u4e00-\u9fa5])\s+([\u4e00-\u9fa5])/g, '$1$2');
+
+  // 8. Fallback to original cleaned string if stripping emptied the query
   if (!query || query.length < 2) {
     query = rawQuery.trim().replace(/^[\s,，:：!！\?？]+|[\s,，:：!！\?？]+$/g, '');
   }
