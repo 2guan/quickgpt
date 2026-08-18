@@ -174,7 +174,7 @@ export function getModelCandidates(modelId: string): ModelWithChannelCandidate[]
   return stmt.all(modelId, modelId) as unknown as ModelWithChannelCandidate[];
 }
 
-function getChatUrlCandidates(baseUrl: string): string[] {
+export function getChatUrlCandidates(baseUrl: string): string[] {
   let clean = baseUrl.replace(/\/+$/, '');
   if (clean.endsWith('/chat/completions')) return [clean];
   if (clean.endsWith('/v1')) return [`${clean}/chat/completions`];

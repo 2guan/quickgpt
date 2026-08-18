@@ -18,6 +18,7 @@ import { adminModelRoutes } from './routes/admin/models.routes.js';
 import { adminUserRoutes } from './routes/admin/users.routes.js';
 import { adminSettingsRoutes } from './routes/admin/settings.routes.js';
 import { adminLogRoutes } from './routes/admin/logs.routes.js';
+import { ttsRoutes } from './routes/tts.routes.js';
 
 async function startServer() {
   try {
@@ -69,6 +70,7 @@ async function startServer() {
     await fastify.register(adminUserRoutes);
     await fastify.register(adminSettingsRoutes);
     await fastify.register(adminLogRoutes);
+    await fastify.register(ttsRoutes);
 
     // Health check
     fastify.get('/api/health', async () => {

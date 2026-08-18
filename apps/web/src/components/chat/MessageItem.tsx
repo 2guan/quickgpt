@@ -110,8 +110,10 @@ const AssistantCard: React.FC<{
 }> = ({ message, onFollowUpSelect }) => {
   const [copied, setCopied] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isLoadingTTS, setIsLoadingTTS] = useState(false);
   const [showReasoning, setShowReasoning] = useState(true);
   const [showSearch, setShowSearch] = useState(false);
+  const audioRef = React.useRef<HTMLAudioElement | null>(null);
 
   const handleCopy = () => {
     if (!message.content) return;
@@ -120,20 +122,97 @@ const AssistantCard: React.FC<{
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleTTS = () => {
-    if (!window.speechSynthesis || !message.content) return;
-    if (isSpeaking) {
-      window.speechSynthesis.cancel();
+  const cleanTextForLocalSpeech = (rawText: string) => {
+    return rawText
+      .replace(/<think[\s\S]*?<\/think>/gi, '')
+      .replace(/```[\s\S]*?```/g, ' 代码块已省略 ')
+      .replace(/`([^`]+)`/g, '$1')
+      .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1')
+      .replace(/!\[([^\]]*)\]\([^\)]+\)/g, '')
+      .replace(/^[#>\-\*\+]\s+/gm, '')
+      .replace(/(\*\*|__)(.*?)\1/g, '$2')
+      .replace(/(\*|_)(.*?)\1/g, '$2')
+      .replace(/\$\$[\s\S]*?\$\$/g, ' 公式 ')
+      .replace(/\$([^\$]+)\$/g, '$1')
+      .replace(/\n{2,}/g, '\n')
+      .trim();
+  };
+
+  const handleTTS = async () => {
+    if (!message.content) return;
+
+    // 1. If currently playing or loading, cancel and reset
+    if (isSpeaking || isLoadingTTS) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+        audioRef.current = null;
+      }
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
       setIsSpeaking(false);
+      setIsLoadingTTS(false);
       return;
     }
 
-    const utterance = new SpeechSynthesisUtterance(message.content);
-    utterance.lang = 'zh-CN';
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
-    window.speechSynthesis.speak(utterance);
-    setIsSpeaking(true);
+    setIsLoadingTTS(true);
+
+    try {
+      // 2. Request backend streaming Xiaomi MiMo / OpenAI TTS
+      const res = await fetch('/api/chat/tts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text: message.content,
+          modelId: message.model_id,
+        }),
+      });
+
+      if (res.ok && res.headers.get('content-type')?.includes('audio/')) {
+        const blob = await res.blob();
+        const audioUrl = URL.createObjectURL(blob);
+        const audio = new Audio(audioUrl);
+        audioRef.current = audio;
+
+        audio.onplay = () => {
+          setIsLoadingTTS(false);
+          setIsSpeaking(true);
+        };
+        audio.onended = () => {
+          setIsSpeaking(false);
+          setIsLoadingTTS(false);
+          URL.revokeObjectURL(audioUrl);
+          audioRef.current = null;
+        };
+        audio.onerror = () => {
+          setIsSpeaking(false);
+          setIsLoadingTTS(false);
+          URL.revokeObjectURL(audioUrl);
+          audioRef.current = null;
+        };
+
+        await audio.play();
+        return;
+      }
+    } catch {
+      // Fall through to browser Web Speech API
+    }
+
+    // 3. Fallback to browser Web Speech API
+    setIsLoadingTTS(false);
+    if (window.speechSynthesis) {
+      const cleanText = cleanTextForLocalSpeech(message.content);
+      const utterance = new SpeechSynthesisUtterance(cleanText);
+      utterance.lang = 'zh-CN';
+      utterance.rate = 1.05;
+      utterance.onend = () => setIsSpeaking(false);
+      utterance.onerror = () => setIsSpeaking(false);
+      window.speechSynthesis.speak(utterance);
+      setIsSpeaking(true);
+    }
   };
 
   let searchResults: any[] = [];
@@ -176,10 +255,22 @@ const AssistantCard: React.FC<{
             <button
               onClick={handleTTS}
               disabled={!message.content}
-              title={isSpeaking ? '停止朗读' : '语音朗读'}
-              className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors disabled:opacity-40"
+              title={isSpeaking ? '停止朗读' : isLoadingTTS ? '正在合成语音...' : '语音朗读'}
+              className={`p-1.5 rounded-lg transition-colors disabled:opacity-40 ${
+                isSpeaking
+                  ? 'text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40'
+                  : isLoadingTTS
+                  ? 'text-emerald-600 dark:text-emerald-400 animate-pulse'
+                  : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
             >
-              {isSpeaking ? <VolumeX className="w-3.5 h-3.5 text-red-500" /> : <Volume2 className="w-3.5 h-3.5" />}
+              {isLoadingTTS ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600 dark:text-emerald-400" />
+              ) : isSpeaking ? (
+                <VolumeX className="w-3.5 h-3.5 text-red-500" />
+              ) : (
+                <Volume2 className="w-3.5 h-3.5" />
+              )}
             </button>
           </div>
         </div>
