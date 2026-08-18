@@ -27,9 +27,9 @@ export async function generateFollowUpSuggestions(
     const apiKey = targetModel.channel_api_key;
     const modelName = targetModel.real_model_id || targetModel.model_id;
 
-    const prompt = `根据用户提问和助手的回答，生成 3 个用户最可能接着提问的简短追问选项。
+    const prompt = `根据用户提问和助手的回答，请直接生成 3 个用户最可能接着提问的简短追问选项。
 要求：
-1. 每个追问在一行，不带序号、不要多余前缀，不要任何解释。
+1. 每个追问在一行，不带序号、不要多余前缀，无需长篇解释。
 2. 简短精炼，不超过 25 个字。
 3. 严格输出 3 行。
 
@@ -51,9 +51,9 @@ export async function generateFollowUpSuggestions(
             model: modelName,
             messages: [{ role: 'user', content: prompt }],
             temperature: 0.6,
-            max_tokens: 800,
+            max_tokens: 1000,
           }),
-          signal: AbortSignal.timeout(10000),
+          signal: AbortSignal.timeout(30000), // 30s timeout for deep thinking models
         });
 
         if (upstreamRes.ok) {
