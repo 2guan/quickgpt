@@ -449,6 +449,27 @@ export async function handleStreamChat({
   const globalSystemPrompt = (systemPromptStmt.get() as { value: string } | undefined)?.value || 'You are a helpful, knowledgeable AI assistant.';
 
   let combinedSystemPrompt = globalSystemPrompt;
+
+  // Add presentation slide output instruction
+  combinedSystemPrompt += `\n\n【PPT/演示文稿生成规范】
+当用户要求制作、生成或设计 PPT、演示文稿、幻灯片、Slides 时，请务必使用标准的 \`\`\`ppt 代码块包裹完整的幻灯片内容，每页之间使用独立的三连短横线 \`---\` 进行分隔，标准示例如下：
+\`\`\`ppt
+# 演示文稿主标题
+### 副标题 / 演讲者姓名
+---
+## 第一页标题
+### 页面副标题
+- 核心要点 1：详细描述
+- 核心要点 2：详细描述
+- 核心要点 3：详细描述
+> 演讲备注：本页演讲时的备忘提示
+---
+## 第二页标题
+- 重点项目 A
+- 重点项目 B
+\`\`\`
+这样系统将自动激活富交互幻灯片播放器，并支持用户直接导出原生 Office/WPS .pptx 文件。`;
+
   if (searchContextText) {
     combinedSystemPrompt += searchContextText;
   }

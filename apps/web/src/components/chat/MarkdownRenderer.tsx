@@ -6,6 +6,7 @@ import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
 import rehypeHighlight from 'rehype-highlight';
 import { Copy, Check } from 'lucide-react';
+import { SlideDeckViewer } from './SlideDeckViewer.js';
 
 interface MarkdownRendererProps {
   content: string;
@@ -69,8 +70,13 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) =
         components={{
           code({ node, inline, className, children, ...props }: any) {
             const match = /language-(\w+)/.exec(className || '');
-            const language = match ? match[1] : '';
+            const language = (match ? match[1] : '').toLowerCase();
             const codeString = String(children).replace(/\n$/, '');
+
+            // Detect PPT / Presentation Slide Deck format
+            if (!inline && ['ppt', 'pptx', 'slide', 'slides', 'presentation', 'marp'].includes(language)) {
+              return <SlideDeckViewer rawCode={codeString} />;
+            }
 
             if (!inline && (match || codeString.includes('\n'))) {
               return <CodeBlock language={language} code={codeString} />;

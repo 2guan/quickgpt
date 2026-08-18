@@ -13,6 +13,7 @@ import {
   FileText,
   Loader2,
   Image as ImageIcon,
+  Presentation,
 } from 'lucide-react';
 
 interface MessageInputProps {
@@ -227,6 +228,23 @@ export const MessageInput: React.FC<MessageInputProps> = ({ onSend }) => {
           title={enableSearch ? '联网搜索已开启（点击关闭）' : '点击开启联网搜索'}
         >
           <Globe className={`w-4 h-4 ${enableSearch ? 'animate-pulse' : ''}`} />
+        </button>
+
+        {/* PPT Generation Shortcut Button */}
+        <button
+          onClick={() => {
+            const current = input.trim();
+            if (current) {
+              setInput(`请帮我制作一份关于【${current}】的专业 PPT 演示文稿，包含封面页、目录页、核心内容展开与总结页，使用标准的 ppt 代码块输出。`);
+            } else {
+              setInput('请帮我制作一份关于人工智能未来发展趋势的 6 页专业汇报 PPT 演示文稿，使用标准的 ppt 代码块输出。');
+            }
+            textareaRef.current?.focus();
+          }}
+          className="p-2 text-slate-400 dark:text-slate-500 hover:text-orange-600 dark:hover:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/60 rounded-full transition-all shrink-0 mb-0.5 active:scale-95"
+          title="生成 PPT 演示文稿 (点击自动填入 PPT 制作指令)"
+        >
+          <Presentation className="w-4 h-4 text-orange-500" />
         </button>
 
         {/* Auto-resizing Textarea */}
