@@ -737,11 +737,14 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
             const totalWidth = 8.8;
             const colGap = 0.25;
             const colWidth = (totalWidth - colGap) / 2;
-            const grid2H = 3.45;
+            // Calculate height based on content density: if dense bullets, 2.8~3.2; if compact, 2.5
+            const maxBullets = Math.max(items[0]?.bullets?.length || 0, items[1]?.bullets?.length || 0);
+            const grid2H = maxBullets >= 4 ? 3.0 : 2.5;
+            const grid2Y = s.subtitle ? 1.6 : 1.45;
 
             items.slice(0, 2).forEach((item, iIdx) => {
               const cardX = 0.6 + iIdx * (colWidth + colGap);
-              const cardY = contentStartY + 0.05;
+              const cardY = grid2Y;
               const cardBg = iIdx === 1 ? 'F0FDF4' : 'FFFFFF';
               const cardLine = iIdx === 1 ? hexAccent : 'E2E8F0';
 
@@ -751,7 +754,7 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                 y: cardY,
                 w: colWidth,
                 h: grid2H,
-                rectRadius: 0.1,
+                rectRadius: 0.12,
                 fill: { color: cardBg },
                 line: { color: cardLine, width: 0.8 },
               });
@@ -759,17 +762,17 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
               // Card Title & Header separator
               if (item.title) {
                 slide.addShape(pres.ShapeType.ellipse, {
-                  x: cardX + 0.15,
-                  y: cardY + 0.18,
+                  x: cardX + 0.18,
+                  y: cardY + 0.2,
                   w: 0.1,
                   h: 0.1,
                   fill: { color: hexAccent },
                 });
 
                 slide.addText(cleanMarkdownText(item.title), {
-                  x: cardX + 0.3,
-                  y: cardY + 0.1,
-                  w: colWidth - 0.45,
+                  x: cardX + 0.35,
+                  y: cardY + 0.12,
+                  w: colWidth - 0.5,
                   h: 0.28,
                   fontSize: 11,
                   bold: true,
@@ -780,22 +783,22 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
 
                 // Title bottom subtle line
                 slide.addShape(pres.ShapeType.rect, {
-                  x: cardX + 0.15,
-                  y: cardY + 0.38,
-                  w: colWidth - 0.3,
+                  x: cardX + 0.18,
+                  y: cardY + 0.42,
+                  w: colWidth - 0.36,
                   h: 0.01,
                   fill: { color: 'E2E8F0' },
                 });
               }
 
               // Description (e.g. 解决痛点：...)
-              let curY = cardY + (item.title ? 0.45 : 0.15);
+              let curY = cardY + (item.title ? 0.48 : 0.18);
               if (item.description) {
                 slide.addText(cleanMarkdownText(item.description), {
-                  x: cardX + 0.15,
+                  x: cardX + 0.18,
                   y: curY,
-                  w: colWidth - 0.3,
-                  h: 0.42,
+                  w: colWidth - 0.36,
+                  h: 0.38,
                   fontSize: 8.5,
                   color: '64748B',
                   italic: true,
@@ -803,16 +806,16 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                   valign: 'top',
                   breakLine: true,
                 });
-                curY += 0.45;
+                curY += 0.4;
               }
 
               // Sub-bullets
               if (item.bullets && item.bullets.length > 0) {
                 const bulletLines = item.bullets.map((b) => `•  ${cleanMarkdownText(b)}`).join('\n');
                 slide.addText(bulletLines, {
-                  x: cardX + 0.15,
+                  x: cardX + 0.18,
                   y: curY,
-                  w: colWidth - 0.3,
+                  w: colWidth - 0.36,
                   h: cardY + grid2H - curY - 0.1,
                   fontSize: 8.5,
                   color: '334155',
@@ -823,30 +826,37 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
               }
             });
           } else if (s.layout === 'grid3' && items.length >= 3) {
-            // 5. THREE-COLUMN PILLARS (grid3)
+            // 5. THREE-COLUMN PILLARS (grid3) - 1:1 with Web View
             const totalWidth = 8.8;
-            const colGap = 0.18;
+            const colGap = 0.2;
             const colWidth = (totalWidth - 2 * colGap) / 3;
-            const grid3H = s.notes ? 3.0 : 3.35;
+            // Compact, vertically centered height (1:1 with Web View)
+            const maxBullets = Math.max(
+              items[0]?.bullets?.length || 0,
+              items[1]?.bullets?.length || 0,
+              items[2]?.bullets?.length || 0
+            );
+            const grid3H = s.notes ? 2.3 : maxBullets >= 3 ? 2.35 : 2.0;
+            const grid3Y = s.subtitle ? 1.75 : 1.55;
 
             items.slice(0, 3).forEach((item, iIdx) => {
               const cardX = 0.6 + iIdx * (colWidth + colGap);
-              const cardY = contentStartY + 0.05;
+              const cardY = grid3Y;
 
               slide.addShape(pres.ShapeType.roundRect, {
                 x: cardX,
                 y: cardY,
                 w: colWidth,
                 h: grid3H,
-                rectRadius: 0.08,
+                rectRadius: 0.12,
                 fill: { color: 'FFFFFF' },
-                line: { color: 'E2E8F0', width: 0.75 },
+                line: { color: 'E2E8F0', width: 0.8 },
               });
 
               // Vertical accent bar next to title
               slide.addShape(pres.ShapeType.roundRect, {
                 x: cardX + 0.15,
-                y: cardY + 0.15,
+                y: cardY + 0.16,
                 w: 0.05,
                 h: 0.22,
                 rectRadius: 0.025,
@@ -855,10 +865,10 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
 
               if (item.title) {
                 slide.addText(cleanMarkdownText(item.title), {
-                  x: cardX + 0.24,
+                  x: cardX + 0.25,
                   y: cardY + 0.1,
-                  w: colWidth - 0.35,
-                  h: 0.3,
+                  w: colWidth - 0.38,
+                  h: 0.32,
                   fontSize: 10,
                   bold: true,
                   color: '0F172A',
@@ -867,20 +877,20 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                 });
               }
 
-              let curY = cardY + 0.4;
+              let curY = cardY + 0.42;
               if (item.description) {
                 slide.addText(cleanMarkdownText(item.description), {
                   x: cardX + 0.15,
                   y: curY,
                   w: colWidth - 0.3,
-                  h: 0.45,
+                  h: 0.4,
                   fontSize: 8.5,
                   color: '64748B',
                   fontFace: 'Microsoft YaHei',
                   valign: 'top',
                   breakLine: true,
                 });
-                curY += 0.48;
+                curY += 0.42;
               }
 
               if (item.bullets && item.bullets.length > 0) {
@@ -902,18 +912,18 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
             if (s.notes) {
               slide.addShape(pres.ShapeType.roundRect, {
                 x: 0.6,
-                y: contentStartY + grid3H + 0.18,
+                y: grid3Y + grid3H + 0.3,
                 w: 8.8,
-                h: 0.35,
-                rectRadius: 0.06,
+                h: 0.38,
+                rectRadius: 0.08,
                 fill: { color: 'F0FDF4' },
                 line: { color: hexAccent, width: 0.5 },
               });
               slide.addText(`💡 ${cleanMarkdownText(s.notes)}`, {
                 x: 0.75,
-                y: contentStartY + grid3H + 0.18,
+                y: grid3Y + grid3H + 0.3,
                 w: 8.5,
-                h: 0.35,
+                h: 0.38,
                 fontSize: 8.5,
                 color: '065F46',
                 valign: 'middle',
