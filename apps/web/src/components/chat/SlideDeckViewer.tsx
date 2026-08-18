@@ -156,11 +156,11 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
         title = trimmed.replace(/^#\s+/, '').trim();
       } else if (trimmed.startsWith('## ') && !title) {
         title = trimmed.replace(/^##\s+/, '').trim();
-      } else if (trimmed.startsWith('### ') && !subtitle && (!hasH3Cards || items.length === 0)) {
-        // First ### before any cards is the slide's subtitle
+      } else if (trimmed.startsWith('### ') && !subtitle && items.length === 0 && !hasH3Cards) {
+        // Only treat as subtitle if there is only 1 H3 in the entire slide
         subtitle = trimmed.replace(/^###\s+/, '').trim();
       } else if (trimmed.startsWith('### ') || (trimmed.startsWith('#### ') && items.length > 0)) {
-        // ### or #### represents a column card title (e.g. ### 🔷 PAMS ...)
+        // Multiple ### in a slide are ALWAYS column/stage card titles (e.g. ### 🔹 Step 1..., ### 🔷 PAMS...)
         const h3Title = trimmed.replace(/^#+\s+/, '').trim();
         items.push({ title: h3Title, description: '', bullets: [] });
       } else if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
