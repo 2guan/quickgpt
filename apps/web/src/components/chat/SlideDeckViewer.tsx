@@ -38,6 +38,50 @@ const COLOR_THEMES = [
 ];
 
 /**
+ * Strips raw markdown syntax (**bold**, *italic*, `code`) for plain text PPTX export
+ */
+export function cleanMarkdownText(text: string): string {
+  if (!text) return '';
+  return text
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/__([^_]+)__/g, '$1')
+    .replace(/_([^_]+)_/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/~~([^~]+)~~/g, '$1')
+    .trim();
+}
+
+/**
+ * Renders inline markdown styling for React elements (supporting **bold**, *italic*, etc.)
+ */
+export function renderFormattedText(text: string): React.ReactNode {
+  if (!text) return '';
+  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g);
+
+  return parts.map((part, index) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return (
+        <strong key={index} className="font-bold text-slate-900 dark:text-white">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    if (part.startsWith('*') && part.endsWith('*')) {
+      return <em key={index} className="italic">{part.slice(1, -1)}</em>;
+    }
+    if (part.startsWith('`') && part.endsWith('`')) {
+      return (
+        <code key={index} className="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono text-[90%]">
+          {part.slice(1, -1)}
+        </code>
+      );
+    }
+    return part;
+  });
+}
+
+/**
  * Parses markdown slide content:
  * Splits by `---` or page markers and extracts structured items, layouts, titles, notes.
  */
@@ -249,7 +293,7 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
           });
 
           // Main Title
-          slide.addText(s.title || '演示文稿', {
+          slide.addText(cleanMarkdownText(s.title || '演示文稿'), {
             x: 1.0,
             y: 2.5,
             w: 11.3,
@@ -263,7 +307,7 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
 
           // Subtitle
           if (s.subtitle) {
-            slide.addText(s.subtitle, {
+            slide.addText(cleanMarkdownText(s.subtitle), {
               x: 1.5,
               y: 4.4,
               w: 10.3,
@@ -309,7 +353,7 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
           });
 
           // Slide Title
-          slide.addText(s.title, {
+          slide.addText(cleanMarkdownText(s.title), {
             x: 1.05,
             y: 0.45,
             w: 11.0,
@@ -322,7 +366,7 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
 
           // Subtitle
           if (s.subtitle) {
-            slide.addText(s.subtitle, {
+            slide.addText(cleanMarkdownText(s.subtitle), {
               x: 1.05,
               y: 1.05,
               w: 11.0,
@@ -376,7 +420,7 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
               });
 
               // Step Title
-              slide.addText(item.title || `阶段 ${iIdx + 1}`, {
+              slide.addText(cleanMarkdownText(item.title || `阶段 ${iIdx + 1}`), {
                 x: cardX + 0.8,
                 y: contentStartY + 0.25,
                 w: colWidth - 0.9,
@@ -388,7 +432,7 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
               });
 
               // Step Description
-              slide.addText(item.description || '', {
+              slide.addText(cleanMarkdownText(item.description || ''), {
                 x: cardX + 0.25,
                 y: contentStartY + 0.9,
                 w: colWidth - 0.5,
@@ -419,7 +463,7 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
               });
 
               // Metric Title
-              slide.addText(item.title || `指标 ${iIdx + 1}`, {
+              slide.addText(cleanMarkdownText(item.title || `指标 ${iIdx + 1}`), {
                 x: cardX + 0.3,
                 y: contentStartY + 0.4,
                 w: colWidth - 0.6,
@@ -431,7 +475,7 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
               });
 
               // Metric Description
-              slide.addText(item.description || '', {
+              slide.addText(cleanMarkdownText(item.description || ''), {
                 x: cardX + 0.3,
                 y: contentStartY + 1.1,
                 w: colWidth - 0.6,
@@ -478,7 +522,7 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                   fill: { color: hexAccent },
                 });
 
-                slide.addText(item.title, {
+                slide.addText(cleanMarkdownText(item.title), {
                   x: cardX + 0.55,
                   y: contentStartY + 0.25,
                   w: colWidth - 0.8,
@@ -491,7 +535,7 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
               }
 
               // Card Description
-              slide.addText(item.description || '', {
+              slide.addText(cleanMarkdownText(item.description || ''), {
                 x: cardX + 0.3,
                 y: contentStartY + 0.85,
                 w: colWidth - 0.6,
@@ -521,7 +565,7 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
               });
 
               if (item.title) {
-                slide.addText(item.title, {
+                slide.addText(cleanMarkdownText(item.title), {
                   x: cardX + 0.25,
                   y: contentStartY + 0.3,
                   w: colWidth - 0.5,
@@ -533,7 +577,7 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                 });
               }
 
-              slide.addText(item.description || '', {
+              slide.addText(cleanMarkdownText(item.description || ''), {
                 x: cardX + 0.25,
                 y: contentStartY + (item.title ? 0.9 : 0.4),
                 w: colWidth - 0.5,
@@ -571,7 +615,7 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                   fill: { color: hexAccent },
                 });
 
-                slide.addText(b, {
+                slide.addText(cleanMarkdownText(b), {
                   x: 1.3,
                   y: cardY,
                   w: 11.0,
@@ -704,11 +748,11 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                   Presentation Deck
                 </div>
                 <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-white leading-snug break-words drop-shadow-sm max-w-2xl mx-auto">
-                  {currentSlide.title}
+                  {renderFormattedText(currentSlide.title)}
                 </h1>
                 {currentSlide.subtitle && (
                   <p className="text-xs sm:text-sm text-slate-200/90 font-medium max-w-xl mx-auto leading-relaxed break-words">
-                    {currentSlide.subtitle}
+                    {renderFormattedText(currentSlide.subtitle)}
                   </p>
                 )}
               </div>
@@ -719,12 +763,12 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                   <div className="flex items-center gap-2">
                     <div className="w-1.5 h-4 rounded-full shrink-0" style={{ backgroundColor: activeTheme.accent }} />
                     <h2 className="text-sm sm:text-base lg:text-lg font-bold text-slate-900 dark:text-white leading-snug break-words flex-1">
-                      {currentSlide.title}
+                      {renderFormattedText(currentSlide.title)}
                     </h2>
                   </div>
                   {currentSlide.subtitle && (
                     <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium ml-3.5 mt-0.5 break-words">
-                      {currentSlide.subtitle}
+                      {renderFormattedText(currentSlide.subtitle)}
                     </p>
                   )}
                 </div>
@@ -739,11 +783,11 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                             {idx + 1}
                           </span>
                           <span className="text-[11px] sm:text-xs font-bold text-slate-800 dark:text-slate-100 break-words leading-tight flex-1">
-                            {item.title || `阶段 ${idx + 1}`}
+                            {renderFormattedText(item.title || `阶段 ${idx + 1}`)}
                           </span>
                         </div>
                         <p className="text-[10px] sm:text-[11px] text-slate-600 dark:text-slate-300 leading-snug break-words whitespace-normal flex-1">
-                          {item.description}
+                          {renderFormattedText(item.description || '')}
                         </p>
                       </div>
                     ))}
@@ -754,10 +798,10 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                     {currentSlide.items.slice(0, 3).map((item, idx) => (
                       <div key={idx} className="p-2.5 sm:p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-linear-to-br from-slate-50 to-slate-100/70 dark:from-slate-800/80 dark:to-slate-900/80 shadow-2xs flex flex-col justify-between">
                         <div className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 break-words leading-tight">
-                          {item.title || `指标 ${idx + 1}`}
+                          {renderFormattedText(item.title || `指标 ${idx + 1}`)}
                         </div>
                         <p className="text-[10px] sm:text-xs text-slate-600 dark:text-slate-400 leading-snug break-words whitespace-normal flex-1">
-                          {item.description}
+                          {renderFormattedText(item.description || '')}
                         </p>
                         <div className="w-6 h-0.5 mt-1.5 rounded-full shrink-0" style={{ backgroundColor: activeTheme.accent }} />
                       </div>
@@ -771,11 +815,13 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                         {item.title && (
                           <div className="flex items-center gap-1.5 mb-1.5 pb-1 border-b border-slate-200/60 dark:border-slate-700/50">
                             <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: activeTheme.accent }} />
-                            <span className="text-xs font-bold text-slate-900 dark:text-slate-100 break-words leading-tight flex-1">{item.title}</span>
+                            <span className="text-xs font-bold text-slate-900 dark:text-slate-100 break-words leading-tight flex-1">
+                              {renderFormattedText(item.title)}
+                            </span>
                           </div>
                         )}
                         <p className="text-[11px] sm:text-xs text-slate-700 dark:text-slate-300 leading-relaxed break-words whitespace-normal flex-1">
-                          {item.description}
+                          {renderFormattedText(item.description || '')}
                         </p>
                       </div>
                     ))}
@@ -787,11 +833,11 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                       <div key={idx} className="p-2 sm:p-2.5 rounded-xl bg-slate-50/90 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60 shadow-2xs flex flex-col">
                         {item.title && (
                           <div className="text-[11px] sm:text-xs font-bold text-slate-800 dark:text-slate-100 mb-1 break-words leading-tight">
-                            {item.title}
+                            {renderFormattedText(item.title)}
                           </div>
                         )}
                         <p className="text-[10px] sm:text-[11px] text-slate-600 dark:text-slate-300 leading-snug break-words whitespace-normal flex-1">
-                          {item.description}
+                          {renderFormattedText(item.description || '')}
                         </p>
                       </div>
                     ))}
@@ -811,7 +857,7 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                           >
                             <div className="w-1.5 h-1.5 rounded-full mt-1 shrink-0" style={{ backgroundColor: activeTheme.accent }} />
                             <span className="text-slate-700 dark:text-slate-200 break-words leading-relaxed whitespace-normal flex-1">
-                              {b}
+                              {renderFormattedText(b)}
                             </span>
                           </div>
                         );
