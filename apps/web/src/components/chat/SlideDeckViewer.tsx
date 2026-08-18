@@ -740,18 +740,18 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
           )}
 
           {/* Slide Body Content (Rich layout renderer: cover / grid2 / grid3 / grid4 / timeline / stats / content) */}
-          <div className="flex-1 min-h-0 flex flex-col justify-center my-auto overflow-hidden">
+          <div className="flex-1 min-h-0 flex flex-col justify-center my-auto w-full">
             {/* 1. COVER SLIDE */}
             {currentSlide.layout === 'cover' ? (
-              <div className="text-center my-auto space-y-2.5 px-4">
-                <div className="inline-block px-3 py-0.5 rounded-full bg-white/15 backdrop-blur-xs text-[11px] font-bold tracking-wider text-emerald-300 uppercase">
+              <div className="text-center my-auto space-y-2 sm:space-y-3 px-2 sm:px-6 w-full flex flex-col items-center justify-center">
+                <div className="inline-flex items-center px-3 py-0.5 rounded-full bg-white/20 backdrop-blur-xs text-[11px] font-bold tracking-wider text-emerald-200 uppercase shrink-0">
                   Presentation Deck
                 </div>
-                <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-white leading-snug break-words drop-shadow-sm max-w-2xl mx-auto">
+                <h1 className="text-lg sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-white leading-snug break-all sm:break-words drop-shadow-sm w-full text-center">
                   {renderFormattedText(currentSlide.title)}
                 </h1>
                 {currentSlide.subtitle && (
-                  <p className="text-xs sm:text-sm text-slate-200/90 font-medium max-w-xl mx-auto leading-relaxed break-words">
+                  <p className="text-xs sm:text-sm text-slate-200/95 font-medium w-full text-center leading-relaxed break-all sm:break-words">
                     {renderFormattedText(currentSlide.subtitle)}
                   </p>
                 )}
@@ -759,15 +759,15 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
             ) : (
               <>
                 {/* Regular Header: Title & Subtitle */}
-                <div className="shrink-0 mb-2 sm:mb-2.5">
-                  <div className="flex items-center gap-2">
-                    <div className="w-1.5 h-4 rounded-full shrink-0" style={{ backgroundColor: activeTheme.accent }} />
-                    <h2 className="text-sm sm:text-base lg:text-lg font-bold text-slate-900 dark:text-white leading-snug break-words flex-1">
+                <div className="shrink-0 mb-2 sm:mb-2.5 w-full">
+                  <div className="flex items-start gap-2 w-full">
+                    <div className="w-1.5 h-4 rounded-full shrink-0 mt-0.5" style={{ backgroundColor: activeTheme.accent }} />
+                    <h2 className="text-sm sm:text-base lg:text-lg font-bold text-slate-900 dark:text-white leading-snug break-all sm:break-words flex-1">
                       {renderFormattedText(currentSlide.title)}
                     </h2>
                   </div>
                   {currentSlide.subtitle && (
-                    <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium ml-3.5 mt-0.5 break-words">
+                    <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium ml-3.5 mt-0.5 break-all sm:break-words">
                       {renderFormattedText(currentSlide.subtitle)}
                     </p>
                   )}
