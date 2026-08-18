@@ -166,7 +166,7 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
         const isTopLevelBullet = /^[-*]\s+|\d+[\.、]\s*/.test(trimmed);
 
         if (isIndented && items.length > 0) {
-          // Nested sub-bullet under the current item
+          // Nested sub-bullet under the current item (with leading spaces or tabs)
           const subBullet = trimmed.replace(/^[-*]\s+|\d+[\.、]\s*/, '').trim();
           const lastItem = items[items.length - 1];
           if (!lastItem.bullets) lastItem.bullets = [];
@@ -175,25 +175,29 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
           const cleaned = trimmed.replace(/^[-*]\s+|\d+[\.、]\s*/, '').trim();
           rawBullets.push(cleaned);
 
-          // If we already have card items started via ###, bullets belong to the last item
-          if (items.length > 0 && items[items.length - 1].title) {
+          const boldMatch = cleaned.match(/^\*\*([^*]+)\*\*[：:\s]*(.*)$/);
+          const bracketMatch = cleaned.match(/^【([^】]+)】[：:\s]*(.*)$/);
+          const colonMatch = cleaned.match(/^([^：:\s]{2,16})[：:](.+)$/);
+
+          // If this top-level bullet has bold/bracket/colon title, it is definitely a standalone card
+          if (boldMatch) {
+            items.push({ title: boldMatch[1].trim(), description: boldMatch[2].trim(), bullets: [] });
+          } else if (bracketMatch) {
+            items.push({ tag: bracketMatch[1].trim(), title: bracketMatch[1].trim(), description: bracketMatch[2].trim(), bullets: [] });
+          } else if (colonMatch && (colonMatch[1].startsWith('阶段') || colonMatch[1].startsWith('Skill') || colonMatch[1].startsWith('Step') || colonMatch[1].length <= 10)) {
+            items.push({ title: colonMatch[1].trim(), description: colonMatch[2].trim(), bullets: [] });
+          } else if (items.length > 0 && items[items.length - 1].title && (items[items.length - 1].bullets?.length || 0) > 0) {
+            // An un-indented bullet following an H3 card block
+            const lastItem = items[items.length - 1];
+            if (!lastItem.bullets) lastItem.bullets = [];
+            lastItem.bullets.push(cleaned);
+          } else if (items.length > 0 && items[items.length - 1].title && !items[items.length - 1].description) {
+            // First bullet under an H3 card header
             const lastItem = items[items.length - 1];
             if (!lastItem.bullets) lastItem.bullets = [];
             lastItem.bullets.push(cleaned);
           } else {
-            const boldMatch = cleaned.match(/^\*\*([^*]+)\*\*[：:\s]*(.*)$/);
-            const bracketMatch = cleaned.match(/^【([^】]+)】[：:\s]*(.*)$/);
-            const colonMatch = cleaned.match(/^([^：:\s]{2,16})[：:](.+)$/);
-
-            if (boldMatch) {
-              items.push({ title: boldMatch[1].trim(), description: boldMatch[2].trim(), bullets: [] });
-            } else if (bracketMatch) {
-              items.push({ tag: bracketMatch[1].trim(), title: bracketMatch[1].trim(), description: bracketMatch[2].trim(), bullets: [] });
-            } else if (colonMatch) {
-              items.push({ title: colonMatch[1].trim(), description: colonMatch[2].trim(), bullets: [] });
-            } else {
-              items.push({ description: cleaned, bullets: [] });
-            }
+            items.push({ description: cleaned, bullets: [] });
           }
         } else if (!title) {
           title = trimmed;
@@ -569,7 +573,7 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                 x: cardX + 0.12,
                 y: contentStartY + 0.55,
                 w: colWidth - 0.24,
-                h: cardTotalHeight - 0.7,
+                h: timelineH - 0.7,
                 fontSize: 9,
                 color: '334155',
                 fontFace: 'Microsoft YaHei',
@@ -577,6 +581,28 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                 breakLine: true,
               });
             });
+
+            if (s.notes) {
+              slide.addShape(pres.ShapeType.roundRect, {
+                x: 0.6,
+                y: contentStartY + timelineH + 0.3,
+                w: 8.8,
+                h: 0.38,
+                rectRadius: 0.06,
+                fill: { color: 'F0FDF4' },
+                line: { color: hexAccent, width: 0.5 },
+              });
+              slide.addText(`💡 ${cleanMarkdownText(s.notes)}`, {
+                x: 0.75,
+                y: contentStartY + timelineH + 0.3,
+                w: 8.5,
+                h: 0.38,
+                fontSize: 8.5,
+                color: '065F46',
+                valign: 'middle',
+                fontFace: 'Microsoft YaHei',
+              });
+            }
           } else if (s.layout === 'stats') {
             // 3. STATS LAYOUT (2~3 KPI Cards)
             const count = Math.min(items.length, 3);
@@ -1420,34 +1446,41 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
 
                 {/* 2. TIMELINE / ROADMAP (2~5 items with connecting line) */}
                 {currentSlide.layout === 'timeline' && currentSlide.items && currentSlide.items.length > 0 ? (
-                  <div className="relative my-auto w-full">
-                    {/* Horizontal connecting background line */}
-                    <div className="hidden sm:block absolute top-4 left-6 right-6 h-0.5 bg-slate-200 dark:bg-slate-700 z-0" />
-                    
-                    <div className={`grid gap-2 sm:gap-2.5 z-10 relative ${
-                      currentSlide.items.length === 5 ? 'grid-cols-2 sm:grid-cols-5' :
-                      currentSlide.items.length === 4 ? 'grid-cols-2 sm:grid-cols-4' :
-                      currentSlide.items.length === 3 ? 'grid-cols-3' : 'grid-cols-2'
-                    }`}>
-                      {currentSlide.items.slice(0, 5).map((item, idx) => (
-                        <div key={idx} className="flex flex-col p-2.5 rounded-xl bg-white dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 shadow-2xs hover:shadow-xs transition-all">
-                          <div className="flex items-center gap-1.5 mb-1.5 shrink-0">
-                            <span
-                              className="flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-black text-white shadow-xs shrink-0 ring-2 ring-white dark:ring-slate-800"
-                              style={{ backgroundColor: activeTheme.accent }}
-                            >
-                              {idx + 1}
-                            </span>
-                            <span className="text-[11px] sm:text-xs font-bold text-slate-800 dark:text-slate-100 break-words leading-tight flex-1">
-                              {renderFormattedText(item.title || `阶段 ${idx + 1}`)}
-                            </span>
+                  <div className="flex flex-col my-auto w-full space-y-2.5">
+                    <div className="relative w-full">
+                      {/* Horizontal connecting background line */}
+                      <div className="hidden sm:block absolute top-4 left-6 right-6 h-0.5 bg-slate-200 dark:bg-slate-700 z-0" />
+                      
+                      <div className={`grid gap-2 sm:gap-2.5 z-10 relative ${
+                        currentSlide.items.length === 5 ? 'grid-cols-2 sm:grid-cols-5' :
+                        currentSlide.items.length === 4 ? 'grid-cols-2 sm:grid-cols-4' :
+                        currentSlide.items.length === 3 ? 'grid-cols-3' : 'grid-cols-2'
+                      }`}>
+                        {currentSlide.items.slice(0, 5).map((item, idx) => (
+                          <div key={idx} className="flex flex-col p-2.5 rounded-xl bg-white dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 shadow-2xs hover:shadow-xs transition-all">
+                            <div className="flex items-center gap-1.5 mb-1.5 shrink-0">
+                              <span
+                                className="flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-black text-white shadow-xs shrink-0 ring-2 ring-white dark:ring-slate-800"
+                                style={{ backgroundColor: activeTheme.accent }}
+                              >
+                                {idx + 1}
+                              </span>
+                              <span className="text-[11px] sm:text-xs font-bold text-slate-800 dark:text-slate-100 break-words leading-tight flex-1">
+                                {renderFormattedText(item.title || `阶段 ${idx + 1}`)}
+                              </span>
+                            </div>
+                            <p className="text-[10px] sm:text-[11px] text-slate-600 dark:text-slate-300 leading-snug break-words whitespace-normal flex-1">
+                              {renderFormattedText(item.description || '')}
+                            </p>
                           </div>
-                          <p className="text-[10px] sm:text-[11px] text-slate-600 dark:text-slate-300 leading-snug break-words whitespace-normal flex-1">
-                            {renderFormattedText(item.description || '')}
-                          </p>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
+                    {currentSlide.notes && (
+                      <div className="px-3 py-1.5 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-900/40 text-[9.5px] sm:text-[10.5px] text-emerald-800 dark:text-emerald-300 leading-snug">
+                        💡 {renderFormattedText(currentSlide.notes)}
+                      </div>
+                    )}
                   </div>
                 ) : /* 3. STATS / METRICS CARDS (Large bold numbers / accent badges) */
                 currentSlide.layout === 'stats' && currentSlide.items && currentSlide.items.length > 0 ? (
