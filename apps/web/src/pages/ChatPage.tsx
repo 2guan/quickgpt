@@ -232,7 +232,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({ onOpenAdmin }) => {
             <div className="space-y-6 pb-6 max-w-4xl lg:max-w-5xl mx-auto w-full">
               {groupedTurnList.map((turn, idx) => (
                 <MessageItem
-                  key={idx}
+                  key={turn.userMessage?.id || `turn_${idx}`}
                   userMessage={turn.userMessage}
                   assistantMessages={turn.assistantMessages}
                   onFollowUpSelect={(text: string) => sendMessage(text)}

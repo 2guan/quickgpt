@@ -350,9 +350,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
             if (data.modelId) {
               streamSucceeded = true;
+              const activePlaceholderIds = new Set(placeholderAssistantMsgs.map((p) => p.id));
               set((state) => {
                 const updatedMsgs = state.messages.map((m) => {
-                  if (m.role === 'assistant' && m.model_id === data.modelId) {
+                  if (activePlaceholderIds.has(m.id) && m.model_id === data.modelId) {
                     let nextContent = m.content;
                     let nextReasoning = m.reasoning_content || '';
                     let nextSearch = m.search_results_json || '[]';
