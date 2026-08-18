@@ -7,11 +7,7 @@ export interface SearchResultItem {
 }
 
 /**
- * Intelligent keyword extraction from conversational user prompts:
- * 1. Strips polite greetings, conversational openers, and imperative phrases
- * 2. Dedicated weather entity normalizer (e.g. "巴厘岛今天有没有雨" / "今天巴厘岛下雨了吗" -> "巴厘岛天气")
- * 3. Strips temporal prefixes (今天/今日...), conversational question suffixes (怎么样/是多少/是什么/吗/呢/？),
- *    grammatical particles ("的" between nouns), and redundant spaces within Chinese phrases.
+ * Fast keyword cleaning fallback
  */
 export function extractSearchKeywords(rawQuery: string): string {
   if (!rawQuery) return '';
@@ -27,8 +23,7 @@ export function extractSearchKeywords(rawQuery: string): string {
     query = query.replace(prefixRegex, '').trim();
   }
 
-  // 3. Dedicated weather entity extractor:
-  // e.g. "巴厘岛今天有没有雨" / "今天巴厘岛下雨了吗" / "东京冷不冷" -> "{place}天气"
+  // 3. Dedicated weather entity normalizer (e.g. "巴厘岛今天有没有雨" -> "巴厘岛天气")
   if (/(?:天气|下雨|降雨|有雨|有无雨|有没有雨|暴雨|下雪|降雪|冷不?冷|热不?热|气温|温度|晴天|阴天)/.test(query)) {
     let place = query
       .replace(/(?:今天|今日|明天|后天|现在|目前|实时|最近|这几天|当地)/g, '')
@@ -62,7 +57,91 @@ export function extractSearchKeywords(rawQuery: string): string {
   return query;
 }
 
-export async function performWebSearch(query: string, maxResults = 5): Promise<SearchResultItem[]> {
+/**
+ * Uses a fast LLM call (e.g. MiMo 2.5 without thinking) to generate 1~3 targeted search queries
+ */
+export async function generateSearchQueriesWithLLM(
+  userPrompt: string,
+  preferredModelId?: string
+): Promise<string[]> {
+  try {
+    const { getModelCandidates, getChatUrlCandidates } = await import('./chat.service.js');
+    
+    // 1. Check if an admin configured search_query_model_id in system_settings
+    const queryModelStmt = db.prepare("SELECT value FROM system_settings WHERE key = 'search_query_model_id'");
+    const customQueryModel = (queryModelStmt.get() as { value: string } | undefined)?.value;
+
+    let candidateList: any[] = [];
+    if (customQueryModel && customQueryModel !== 'auto') {
+      candidateList = getModelCandidates(customQueryModel);
+    }
+    if (candidateList.length === 0 && preferredModelId) {
+      candidateList = getModelCandidates(preferredModelId);
+    }
+    if (candidateList.length === 0) {
+      candidateList = getModelCandidates('mimo-v2.5');
+    }
+    if (candidateList.length === 0) {
+      const anyModel = db.prepare("SELECT model_id FROM models WHERE is_active = 1 AND model_type = 'chat' ORDER BY order_index ASC LIMIT 1").get() as { model_id: string } | undefined;
+      if (anyModel) {
+        candidateList = getModelCandidates(anyModel.model_id);
+      }
+    }
+
+    if (candidateList.length > 0) {
+      const cand = candidateList[0];
+      const chatUrls = getChatUrlCandidates(cand.channel_base_url);
+      const url = chatUrls[0];
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${cand.channel_api_key}`,
+          'api-key': cand.channel_api_key,
+        },
+        body: JSON.stringify({
+          model: cand.model_id,
+          messages: [
+            {
+              role: 'system',
+              content:
+                '你是一个搜索引擎关键词生成助手。请根据用户提问，提炼生成 1 到 3 个最适合用于搜索引擎（如 Bing/Google）检索的核心搜索短语。只返回 JSON 字符串数组，例如：["短语1", "短语2", "短语3"]。绝对不要输出任何思考过程或解释，只输出纯 JSON 数组。',
+            },
+            {
+              role: 'user',
+              content: userPrompt,
+            },
+          ],
+          temperature: 0.1,
+          max_tokens: 150,
+          thinking: { type: 'disabled' },
+          stream: false,
+        }),
+        signal: AbortSignal.timeout(4000),
+      });
+
+      if (res.ok) {
+        const json = (await res.json()) as any;
+        let content = (json.choices?.[0]?.message?.content || '').replace(/<think[\s\S]*?<\/think>/gi, '').trim();
+        const jsonMatch = content.match(/\[[\s\S]*?\]/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed.slice(0, 3).map((q: any) => String(q).trim()).filter(Boolean);
+          }
+        }
+      }
+    }
+  } catch (err: any) {
+    console.warn(`[Search] LLM query generation notice: ${err.message}`);
+  }
+
+  const fallback = extractSearchKeywords(userPrompt);
+  return fallback ? [fallback] : [userPrompt.slice(0, 50)];
+}
+
+export async function performWebSearch(query: string, maxResults = 3): Promise<SearchResultItem[]> {
   const cleanQuery = extractSearchKeywords(query);
   if (!cleanQuery) return [];
 
@@ -88,7 +167,7 @@ export async function performWebSearch(query: string, maxResults = 5): Promise<S
             search_depth: 'basic',
             max_results: maxResults,
           }),
-          signal: AbortSignal.timeout(6000),
+          signal: AbortSignal.timeout(5000),
         });
         if (res.ok) {
           const data = (await res.json()) as any;
@@ -109,7 +188,7 @@ export async function performWebSearch(query: string, maxResults = 5): Promise<S
     if (provider === 'serpapi' && apiKey) {
       try {
         const serpUrl = `https://serpapi.com/search.json?q=${encodeURIComponent(cleanQuery)}&api_key=${encodeURIComponent(apiKey)}&hl=zh-cn&gl=cn&num=${maxResults}`;
-        const res = await fetch(serpUrl, { signal: AbortSignal.timeout(6000) });
+        const res = await fetch(serpUrl, { signal: AbortSignal.timeout(5000) });
         if (res.ok) {
           const data = (await res.json()) as any;
           if (Array.isArray(data.organic_results)) {
@@ -135,7 +214,7 @@ export async function performWebSearch(query: string, maxResults = 5): Promise<S
         
         const res = await fetch(url.toString(), {
           headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
-          signal: AbortSignal.timeout(6000),
+          signal: AbortSignal.timeout(5000),
         });
         if (res.ok) {
           const data = (await res.json()) as any;
@@ -161,7 +240,7 @@ export async function performWebSearch(query: string, maxResults = 5): Promise<S
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
           'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
         },
-        signal: AbortSignal.timeout(6000),
+        signal: AbortSignal.timeout(5000),
       });
 
       if (response.ok) {
@@ -242,6 +321,33 @@ export async function performWebSearch(query: string, maxResults = 5): Promise<S
     console.error(`[Search] Error performing web search for "${query}":`, err.message);
     return [];
   }
+}
+
+/**
+ * Concurrently executes web searches for multiple queries and returns deduplicated results
+ */
+export async function executeMultiQueryWebSearch(
+  queries: string[],
+  resultsPerQuery = 3
+): Promise<SearchResultItem[]> {
+  if (!queries || queries.length === 0) return [];
+
+  const searchPromises = queries.map((q) => performWebSearch(q, resultsPerQuery));
+  const resultsArrays = await Promise.all(searchPromises);
+
+  const seenUrls = new Set<string>();
+  const mergedResults: SearchResultItem[] = [];
+
+  for (const arr of resultsArrays) {
+    for (const item of arr) {
+      if (item.url && !seenUrls.has(item.url)) {
+        seenUrls.add(item.url);
+        mergedResults.push(item);
+      }
+    }
+  }
+
+  return mergedResults;
 }
 
 export function formatSearchResultsForPrompt(results: SearchResultItem[]): string {

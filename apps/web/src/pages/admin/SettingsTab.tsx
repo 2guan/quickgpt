@@ -443,6 +443,29 @@ export const SettingsTab: React.FC = () => {
               </div>
             </div>
           )}
+
+          <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+            <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              联网搜索前置关键词提炼模型 (Search Query Model)
+            </label>
+            <select
+              value={settings.search_query_model_id || 'auto'}
+              onChange={(e) => setSettings({ ...settings, search_query_model_id: e.target.value })}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-xl focus:bg-white dark:focus:bg-slate-800 focus:border-emerald-500 focus:outline-hidden"
+            >
+              <option value="auto">自动跟随当前对话模型（或优先使用小米 mimo-v2.5）</option>
+              {models
+                .filter((m: any) => m.model_type === 'chat' && m.is_active === 1)
+                .map((m: any) => (
+                  <option key={m.id} value={m.model_id}>
+                    {m.name || m.model_id} ({m.model_id})
+                  </option>
+                ))}
+            </select>
+            <span className="text-[10px] text-slate-400 mt-1 block">
+              联网搜索前，系统自动将用户提问交由此模型（关闭思考模式极速返回），生成 1~3 个核心搜索关键句子并多路检索，每个句子返回 3 条网页结果汇聚后供给大模型回答。
+            </span>
+          </div>
         </div>
 
         {/* 4. Follow-up Suggestions Configuration */}

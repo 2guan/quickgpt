@@ -1,6 +1,11 @@
 import { db } from '../db/sqlite.js';
 import { FastifyReply } from 'fastify';
-import { performWebSearch, formatSearchResultsForPrompt, SearchResultItem } from './search.service.js';
+import {
+  generateSearchQueriesWithLLM,
+  executeMultiQueryWebSearch,
+  formatSearchResultsForPrompt,
+  SearchResultItem,
+} from './search.service.js';
 import { generateFollowUpSuggestions } from './followup.service.js';
 import { recordAuditLog } from './audit.service.js';
 import { ENV } from '../config/env.js';
@@ -387,8 +392,9 @@ export async function handleStreamChat({
 
   // If search enabled in chat bar or model has auto search fallback enabled
   if (enableSearch || Boolean(primaryCandidate.enable_search_fallback)) {
-    reply.raw.write(`data: ${JSON.stringify({ status: '正在联网搜索相关信息...', modelId })}\n\n`);
-    searchResults = await performWebSearch(userLastMsg);
+    reply.raw.write(`data: ${JSON.stringify({ status: '正在生成搜索关键词并检索...', modelId })}\n\n`);
+    const searchQueries = await generateSearchQueriesWithLLM(userLastMsg, modelId);
+    searchResults = await executeMultiQueryWebSearch(searchQueries, 3);
     if (searchResults.length > 0) {
       searchContextText = formatSearchResultsForPrompt(searchResults);
       reply.raw.write(`data: ${JSON.stringify({ searchResults, modelId })}\n\n`);
