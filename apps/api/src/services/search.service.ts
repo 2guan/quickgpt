@@ -7,63 +7,22 @@ export interface SearchResultItem {
 }
 
 /**
- * Fast keyword cleaning fallback
+ * Fast keyword cleaning fallback ONLY when LLM call fails
  */
-export function extractSearchKeywords(rawQuery: string): string {
+export function extractSearchKeywordsFallback(rawQuery: string): string {
   if (!rawQuery) return '';
 
   let query = rawQuery.trim();
-
-  // 1. Remove markdown and code blocks
   query = query.replace(/```[\s\S]*?```/g, '').replace(/`[^`]+`/g, '');
 
-  // 2. Remove polite greetings, conversational prefixes, and imperative phrases
   const prefixRegex = /^(?:你好|您好|哈喽|hello|hi|hey|早上好|中午好|下午好|晚上好|早安|晚安|请问|请帮我|帮我|麻烦帮我|请告诉我|我想知道|我想了解|查一下|搜一下|检索一下|了解一下|给我查|能不能告诉我|可以告诉我|帮我查查|查查)[\s,，:：!！\?？\n]*/i;
   while (prefixRegex.test(query)) {
     query = query.replace(prefixRegex, '').trim();
   }
 
-  // 3. Dedicated weather entity normalizer (e.g. "巴厘岛今天有没有雨" -> "巴厘岛天气")
-  if (/(?:天气|下雨|降雨|有雨|有无雨|有没有雨|暴雨|下雪|降雪|冷不?冷|热不?热|气温|温度|晴天|阴天)/.test(query)) {
-    let place = query
-      .replace(/(?:今天|今日|明天|后天|现在|目前|实时|最近|这几天|当地)/g, '')
-      .replace(/(?:有没有|会不?会|有无|是不是|会不会有|会有|是否有|下了|下过|有没有下)/g, '')
-      .replace(/(?:天气|预报|下雨|降雨|有雨|暴雨|大雨|小雨|阵雨|雷阵雨|雨|下雪|降雪|雪|降温|刮风|冷不?冷|热不?热|气温|温度|晴天|阴天|怎么样|如何|是多少|是什么|吗|呢|吧|呀|啊|了|？|\?|！|!|的)/g, '')
-      .trim();
-
-    if (place.length >= 2) {
-      return `${place}天气`;
-    }
-  }
-
-  // 4. Tourism / travel intent entity normalizer (e.g. "巴厘岛9月适合玩儿什么" -> "巴厘岛旅游攻略")
-  if (/(?:玩儿什么|玩什么|旅游|旅行|攻略|景点|玩乐|度假|好玩)/.test(query)) {
-    let place = query
-      .replace(/\d+月(?:份)?/g, '')
-      .replace(/(?:适合玩儿什么|适合玩什么|玩儿什么|玩什么|有什么好玩的|好玩吗|怎么玩|怎么去|好不好|怎么样|是多少|是什么|有哪些|如何|有什么|玩乐|推荐|攻略|旅游|旅行|去哪|好去处)/g, '')
-      .replace(/(?:今天|今日|明天|后天|现在|目前|实时|最近|这几天|当地|九月|八月|十月|7月|8月|9月|10月)/g, '')
-      .replace(/[\s,，:：!！\?？\n\(\)（）\-_]+/g, '')
-      .trim();
-
-    if (place.length >= 2) {
-      return `${place}旅游攻略`;
-    }
-  }
-
-  // 5. Remove conversational question endings and modal particles
   const suffixRegex = /[\s,，]*(?:怎么样|如何|是多少|有哪些|是什么|有哪些最新消息|最新进展是什么|最新动态是什么|动态是什么|最新消息|最新动态|最新进展|吗|呢|吧|呀|啊|？|\?|！|!)+$/i;
   query = query.replace(suffixRegex, '').trim();
 
-  // 6. Remove temporal prefixes if substantive phrase follows
-  query = query.replace(/^(?:今天|今日|现在|目前|当下|实时|最新的|最新)[\s,，]*(?=[\u4e00-\u9fa5a-zA-Z0-9]{2,})/i, '').trim();
-
-  // 7. Remove redundant grammatical particle "的" between Chinese nouns
-  query = query.replace(/([\u4e00-\u9fa5]{2,})的([\u4e00-\u9fa5]{2,})/g, '$1$2');
-
-  // 8. Strip spaces within Chinese characters to prevent search engines from splitting compound words
-  query = query.replace(/([\u4e00-\u9fa5])\s+([\u4e00-\u9fa5])/g, '$1$2');
-
-  // 9. Fallback to original cleaned string if stripping emptied the query
   if (!query || query.length < 2) {
     query = rawQuery.trim().replace(/^[\s,，:：!！\?？]+|[\s,，:：!！\?？]+$/g, '');
   }
@@ -74,6 +33,7 @@ export function extractSearchKeywords(rawQuery: string): string {
 /**
  * Uses a fast LLM call (e.g. MiMo 2.5 without thinking) to generate 1~N targeted search queries
  * respecting configured query count and maximum query length.
+ * The model output is strictly parsed and used directly as search engine queries.
  */
 export async function generateSearchQueriesWithLLM(
   userPrompt: string,
@@ -123,16 +83,11 @@ export async function generateSearchQueriesWithLLM(
       const chatUrls = getChatUrlCandidates(cand.channel_base_url);
       const url = chatUrls[0];
 
-      const systemPrompt = `你是一个专业的搜索引擎关键词提炼专家。请将用户的问题转换为最适合在搜索引擎精准检索的高质量核心检索短语（共提炼 1 到 ${queryCount} 个，每个短语长度在 ${queryMaxLen} 字以内）。
-【规则与要求】：
-1. 搜索引擎对口语疑问助词、虚词、冗余数字（如"玩儿什么"、"有哪些"、"怎么样"、"冷不冷"、"9月"）极其敏感，容易导致检索失败。
-2. 请将问题抽象提炼为标准的实体与核心主题词组合（连续中文词组，严禁带有标点符号和空格）。
-   范例：
-   - "巴厘岛9月适合玩儿什么？" -> ["巴厘岛旅游攻略", "巴厘岛最佳旅游时间", "巴厘岛旅游"]
-   - "巴厘岛今天有没有雨？" -> ["巴厘岛天气", "巴厘岛天气预报"]
-   - "今天北京冷不冷？" -> ["北京天气", "北京气温"]
-   - "中国空间站最新动态是什么？" -> ["中国空间站", "中国空间站最新动态"]
-3. 只返回纯 JSON 字符串数组，例如：["短语1", "短语2"]。严禁输出任何思考过程或解释。`;
+      const systemPrompt = `你是一个专业的搜索引擎关键词提炼专家。请将用户的问题转换为最适合在搜索引擎精准检索的高价值核心短语（提炼 1 到 ${queryCount} 个，每个长度不超过 ${queryMaxLen} 字）。
+【要求与原则】：
+1. 提炼出真正具有高信息量的主题词与实体名词。严禁包含口语化疑问词、助词、或者导致搜索引擎分词失真的细碎词（如"玩儿什么"、"有哪些"、"怎么样"）。
+2. 请提炼为标准实体名词与核心主题词（可以用空格分隔核心概念以增强搜索引擎召回率，例如："巴厘岛 旅游 攻略"、"巴厘岛 最佳旅游时间"、"巴厘岛 旅游"）。
+3. 只返回纯 JSON 字符串数组，例如：["短语1", "短语2", "短语3"]。绝对不要输出任何思考过程或解释。`;
 
       const res = await fetch(url, {
         method: 'POST',
@@ -168,10 +123,13 @@ export async function generateSearchQueriesWithLLM(
         if (jsonMatch) {
           const parsed = JSON.parse(jsonMatch[0]);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            return parsed
+            const finalQueries = parsed
               .slice(0, queryCount)
               .map((q: any) => String(q).trim().slice(0, queryMaxLen))
               .filter(Boolean);
+            if (finalQueries.length > 0) {
+              return finalQueries;
+            }
           }
         }
       }
@@ -180,12 +138,16 @@ export async function generateSearchQueriesWithLLM(
     console.warn(`[Search] LLM query generation notice: ${err.message}`);
   }
 
-  const fallback = extractSearchKeywords(userPrompt);
+  const fallback = extractSearchKeywordsFallback(userPrompt);
   return fallback ? [fallback] : [userPrompt.slice(0, 30)];
 }
 
+/**
+ * Executes a single web search using the EXACT query string returned by the LLM.
+ * No regex tampering is performed on the query.
+ */
 export async function performWebSearch(query: string, maxResults = 3): Promise<SearchResultItem[]> {
-  const cleanQuery = extractSearchKeywords(query);
+  const cleanQuery = query.trim();
   if (!cleanQuery) return [];
 
   try {
@@ -303,12 +265,16 @@ export async function performWebSearch(query: string, maxResults = 3): Promise<S
             const itemSnippet = pMatch
               ? pMatch[1].replace(/<[^>]+>/g, '').replace(/&ensp;|&nbsp;|&#0183;|&#176;/g, ' ').replace(/\s+/g, ' ').trim()
               : '';
-            // Filter out single-character dictionary definitions (e.g. "巴（汉语文字）") when querying multi-character topics
+
+            // Filter out dictionary / single-character entries when querying multi-character topics
             const isSingleCharDict =
-              cleanQuery.length >= 2 &&
-              /^(?:[\u4e00-\u9fa5]（(?:汉语文字|汉语国学|汉字|压强|拼音)）|[\u4e00-\u9fa5]的意思|[\u4e00-\u9fa5]的解释)/.test(
+              cleanQuery.replace(/\s+/g, '').length >= 2 &&
+              (/^(?:[\u4e00-\u9fa5]（|[\u4e00-\u9fa5]的意思|[\u4e00-\u9fa5]的解释|[\u4e00-\u9fa5] bā|巴蜀，巴蜀)/i.test(
                 itemTitle
-              );
+              ) ||
+                /汉语文字|汉语国学|汉字|压强的非法定计量单位|压强单位|《漢典》|康熙字典|新华字典/.test(
+                  itemTitle
+                ));
 
             if (itemTitle && itemUrl.startsWith('http') && !isSingleCharDict) {
               results.push({
