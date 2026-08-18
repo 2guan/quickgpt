@@ -351,7 +351,7 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
         }`}
       >
         <div
-          className={`w-full aspect-[16/9] max-h-[440px] rounded-xl shadow-lg border border-slate-200/80 dark:border-slate-800 p-5 sm:p-8 flex flex-col justify-between transition-all duration-300 relative overflow-y-auto select-none ${
+          className={`w-full aspect-[16/9] min-h-[260px] max-h-[460px] rounded-xl shadow-lg border border-slate-200/80 dark:border-slate-800 p-4 sm:p-6 lg:p-8 flex flex-col justify-between transition-all duration-300 relative select-none ${
             currentSlide.layout === 'cover'
               ? 'text-white'
               : 'bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100'
@@ -363,27 +363,27 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
           {/* Top Decorative Line */}
           {currentSlide.layout !== 'cover' && (
             <div
-              className="absolute top-0 left-0 right-0 h-1.5"
+              className="absolute top-0 left-0 right-0 h-1"
               style={{ backgroundColor: activeTheme.accent }}
             />
           )}
 
-          {/* Slide Body Content */}
-          <div className="space-y-3.5 my-auto">
+          {/* Slide Body Content (Scrollable & Padded if content is long) */}
+          <div className="flex-1 min-h-0 overflow-y-auto py-1 pr-1 custom-scrollbar flex flex-col justify-center">
             {/* Title & Subtitle */}
-            <div className={currentSlide.layout === 'cover' ? 'text-center' : ''}>
+            <div className={`mb-3 ${currentSlide.layout === 'cover' ? 'text-center my-auto' : ''}`}>
               <h2
-                className={`font-bold tracking-tight ${
+                className={`font-bold tracking-tight leading-tight ${
                   currentSlide.layout === 'cover'
-                    ? 'text-2xl sm:text-3xl lg:text-4xl text-white drop-shadow-xs'
-                    : 'text-lg sm:text-2xl font-bold text-slate-900 dark:text-white'
+                    ? 'text-xl sm:text-2xl lg:text-3xl text-white drop-shadow-xs'
+                    : 'text-base sm:text-lg lg:text-xl text-slate-900 dark:text-white'
                 }`}
               >
                 {currentSlide.title}
               </h2>
               {currentSlide.subtitle && (
                 <p
-                  className={`mt-1.5 text-xs sm:text-sm ${
+                  className={`mt-1 text-xs sm:text-sm leading-relaxed ${
                     currentSlide.layout === 'cover'
                       ? 'text-slate-200'
                       : 'text-slate-500 dark:text-slate-400 font-medium'
@@ -396,17 +396,17 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
 
             {/* Bullets List */}
             {currentSlide.bullets && currentSlide.bullets.length > 0 && (
-              <div className="grid gap-2 sm:gap-2.5 mt-3 sm:mt-4">
+              <div className="grid gap-2 sm:gap-2.5">
                 {currentSlide.bullets.map((b, bIdx) => (
                   <div
                     key={bIdx}
-                    className="flex items-start gap-2.5 p-2 sm:p-2.5 rounded-xl bg-slate-50/90 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 text-xs sm:text-sm font-medium leading-relaxed"
+                    className="flex items-start gap-2.5 p-2 sm:p-2.5 rounded-xl bg-slate-50/90 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 text-[12px] sm:text-[13px] font-medium leading-relaxed"
                   >
                     <div
-                      className="w-2 h-2 rounded-full mt-1.5 shrink-0"
+                      className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0"
                       style={{ backgroundColor: activeTheme.accent }}
                     />
-                    <span className="text-slate-700 dark:text-slate-200">{b}</span>
+                    <span className="text-slate-700 dark:text-slate-200 break-words">{b}</span>
                   </div>
                 ))}
               </div>
@@ -414,7 +414,7 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
           </div>
 
           {/* Slide Footer */}
-          <div className="flex items-center justify-between pt-3 text-[10px] sm:text-xs text-slate-400 dark:text-slate-500 border-t border-slate-100 dark:border-slate-800/60 mt-auto">
+          <div className="flex items-center justify-between pt-2.5 mt-2 text-[10px] sm:text-xs text-slate-400 dark:text-slate-500 border-t border-slate-100 dark:border-slate-800/60 shrink-0">
             <span>QuickGPT AI Slide Deck</span>
             <span className="font-mono font-medium">
               {safeIdx + 1} / {totalSlides}
