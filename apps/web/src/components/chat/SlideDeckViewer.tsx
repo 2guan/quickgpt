@@ -546,43 +546,55 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
           const cardTotalHeight = 3.6;
           const items: SlideItem[] = s.items && s.items.length > 0 ? s.items : s.bullets.map((b) => ({ description: b }));
 
-          // 2. TIMELINE LAYOUT (2~5 stages)
+          // 2. TIMELINE LAYOUT (2~5 stages) - 1:1 with Web View
           if (s.layout === 'timeline') {
             const count = Math.min(items.length, 5);
             const totalWidth = 8.8;
-            const colGap = 0.15;
+            const colGap = 0.2;
             const colWidth = (totalWidth - (count - 1) * colGap) / count;
-            const timelineH = s.notes ? 3.1 : 3.4;
+            // Compact, vertically centered card height (1:1 with Web View aspect ratio)
+            const timelineH = 2.15;
+            const timelineY = s.subtitle ? 1.85 : 1.65;
+
+            // Horizontal connecting background line behind number badges
+            slide.addShape(pres.ShapeType.rect, {
+              x: 0.8,
+              y: timelineY + 0.3,
+              w: 8.4,
+              h: 0.02,
+              fill: { color: 'E2E8F0' },
+            });
 
             items.slice(0, 5).forEach((item, iIdx) => {
               const cardX = 0.6 + iIdx * (colWidth + colGap);
-              const cardY = contentStartY + 0.1;
+              const cardY = timelineY;
 
-              // White Card with subtle border
+              // White Card with subtle border and rounded corners
               slide.addShape(pres.ShapeType.roundRect, {
                 x: cardX,
                 y: cardY,
                 w: colWidth,
                 h: timelineH,
-                rectRadius: 0.08,
+                rectRadius: 0.12,
                 fill: { color: 'FFFFFF' },
-                line: { color: 'E2E8F0', width: 0.75 },
+                line: { color: 'E2E8F0', width: 0.8 },
               });
 
-              // Number Badge
+              // Number Badge with ring effect
               slide.addShape(pres.ShapeType.ellipse, {
-                x: cardX + 0.1,
-                y: cardY + 0.12,
-                w: 0.24,
-                h: 0.24,
+                x: cardX + 0.15,
+                y: cardY + 0.18,
+                w: 0.28,
+                h: 0.28,
                 fill: { color: hexAccent },
+                line: { color: 'FFFFFF', width: 1.5 },
               });
               slide.addText(`${iIdx + 1}`, {
-                x: cardX + 0.1,
-                y: cardY + 0.12,
-                w: 0.24,
-                h: 0.24,
-                fontSize: 8.5,
+                x: cardX + 0.15,
+                y: cardY + 0.18,
+                w: 0.28,
+                h: 0.28,
+                fontSize: 9,
                 bold: true,
                 color: 'FFFFFF',
                 align: 'center',
@@ -592,18 +604,18 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
 
               // Title
               slide.addText(cleanMarkdownText(item.title || `阶段 ${iIdx + 1}`), {
-                x: cardX + 0.38,
-                y: cardY + 0.08,
-                w: colWidth - 0.45,
-                h: 0.32,
-                fontSize: 10,
+                x: cardX + 0.48,
+                y: cardY + 0.12,
+                w: colWidth - 0.55,
+                h: 0.38,
+                fontSize: 10.5,
                 bold: true,
                 color: '0F172A',
                 fontFace: 'Microsoft YaHei',
                 breakLine: true,
               });
 
-              // Description & Sub-bullets
+              // Description
               let desc = cleanMarkdownText(item.description || '');
               if (item.bullets && item.bullets.length > 0) {
                 const subText = item.bullets.map((b) => `• ${cleanMarkdownText(b)}`).join('\n');
@@ -611,11 +623,11 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
               }
 
               slide.addText(desc, {
-                x: cardX + 0.1,
-                y: cardY + 0.45,
-                w: colWidth - 0.2,
-                h: timelineH - 0.55,
-                fontSize: 8.5,
+                x: cardX + 0.15,
+                y: cardY + 0.58,
+                w: colWidth - 0.3,
+                h: timelineH - 0.68,
+                fontSize: 9,
                 color: '475569',
                 fontFace: 'Microsoft YaHei',
                 valign: 'top',
@@ -626,19 +638,19 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
             if (s.notes) {
               slide.addShape(pres.ShapeType.roundRect, {
                 x: 0.6,
-                y: contentStartY + timelineH + 0.2,
+                y: timelineY + timelineH + 0.35,
                 w: 8.8,
-                h: 0.35,
-                rectRadius: 0.06,
+                h: 0.4,
+                rectRadius: 0.08,
                 fill: { color: 'F0FDF4' },
                 line: { color: hexAccent, width: 0.5 },
               });
               slide.addText(`💡 ${cleanMarkdownText(s.notes)}`, {
                 x: 0.75,
-                y: contentStartY + timelineH + 0.2,
+                y: timelineY + timelineH + 0.35,
                 w: 8.5,
-                h: 0.35,
-                fontSize: 8.5,
+                h: 0.4,
+                fontSize: 9,
                 color: '065F46',
                 valign: 'middle',
                 fontFace: 'Microsoft YaHei',
@@ -1324,15 +1336,26 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
             }
           }
 
-          // Slide Number Indicator
+          // Footer: Left Branding & Right Slide Number (1:1 with Web View)
+          slide.addText('QuickGPT AI Slide Deck', {
+            x: 0.6,
+            y: 5.2,
+            w: 4.0,
+            h: 0.3,
+            fontSize: 9,
+            color: '94A3B8',
+            fontFace: 'Microsoft YaHei',
+          });
+
           slide.addText(`${idx + 1} / ${slides.length}`, {
             x: 8.0,
             y: 5.2,
-            w: 1.5,
+            w: 1.4,
             h: 0.3,
             fontSize: 9,
             color: '94A3B8',
             align: 'right',
+            fontFace: 'Microsoft YaHei',
           });
         }
 
