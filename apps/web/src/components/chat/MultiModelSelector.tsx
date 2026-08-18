@@ -63,25 +63,29 @@ export const MultiModelSelector: React.FC = () => {
         ) : (
           <Bot className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
         )}
-        <span className="max-w-[180px] sm:max-w-[280px] truncate">
-          {selectedModels.length === 0
-            ? '选择模型'
-            : selectedModels.length === 1
-            ? selectedModels[0].display_name
-            : `${selectedModels[0].display_name} + ${selectedModels.length - 1} 个对比`}
-        </span>
-        {selectedModels.length > 1 && (
-          <span
-            className={`px-1.5 py-0.2 rounded-full text-[11px] font-semibold ${
-              isImageGroupActive
-                ? 'bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300'
-                : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
-            }`}
-          >
-            {isImageGroupActive ? '生图对比' : '文本对比'}
+        {selectedModels.length === 0 ? (
+          <span className="text-slate-500 dark:text-slate-400">选择模型</span>
+        ) : selectedModels.length === 1 ? (
+          <span className="max-w-[200px] sm:max-w-[320px] truncate font-medium">
+            {selectedModels[0].display_name}
           </span>
+        ) : (
+          <div className="flex items-center gap-1.5 flex-wrap max-w-[240px] sm:max-w-[480px]">
+            {selectedModels.map((m, idx) => (
+              <span
+                key={m.id || idx}
+                className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold shrink-0 ${
+                  isImageGroupActive
+                    ? 'bg-purple-100 dark:bg-purple-950/80 text-purple-700 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800'
+                    : 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800'
+                }`}
+              >
+                {m.display_name}
+              </span>
+            ))}
+          </div>
         )}
-        <ChevronDown className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+        <ChevronDown className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400 shrink-0 ml-0.5" />
       </button>
 
       {isOpen && (
