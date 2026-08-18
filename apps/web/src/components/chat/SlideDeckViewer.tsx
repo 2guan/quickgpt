@@ -513,8 +513,7 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
           }
 
           const contentStartY = s.subtitle ? 1.25 : 1.05;
-          // Calibrate max card height to 3.85 inches (leaving breathing room above footer)
-          const cardTotalHeight = 3.85;
+          const cardTotalHeight = 3.6;
           const items: SlideItem[] = s.items && s.items.length > 0 ? s.items : s.bullets.map((b) => ({ description: b }));
 
           // 2. TIMELINE LAYOUT (2~5 stages)
@@ -523,60 +522,71 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
             const totalWidth = 8.8;
             const colGap = 0.15;
             const colWidth = (totalWidth - (count - 1) * colGap) / count;
-            // Timeline card height proportioned to 3.4 inches
-            const timelineH = 3.4;
+            const timelineH = s.notes ? 3.1 : 3.4;
 
             items.slice(0, 5).forEach((item, iIdx) => {
               const cardX = 0.6 + iIdx * (colWidth + colGap);
+              const cardY = contentStartY + 0.1;
 
+              // White Card with subtle border
               slide.addShape(pres.ShapeType.roundRect, {
                 x: cardX,
-                y: contentStartY + 0.2,
+                y: cardY,
                 w: colWidth,
                 h: timelineH,
-                rectRadius: 0.1,
+                rectRadius: 0.08,
                 fill: { color: 'FFFFFF' },
-                line: { color: 'E2E8F0', width: 1 },
+                line: { color: 'E2E8F0', width: 0.75 },
               });
 
+              // Number Badge
               slide.addShape(pres.ShapeType.ellipse, {
-                x: cardX + 0.12,
-                y: contentStartY + 0.15,
-                w: 0.28,
-                h: 0.28,
+                x: cardX + 0.1,
+                y: cardY + 0.12,
+                w: 0.24,
+                h: 0.24,
                 fill: { color: hexAccent },
               });
               slide.addText(`${iIdx + 1}`, {
-                x: cardX + 0.12,
-                y: contentStartY + 0.15,
-                w: 0.28,
-                h: 0.28,
-                fontSize: 9,
+                x: cardX + 0.1,
+                y: cardY + 0.12,
+                w: 0.24,
+                h: 0.24,
+                fontSize: 8.5,
                 bold: true,
                 color: 'FFFFFF',
                 align: 'center',
                 valign: 'middle',
+                fontFace: 'Microsoft YaHei',
               });
 
+              // Title
               slide.addText(cleanMarkdownText(item.title || `阶段 ${iIdx + 1}`), {
-                x: cardX + 0.45,
-                y: contentStartY + 0.12,
-                w: colWidth - 0.5,
-                h: 0.38,
-                fontSize: 10.5,
+                x: cardX + 0.38,
+                y: cardY + 0.08,
+                w: colWidth - 0.45,
+                h: 0.32,
+                fontSize: 10,
                 bold: true,
                 color: '0F172A',
                 fontFace: 'Microsoft YaHei',
                 breakLine: true,
               });
 
-              slide.addText(cleanMarkdownText(item.description || ''), {
-                x: cardX + 0.12,
-                y: contentStartY + 0.55,
-                w: colWidth - 0.24,
-                h: timelineH - 0.7,
-                fontSize: 9,
-                color: '334155',
+              // Description & Sub-bullets
+              let desc = cleanMarkdownText(item.description || '');
+              if (item.bullets && item.bullets.length > 0) {
+                const subText = item.bullets.map((b) => `• ${cleanMarkdownText(b)}`).join('\n');
+                desc = desc ? `${desc}\n\n${subText}` : subText;
+              }
+
+              slide.addText(desc, {
+                x: cardX + 0.1,
+                y: cardY + 0.45,
+                w: colWidth - 0.2,
+                h: timelineH - 0.55,
+                fontSize: 8.5,
+                color: '475569',
                 fontFace: 'Microsoft YaHei',
                 valign: 'top',
                 breakLine: true,
@@ -586,18 +596,18 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
             if (s.notes) {
               slide.addShape(pres.ShapeType.roundRect, {
                 x: 0.6,
-                y: contentStartY + timelineH + 0.3,
+                y: contentStartY + timelineH + 0.2,
                 w: 8.8,
-                h: 0.38,
+                h: 0.35,
                 rectRadius: 0.06,
                 fill: { color: 'F0FDF4' },
                 line: { color: hexAccent, width: 0.5 },
               });
               slide.addText(`💡 ${cleanMarkdownText(s.notes)}`, {
                 x: 0.75,
-                y: contentStartY + timelineH + 0.3,
+                y: contentStartY + timelineH + 0.2,
                 w: 8.5,
-                h: 0.38,
+                h: 0.35,
                 fontSize: 8.5,
                 color: '065F46',
                 valign: 'middle',
@@ -610,24 +620,26 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
             const totalWidth = 8.8;
             const colGap = 0.25;
             const colWidth = (totalWidth - (count - 1) * colGap) / count;
+            const statsH = 3.3;
 
             items.slice(0, 3).forEach((item, iIdx) => {
               const cardX = 0.6 + iIdx * (colWidth + colGap);
+              const cardY = contentStartY + 0.15;
 
               slide.addShape(pres.ShapeType.roundRect, {
                 x: cardX,
-                y: contentStartY,
+                y: cardY,
                 w: colWidth,
-                h: cardTotalHeight,
-                rectRadius: 0.12,
+                h: statsH,
+                rectRadius: 0.1,
                 fill: { color: 'FFFFFF' },
-                line: { color: 'E2E8F0', width: 1 },
+                line: { color: 'E2E8F0', width: 0.75 },
               });
 
               // Tag Badge
               slide.addShape(pres.ShapeType.roundRect, {
                 x: cardX + colWidth - 0.6,
-                y: contentStartY + 0.18,
+                y: cardY + 0.15,
                 w: 0.45,
                 h: 0.22,
                 rectRadius: 0.04,
@@ -635,7 +647,7 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
               });
               slide.addText('KPI', {
                 x: cardX + colWidth - 0.6,
-                y: contentStartY + 0.18,
+                y: cardY + 0.15,
                 w: 0.45,
                 h: 0.22,
                 fontSize: 7.5,
@@ -646,11 +658,11 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
               });
 
               slide.addText(cleanMarkdownText(item.title || `指标 ${iIdx + 1}`), {
-                x: cardX + 0.2,
-                y: contentStartY + 0.15,
+                x: cardX + 0.18,
+                y: cardY + 0.15,
                 w: colWidth - 0.85,
-                h: 0.4,
-                fontSize: 12,
+                h: 0.35,
+                fontSize: 11.5,
                 bold: true,
                 color: hexDark,
                 fontFace: 'Microsoft YaHei',
@@ -658,11 +670,11 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
               });
 
               slide.addText(cleanMarkdownText(item.description || ''), {
-                x: cardX + 0.2,
-                y: contentStartY + 0.65,
-                w: colWidth - 0.4,
-                h: cardTotalHeight - 1.05,
-                fontSize: 10,
+                x: cardX + 0.18,
+                y: cardY + 0.58,
+                w: colWidth - 0.36,
+                h: statsH - 0.9,
+                fontSize: 9.5,
                 color: '475569',
                 fontFace: 'Microsoft YaHei',
                 valign: 'top',
@@ -670,8 +682,8 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
               });
 
               slide.addShape(pres.ShapeType.roundRect, {
-                x: cardX + 0.2,
-                y: contentStartY + cardTotalHeight - 0.25,
+                x: cardX + 0.18,
+                y: cardY + statsH - 0.22,
                 w: 0.6,
                 h: 0.05,
                 rectRadius: 0.025,
@@ -679,142 +691,187 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
               });
             });
           } else if (s.layout === 'grid2' && items.length >= 2) {
-            // 4. DUAL-COLUMN HERO PILLARS (grid2)
+            // 4. DUAL-COLUMN HERO PILLARS (grid2) - 1:1 with Web View
             const totalWidth = 8.8;
-            const colGap = 0.3;
+            const colGap = 0.25;
             const colWidth = (totalWidth - colGap) / 2;
+            const grid2H = 3.45;
 
             items.slice(0, 2).forEach((item, iIdx) => {
               const cardX = 0.6 + iIdx * (colWidth + colGap);
+              const cardY = contentStartY + 0.05;
               const cardBg = iIdx === 1 ? 'F0FDF4' : 'FFFFFF';
               const cardLine = iIdx === 1 ? hexAccent : 'E2E8F0';
 
+              // Main Container Card
               slide.addShape(pres.ShapeType.roundRect, {
                 x: cardX,
-                y: contentStartY,
+                y: cardY,
                 w: colWidth,
-                h: cardTotalHeight,
-                rectRadius: 0.12,
+                h: grid2H,
+                rectRadius: 0.1,
                 fill: { color: cardBg },
-                line: { color: cardLine, width: 1 },
+                line: { color: cardLine, width: 0.8 },
               });
 
+              // Card Title & Header separator
               if (item.title) {
                 slide.addShape(pres.ShapeType.ellipse, {
-                  x: cardX + 0.2,
-                  y: contentStartY + 0.28,
-                  w: 0.12,
-                  h: 0.12,
+                  x: cardX + 0.15,
+                  y: cardY + 0.18,
+                  w: 0.1,
+                  h: 0.1,
                   fill: { color: hexAccent },
                 });
 
                 slide.addText(cleanMarkdownText(item.title), {
-                  x: cardX + 0.38,
-                  y: contentStartY + 0.15,
-                  w: colWidth - 0.55,
-                  h: 0.38,
-                  fontSize: 12.5,
-                  bold: true,
-                  color: '0F172A',
-                  fontFace: 'Microsoft YaHei',
-                  breakLine: true,
-                });
-              }
-
-              let fullCardText = cleanMarkdownText(item.description || '');
-              if (item.bullets && item.bullets.length > 0) {
-                const subText = item.bullets.map((b) => `• ${cleanMarkdownText(b)}`).join('\n');
-                fullCardText = fullCardText ? `${fullCardText}\n\n${subText}` : subText;
-              }
-
-              slide.addText(fullCardText, {
-                x: cardX + 0.2,
-                y: contentStartY + 0.55,
-                w: colWidth - 0.4,
-                h: cardTotalHeight - 0.7,
-                fontSize: 9.5,
-                color: '334155',
-                fontFace: 'Microsoft YaHei',
-                valign: 'top',
-                breakLine: true,
-              });
-            });
-          } else if (s.layout === 'grid3' && items.length >= 3) {
-            // 5. THREE-COLUMN PILLARS (grid3)
-            const totalWidth = 8.8;
-            const colGap = 0.2;
-            const colWidth = (totalWidth - 2 * colGap) / 3;
-
-            items.slice(0, 3).forEach((item, iIdx) => {
-              const cardX = 0.6 + iIdx * (colWidth + colGap);
-
-              slide.addShape(pres.ShapeType.roundRect, {
-                x: cardX,
-                y: contentStartY,
-                w: colWidth,
-                h: cardTotalHeight,
-                rectRadius: 0.1,
-                fill: { color: 'FFFFFF' },
-                line: { color: 'E2E8F0', width: 1 },
-              });
-
-              slide.addShape(pres.ShapeType.roundRect, {
-                x: cardX + 0.18,
-                y: contentStartY + 0.22,
-                w: 0.06,
-                h: 0.25,
-                rectRadius: 0.03,
-                fill: { color: hexAccent },
-              });
-
-              if (item.title) {
-                slide.addText(cleanMarkdownText(item.title), {
                   x: cardX + 0.3,
-                  y: contentStartY + 0.16,
+                  y: cardY + 0.1,
                   w: colWidth - 0.45,
-                  h: 0.38,
+                  h: 0.28,
                   fontSize: 11,
                   bold: true,
                   color: '0F172A',
                   fontFace: 'Microsoft YaHei',
                   breakLine: true,
                 });
+
+                // Title bottom subtle line
+                slide.addShape(pres.ShapeType.rect, {
+                  x: cardX + 0.15,
+                  y: cardY + 0.38,
+                  w: colWidth - 0.3,
+                  h: 0.01,
+                  fill: { color: 'E2E8F0' },
+                });
               }
 
-              let fullCardText = cleanMarkdownText(item.description || '');
+              // Description (e.g. 解决痛点：...)
+              let curY = cardY + (item.title ? 0.45 : 0.15);
+              if (item.description) {
+                slide.addText(cleanMarkdownText(item.description), {
+                  x: cardX + 0.15,
+                  y: curY,
+                  w: colWidth - 0.3,
+                  h: 0.42,
+                  fontSize: 8.5,
+                  color: '64748B',
+                  italic: true,
+                  fontFace: 'Microsoft YaHei',
+                  valign: 'top',
+                  breakLine: true,
+                });
+                curY += 0.45;
+              }
+
+              // Sub-bullets
               if (item.bullets && item.bullets.length > 0) {
-                const subText = item.bullets.map((b) => `• ${cleanMarkdownText(b)}`).join('\n');
-                fullCardText = fullCardText ? `${fullCardText}\n\n${subText}` : subText;
+                const bulletLines = item.bullets.map((b) => `•  ${cleanMarkdownText(b)}`).join('\n');
+                slide.addText(bulletLines, {
+                  x: cardX + 0.15,
+                  y: curY,
+                  w: colWidth - 0.3,
+                  h: cardY + grid2H - curY - 0.1,
+                  fontSize: 8.5,
+                  color: '334155',
+                  fontFace: 'Microsoft YaHei',
+                  valign: 'top',
+                  breakLine: true,
+                });
+              }
+            });
+          } else if (s.layout === 'grid3' && items.length >= 3) {
+            // 5. THREE-COLUMN PILLARS (grid3)
+            const totalWidth = 8.8;
+            const colGap = 0.18;
+            const colWidth = (totalWidth - 2 * colGap) / 3;
+            const grid3H = s.notes ? 3.0 : 3.35;
+
+            items.slice(0, 3).forEach((item, iIdx) => {
+              const cardX = 0.6 + iIdx * (colWidth + colGap);
+              const cardY = contentStartY + 0.05;
+
+              slide.addShape(pres.ShapeType.roundRect, {
+                x: cardX,
+                y: cardY,
+                w: colWidth,
+                h: grid3H,
+                rectRadius: 0.08,
+                fill: { color: 'FFFFFF' },
+                line: { color: 'E2E8F0', width: 0.75 },
+              });
+
+              // Vertical accent bar next to title
+              slide.addShape(pres.ShapeType.roundRect, {
+                x: cardX + 0.15,
+                y: cardY + 0.15,
+                w: 0.05,
+                h: 0.22,
+                rectRadius: 0.025,
+                fill: { color: hexAccent },
+              });
+
+              if (item.title) {
+                slide.addText(cleanMarkdownText(item.title), {
+                  x: cardX + 0.24,
+                  y: cardY + 0.1,
+                  w: colWidth - 0.35,
+                  h: 0.3,
+                  fontSize: 10,
+                  bold: true,
+                  color: '0F172A',
+                  fontFace: 'Microsoft YaHei',
+                  breakLine: true,
+                });
               }
 
-              slide.addText(fullCardText, {
-                x: cardX + 0.18,
-                y: contentStartY + 0.58,
-                w: colWidth - 0.36,
-                h: cardTotalHeight - (s.notes ? 1.1 : 0.75),
-                fontSize: 9,
-                color: '334155',
-                fontFace: 'Microsoft YaHei',
-                valign: 'top',
-                breakLine: true,
-              });
+              let curY = cardY + 0.4;
+              if (item.description) {
+                slide.addText(cleanMarkdownText(item.description), {
+                  x: cardX + 0.15,
+                  y: curY,
+                  w: colWidth - 0.3,
+                  h: 0.45,
+                  fontSize: 8.5,
+                  color: '64748B',
+                  fontFace: 'Microsoft YaHei',
+                  valign: 'top',
+                  breakLine: true,
+                });
+                curY += 0.48;
+              }
+
+              if (item.bullets && item.bullets.length > 0) {
+                const bulletLines = item.bullets.map((b) => `•  ${cleanMarkdownText(b)}`).join('\n');
+                slide.addText(bulletLines, {
+                  x: cardX + 0.15,
+                  y: curY,
+                  w: colWidth - 0.3,
+                  h: cardY + grid3H - curY - 0.1,
+                  fontSize: 8,
+                  color: '334155',
+                  fontFace: 'Microsoft YaHei',
+                  valign: 'top',
+                  breakLine: true,
+                });
+              }
             });
 
             if (s.notes) {
               slide.addShape(pres.ShapeType.roundRect, {
                 x: 0.6,
-                y: contentStartY + cardTotalHeight - 0.45,
+                y: contentStartY + grid3H + 0.18,
                 w: 8.8,
-                h: 0.4,
+                h: 0.35,
                 rectRadius: 0.06,
                 fill: { color: 'F0FDF4' },
                 line: { color: hexAccent, width: 0.5 },
               });
               slide.addText(`💡 ${cleanMarkdownText(s.notes)}`, {
                 x: 0.75,
-                y: contentStartY + cardTotalHeight - 0.45,
+                y: contentStartY + grid3H + 0.18,
                 w: 8.5,
-                h: 0.4,
+                h: 0.35,
                 fontSize: 8.5,
                 color: '065F46',
                 valign: 'middle',
@@ -822,15 +879,15 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
               });
             }
           } else if (s.layout === 'grid4' && items.length >= 4) {
-            // 6. 2x2 MATRIX GRID (grid4)
+            // 6. 2x2 MATRIX GRID (grid4) - 1:1 with Web View
             const cellW = 4.25;
-            const cellH = (cardTotalHeight - 0.2) / 2;
+            const cellH = s.notes ? 1.45 : 1.6;
 
             items.slice(0, 4).forEach((item, iIdx) => {
               const row = Math.floor(iIdx / 2);
               const col = iIdx % 2;
               const cardX = 0.6 + col * (cellW + 0.3);
-              const cardY = contentStartY + row * (cellH + 0.2);
+              const cardY = contentStartY + 0.05 + row * (cellH + 0.15);
 
               slide.addShape(pres.ShapeType.roundRect, {
                 x: cardX,
@@ -839,23 +896,24 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                 h: cellH,
                 rectRadius: 0.08,
                 fill: { color: 'FFFFFF' },
-                line: { color: 'E2E8F0', width: 1 },
+                line: { color: 'E2E8F0', width: 0.75 },
               });
 
+              // Letter Badge (A, B, C, D)
               slide.addShape(pres.ShapeType.roundRect, {
-                x: cardX + 0.15,
-                y: cardY + 0.15,
-                w: 0.28,
-                h: 0.28,
+                x: cardX + 0.12,
+                y: cardY + 0.12,
+                w: 0.24,
+                h: 0.24,
                 rectRadius: 0.04,
                 fill: { color: hexAccent },
               });
               slide.addText(String.fromCharCode(65 + iIdx), {
-                x: cardX + 0.15,
-                y: cardY + 0.15,
-                w: 0.28,
-                h: 0.28,
-                fontSize: 8.5,
+                x: cardX + 0.12,
+                y: cardY + 0.12,
+                w: 0.24,
+                h: 0.24,
+                fontSize: 8,
                 bold: true,
                 color: 'FFFFFF',
                 align: 'center',
@@ -864,11 +922,11 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
 
               if (item.title) {
                 slide.addText(cleanMarkdownText(item.title), {
-                  x: cardX + 0.5,
-                  y: cardY + 0.12,
-                  w: cellW - 0.6,
-                  h: 0.32,
-                  fontSize: 10.5,
+                  x: cardX + 0.42,
+                  y: cardY + 0.08,
+                  w: cellW - 0.5,
+                  h: 0.28,
+                  fontSize: 9.5,
                   bold: true,
                   color: '0F172A',
                   fontFace: 'Microsoft YaHei',
@@ -876,19 +934,19 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                 });
               }
 
-              let fullCardText = cleanMarkdownText(item.description || '');
+              let desc = cleanMarkdownText(item.description || '');
               if (item.bullets && item.bullets.length > 0) {
                 const subText = item.bullets.map((b) => `• ${cleanMarkdownText(b)}`).join('\n');
-                fullCardText = fullCardText ? `${fullCardText}\n${subText}` : subText;
+                desc = desc ? `${desc}\n${subText}` : subText;
               }
 
-              slide.addText(fullCardText, {
-                x: cardX + 0.15,
-                y: cardY + 0.48,
-                w: cellW - 0.3,
-                h: cellH - (s.notes ? 0.65 : 0.55),
-                fontSize: 8.5,
-                color: '334155',
+              slide.addText(desc, {
+                x: cardX + 0.42,
+                y: cardY + 0.38,
+                w: cellW - 0.5,
+                h: cellH - 0.45,
+                fontSize: 8,
+                color: '475569',
                 fontFace: 'Microsoft YaHei',
                 valign: 'top',
                 breakLine: true,
@@ -898,67 +956,75 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
             if (s.notes) {
               slide.addShape(pres.ShapeType.roundRect, {
                 x: 0.6,
-                y: contentStartY + cardTotalHeight - 0.42,
+                y: contentStartY + 2 * cellH + 0.38,
                 w: 8.8,
-                h: 0.38,
+                h: 0.32,
                 rectRadius: 0.06,
                 fill: { color: 'F0FDF4' },
                 line: { color: hexAccent, width: 0.5 },
               });
               slide.addText(`💡 ${cleanMarkdownText(s.notes)}`, {
                 x: 0.75,
-                y: contentStartY + cardTotalHeight - 0.42,
+                y: contentStartY + 2 * cellH + 0.38,
                 w: 8.5,
-                h: 0.38,
-                fontSize: 8.5,
+                h: 0.32,
+                fontSize: 8,
                 color: '065F46',
                 valign: 'middle',
                 fontFace: 'Microsoft YaHei',
               });
             }
-          } else if ((s.layout === 'grid5' || s.layout === 'grid6') && items.length >= 5) {
-            // 7. 2x3 MATRIX (grid5 / grid6)
-            const count = s.layout === 'grid6' ? Math.min(items.length, 6) : 5;
-            const cellW = (8.8 - 2 * 0.15) / 3;
-            const cellH = (cardTotalHeight - 0.15) / 2;
+          } else if (s.layout === 'grid5' || s.layout === 'grid6') {
+            // 7. 6-CARD / 5-CARD MATRICES
+            const count = Math.min(items.length, s.layout === 'grid6' ? 6 : 5);
+            const cols = 3;
+            const rows = 2;
+            const cellW = (8.8 - (cols - 1) * 0.2) / cols;
+            const cellH = (3.3 - (rows - 1) * 0.15) / rows;
 
             items.slice(0, count).forEach((item, iIdx) => {
-              const row = Math.floor(iIdx / 3);
-              const col = iIdx % 3;
-              const cardX = 0.6 + col * (cellW + 0.15);
-              const cardY = contentStartY + row * (cellH + 0.15);
+              const r = Math.floor(iIdx / cols);
+              const c = iIdx % cols;
+              const cardX = 0.6 + c * (cellW + 0.2);
+              const cardY = contentStartY + 0.1 + r * (cellH + 0.15);
 
               slide.addShape(pres.ShapeType.roundRect, {
                 x: cardX,
                 y: cardY,
                 w: cellW,
                 h: cellH,
-                rectRadius: 0.08,
+                rectRadius: 0.06,
                 fill: { color: 'FFFFFF' },
-                line: { color: 'E2E8F0', width: 1 },
+                line: { color: 'E2E8F0', width: 0.75 },
               });
 
-              if (item.title) {
-                slide.addText(cleanMarkdownText(item.title), {
-                  x: cardX + 0.12,
-                  y: cardY + 0.1,
-                  w: cellW - 0.24,
-                  h: 0.3,
-                  fontSize: 9.5,
-                  bold: true,
-                  color: '0F172A',
-                  fontFace: 'Microsoft YaHei',
-                  breakLine: true,
-                });
-              }
+              slide.addShape(pres.ShapeType.ellipse, {
+                x: cardX + 0.12,
+                y: cardY + 0.12,
+                w: 0.08,
+                h: 0.08,
+                fill: { color: hexAccent },
+              });
+
+              slide.addText(cleanMarkdownText(item.title || `要点 ${iIdx + 1}`), {
+                x: cardX + 0.24,
+                y: cardY + 0.08,
+                w: cellW - 0.32,
+                h: 0.25,
+                fontSize: 9,
+                bold: true,
+                color: '0F172A',
+                fontFace: 'Microsoft YaHei',
+                breakLine: true,
+              });
 
               slide.addText(cleanMarkdownText(item.description || ''), {
                 x: cardX + 0.12,
-                y: cardY + (item.title ? 0.42 : 0.12),
+                y: cardY + 0.35,
                 w: cellW - 0.24,
-                h: cellH - (item.title ? 0.5 : 0.2),
-                fontSize: 8.5,
-                color: '334155',
+                h: cellH - 0.42,
+                fontSize: 8,
+                color: '475569',
                 fontFace: 'Microsoft YaHei',
                 valign: 'top',
                 breakLine: true,
