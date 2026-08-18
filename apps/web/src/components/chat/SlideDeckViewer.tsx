@@ -513,8 +513,9 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
             });
           }
 
-          const contentStartY = s.subtitle ? 1.2 : 1.0;
-          const cardTotalHeight = 5.0 - contentStartY;
+          const contentStartY = s.subtitle ? 1.25 : 1.05;
+          // Calibrate max card height to 3.85 inches (leaving breathing room above footer)
+          const cardTotalHeight = 3.85;
           const items: SlideItem[] = s.items && s.items.length > 0 ? s.items : s.bullets.map((b) => ({ description: b }));
 
           // 2. TIMELINE LAYOUT (2~5 stages)
@@ -523,15 +524,17 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
             const totalWidth = 8.8;
             const colGap = 0.15;
             const colWidth = (totalWidth - (count - 1) * colGap) / count;
+            // Timeline card height proportioned to 3.4 inches
+            const timelineH = 3.4;
 
             items.slice(0, 5).forEach((item, iIdx) => {
               const cardX = 0.6 + iIdx * (colWidth + colGap);
 
               slide.addShape(pres.ShapeType.roundRect, {
                 x: cardX,
-                y: contentStartY,
+                y: contentStartY + 0.2,
                 w: colWidth,
-                h: cardTotalHeight,
+                h: timelineH,
                 rectRadius: 0.1,
                 fill: { color: 'FFFFFF' },
                 line: { color: 'E2E8F0', width: 1 },
@@ -1143,11 +1146,13 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                 });
               });
             } else {
-              // 1 Column in PPTX
+              // 1 Column in PPTX - Content-aware compact card height (matching web preview)
               const bulletList = s.bullets.length > 0 ? s.bullets : allItems.map((it) => `${it.title ? it.title + ': ' : ''}${it.description || ''}`);
               const bulletCount = bulletList.length;
-              const rowGap = 0.1;
-              const cardH = (cardTotalHeight - (bulletCount - 1) * rowGap) / Math.max(1, bulletCount);
+              const rowGap = 0.12;
+              const maxAllowedH = (cardTotalHeight - (bulletCount - 1) * rowGap) / Math.max(1, bulletCount);
+              // Compact card height: if only 2~3 items, limit height to 0.65~0.75 inches
+              const cardH = Math.min(maxAllowedH, bulletCount <= 3 ? 0.72 : maxAllowedH);
 
               bulletList.forEach((b, bIdx) => {
                 const cardY = contentStartY + bIdx * (cardH + rowGap);
@@ -1174,7 +1179,7 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                   y: cardY + cardH / 2 - 0.1,
                   w: 0.2,
                   h: 0.2,
-                  fontSize: 8,
+                  fontSize: 8.5,
                   bold: true,
                   color: 'FFFFFF',
                   align: 'center',
@@ -1182,11 +1187,11 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                 });
 
                 slide.addText(cleanMarkdownText(b), {
-                  x: 1.1,
+                  x: 1.12,
                   y: cardY,
                   w: 8.1,
                   h: cardH,
-                  fontSize: 10,
+                  fontSize: 9.5,
                   color: '334155',
                   fontFace: 'Microsoft YaHei',
                   valign: 'middle',
