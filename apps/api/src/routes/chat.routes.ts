@@ -120,6 +120,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
         )
         .optional(),
       enableSearch: z.boolean().optional(),
+      enablePPT: z.boolean().optional(),
       imageParams: z
         .object({
           size: z.string().optional(),
@@ -135,7 +136,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
       return reply.code(400).send({ error: '请求格式错误', details: parsed.error.format() });
     }
 
-    const { conversationId, modelIds, content, messages, attachments, enableSearch, imageParams } = parsed.data;
+    const { conversationId, modelIds, content, messages, attachments, enableSearch, enablePPT, imageParams } = parsed.data;
 
     // Ensure conversation exists in DB for this user (auto-create if missing)
     let actualConvId = conversationId;
@@ -188,6 +189,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
             messages,
             attachments,
             enableSearch,
+            enablePPT,
             imageParams,
             reply,
             clientIp,

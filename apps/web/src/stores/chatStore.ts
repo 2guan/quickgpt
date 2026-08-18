@@ -23,6 +23,7 @@ interface ChatState {
   // Attachments and Search
   attachments: MessageAttachment[];
   enableSearch: boolean;
+  enablePPT: boolean;
   imageParams: ImageParams;
 
   // Actions
@@ -39,6 +40,7 @@ interface ChatState {
   removeAttachment: (index: number) => void;
   clearAttachments: () => void;
   setEnableSearch: (enabled: boolean) => void;
+  setEnablePPT: (enabled: boolean) => void;
   setImageParams: (params: Partial<ImageParams>) => void;
   
   sendMessage: (content: string) => Promise<void>;
@@ -60,6 +62,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   attachments: [],
   enableSearch: false,
+  enablePPT: false,
   imageParams: {
     size: '1024x1024',
     quality: 'standard',
@@ -201,6 +204,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   setEnableSearch: (enabled: boolean) => set({ enableSearch: enabled }),
+  setEnablePPT: (enabled: boolean) => set({ enablePPT: enabled }),
 
   setImageParams: (params: Partial<ImageParams>) =>
     set((state) => ({ imageParams: { ...state.imageParams, ...params } })),
@@ -231,6 +235,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     const selectedModels = get().selectedModelIds;
     const enableSearch = get().enableSearch;
+    const enablePPT = get().enablePPT;
     const imageParams = get().imageParams;
 
     // 1. Optimistic User Message
@@ -289,6 +294,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           messages: historyPayload,
           attachments: currentAttachments,
           enableSearch,
+          enablePPT,
           imageParams,
         }),
         signal: activeAbortController.signal,

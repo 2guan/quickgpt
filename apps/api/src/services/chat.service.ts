@@ -200,6 +200,7 @@ export async function handleStreamChat({
   messages,
   attachments,
   enableSearch,
+  enablePPT,
   imageParams,
   reply,
   clientIp,
@@ -210,6 +211,7 @@ export async function handleStreamChat({
   messages: Array<{ role: string; content: string; reasoning_content?: string }>;
   attachments?: Array<{ name: string; text?: string; url?: string; type: string }>;
   enableSearch?: boolean;
+  enablePPT?: boolean;
   imageParams?: { size?: string; quality?: string; style?: string; aspect_ratio?: string };
   reply: FastifyReply;
   clientIp: string;
@@ -450,25 +452,31 @@ export async function handleStreamChat({
 
   let combinedSystemPrompt = globalSystemPrompt;
 
-  // Add presentation slide output instruction
-  combinedSystemPrompt += `\n\n【PPT/演示文稿生成规范】
-当用户要求制作、生成或设计 PPT、演示文稿、幻灯片、Slides 时，请务必使用标准的 \`\`\`ppt 代码块包裹完整的幻灯片内容，每页之间使用独立的三连短横线 \`---\` 进行分隔，标准示例如下：
+  // Add presentation slide output instruction if PPT mode is enabled or user explicitly asks for PPT
+  const isPPTRequested = enablePPT || /(?:ppt|pptx|演示文稿|幻灯片|slides?)/i.test(userLastMsg);
+  if (isPPTRequested) {
+    combinedSystemPrompt += `\n\n【PPT/演示文稿专业排版规范】
+你当前处于 PPT 演示文稿生成模式。请务必严格使用 \`\`\`ppt 代码块输出结构化幻灯片内容，不要输出其他闲聊。
+每页幻灯片之间使用独立的 \`---\`（三个短横线）进行分页。
+标准格式示例：
 \`\`\`ppt
 # 演示文稿主标题
-### 副标题 / 演讲者姓名
+### 演讲副标题或报告人
 ---
 ## 第一页标题
-### 页面副标题
-- 核心要点 1：详细描述
-- 核心要点 2：详细描述
-- 核心要点 3：详细描述
-> 演讲备注：本页演讲时的备忘提示
+### 章节重点简述
+- 核心要点一：详细描述与关键数据
+- 核心要点二：详细描述与关键数据
+- 核心要点三：详细描述与关键数据
+> 演讲备注：演讲时的要点备忘与提示词
 ---
 ## 第二页标题
-- 重点项目 A
-- 重点项目 B
+### 章节重点简述
+- 关键行动项 A
+- 关键行动项 B
 \`\`\`
-这样系统将自动激活富交互幻灯片播放器，并支持用户直接导出原生 Office/WPS .pptx 文件。`;
+请根据用户的输入主题，生成 4~8 页逻辑严密、排版美观、层次分明的 PPT 演示文稿。`;
+  }
 
   if (searchContextText) {
     combinedSystemPrompt += searchContextText;

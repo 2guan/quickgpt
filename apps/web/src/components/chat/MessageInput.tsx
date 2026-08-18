@@ -33,6 +33,8 @@ export const MessageInput: React.FC<MessageInputProps> = ({ onSend }) => {
     setImageParams,
     enableSearch,
     setEnableSearch,
+    enablePPT,
+    setEnablePPT,
   } = useChatStore();
 
   const { settings } = useSettingsStore();
@@ -230,21 +232,17 @@ export const MessageInput: React.FC<MessageInputProps> = ({ onSend }) => {
           <Globe className={`w-4 h-4 ${enableSearch ? 'animate-pulse' : ''}`} />
         </button>
 
-        {/* PPT Generation Shortcut Button */}
+        {/* PPT Generation Background Toggle Button */}
         <button
-          onClick={() => {
-            const current = input.trim();
-            if (current) {
-              setInput(`请帮我制作一份关于【${current}】的专业 PPT 演示文稿，包含封面页、目录页、核心内容展开与总结页，使用标准的 ppt 代码块输出。`);
-            } else {
-              setInput('请帮我制作一份关于人工智能未来发展趋势的 6 页专业汇报 PPT 演示文稿，使用标准的 ppt 代码块输出。');
-            }
-            textareaRef.current?.focus();
-          }}
-          className="p-2 text-slate-400 dark:text-slate-500 hover:text-orange-600 dark:hover:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/60 rounded-full transition-all shrink-0 mb-0.5 active:scale-95"
-          title="生成 PPT 演示文稿 (点击自动填入 PPT 制作指令)"
+          onClick={() => setEnablePPT(!enablePPT)}
+          className={`p-2 rounded-full transition-all shrink-0 mb-0.5 active:scale-95 ${
+            enablePPT
+              ? 'bg-orange-50 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800/80'
+              : 'text-slate-400 dark:text-slate-500 hover:text-orange-600 dark:hover:text-orange-400 hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
+          }`}
+          title={enablePPT ? 'PPT 幻灯片生成模式已开启（点击关闭）' : '点击开启 PPT 幻灯片生成模式（后台自动附加 PPT 制作规范）'}
         >
-          <Presentation className="w-4 h-4 text-orange-500" />
+          <Presentation className={`w-4 h-4 ${enablePPT ? 'animate-pulse text-orange-600 dark:text-orange-400' : ''}`} />
         </button>
 
         {/* Auto-resizing Textarea */}
