@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import pptxgen from 'pptxgenjs';
 import {
   Presentation,
@@ -396,6 +396,8 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
   const [isExporting, setIsExporting] = useState(false);
   const [isSourceMode, setIsSourceMode] = useState(false);
   const [copied, setCopied] = useState(false);
+  const fullscreenContainerRef = useRef<HTMLDivElement>(null);
+  const [fullscreenScale, setFullscreenScale] = useState(1);
 
   const activeTheme = COLOR_THEMES[themeIdx];
   const totalSlides = slides.length;
@@ -423,6 +425,28 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
     e?.stopPropagation();
     setCurrentIdx((prev) => Math.min(totalSlides - 1, prev + 1));
   };
+
+  // Dynamically calculate proportional scale for fullscreen mode (standard 16:9 base: 960x540)
+  useEffect(() => {
+    if (!isFullscreen) return;
+
+    const updateScale = () => {
+      if (!fullscreenContainerRef.current) return;
+      const { clientWidth, clientHeight } = fullscreenContainerRef.current;
+      const availW = Math.max(200, clientWidth - 48);
+      const availH = Math.max(200, clientHeight - 48);
+      const s = Math.min(availW / 960, availH / 540);
+      setFullscreenScale(s);
+    };
+
+    updateScale();
+    const raf = requestAnimationFrame(updateScale);
+    window.addEventListener('resize', updateScale);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', updateScale);
+    };
+  }, [isFullscreen]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -1754,18 +1778,610 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
     }
   };
 
+  const renderSlideInner = () => (
+    <>
+      {/* Top Decorative Line */}
+      {currentSlide.layout !== 'cover' && (
+        <div
+          className="absolute top-0 left-0 right-0 h-1.5"
+          style={{ backgroundColor: activeTheme.accent }}
+        />
+      )}
+
+      {/* Slide Body Content (Rich layout renderer: cover / grid2 / grid3 / grid4 / timeline / stats / content) */}
+      <div className="flex-1 min-h-0 flex flex-col justify-center my-auto w-full py-1">
+        {/* 1. COVER SLIDE */}
+        {currentSlide.layout === 'cover' ? (
+          <div className="text-center my-auto space-y-2 sm:space-y-3 px-3 sm:px-6 w-full flex flex-col items-center justify-center">
+            <div className="inline-flex items-center px-3 py-0.5 rounded-full bg-white/20 backdrop-blur-xs text-[10px] sm:text-xs font-bold tracking-wider text-emerald-200 uppercase shrink-0">
+              PRESENTATION DECK
+            </div>
+            <h1
+              className={`font-black tracking-tight text-white leading-snug break-words w-full text-center drop-shadow-sm ${
+                currentSlide.title.length > 25
+                  ? 'text-base sm:text-lg md:text-xl lg:text-2xl'
+                  : currentSlide.title.length > 15
+                  ? 'text-lg sm:text-xl md:text-2xl lg:text-3xl'
+                  : 'text-xl sm:text-2xl md:text-3xl lg:text-4xl'
+              }`}
+            >
+              {renderFormattedText(currentSlide.title)}
+            </h1>
+            {currentSlide.subtitle && (
+              <p className="text-xs sm:text-sm text-slate-200/90 font-medium w-full text-center leading-relaxed break-words px-2">
+                {renderFormattedText(currentSlide.subtitle)}
+              </p>
+            )}
+            {(currentSlide.notes || currentSlide.quoteText) && !currentSlide.table && (
+              <div className="inline-block px-4 py-1.5 rounded-full bg-white/15 backdrop-blur-xs border border-white/20 text-white text-[10px] sm:text-xs font-medium shadow-2xs mt-2">
+                {renderFormattedText(currentSlide.notes || currentSlide.quoteText || '')}
+              </div>
+            )}
+            {currentSlide.table && (
+              <div className="w-full max-w-xl mx-auto overflow-hidden rounded-lg bg-white/10 backdrop-blur-xs border border-white/20 text-[10px] sm:text-xs text-white mt-1">
+                <div className="grid grid-cols-3 bg-white/20 font-bold px-2 py-1 border-b border-white/20">
+                  {currentSlide.table.headers.map((h, hIdx) => (
+                    <div key={hIdx} className="text-center">{renderFormattedText(h)}</div>
+                  ))}
+                </div>
+                {currentSlide.table.rows.map((r, rIdx) => (
+                  <div key={rIdx} className="grid grid-cols-3 px-2 py-1 border-b last:border-b-0 border-white/10 text-slate-200 text-[9.5px] sm:text-[10.5px]">
+                    {r.map((c, cIdx) => (
+                      <div key={cIdx} className="text-center truncate px-1">{renderFormattedText(c)}</div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <>
+            {/* Regular Header: Title & Subtitle */}
+            <div className="shrink-0 mb-2 sm:mb-2.5 w-full">
+              <div className="flex items-start gap-2 w-full">
+                <div className="w-1.5 h-4 rounded-full shrink-0 mt-0.5" style={{ backgroundColor: activeTheme.accent }} />
+                <h2 className="text-xs sm:text-sm md:text-base font-bold text-slate-900 dark:text-white leading-snug break-words flex-1">
+                  {renderFormattedText(currentSlide.title)}
+                </h2>
+              </div>
+              {currentSlide.subtitle && (
+                <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium ml-3.5 mt-0.5 break-words">
+                  {renderFormattedText(currentSlide.subtitle)}
+                </p>
+              )}
+            </div>
+
+            {/* 2. TIMELINE / ROADMAP (2~5 items with connecting line) */}
+            {currentSlide.layout === 'timeline' && currentSlide.items && currentSlide.items.length > 0 ? (
+              <div className="flex flex-col my-auto w-full space-y-2.5">
+                <div className="relative w-full">
+                  {/* Horizontal connecting background line */}
+                  <div className="hidden sm:block absolute top-4 left-6 right-6 h-0.5 bg-slate-200 dark:bg-slate-700 z-0" />
+                  
+                  <div className={`grid gap-2 sm:gap-2.5 z-10 relative ${
+                    currentSlide.items.length === 5 ? 'grid-cols-2 sm:grid-cols-5' :
+                    currentSlide.items.length === 4 ? 'grid-cols-2 sm:grid-cols-4' :
+                    currentSlide.items.length === 3 ? 'grid-cols-3' : 'grid-cols-2'
+                  }`}>
+                    {currentSlide.items.slice(0, 5).map((item, idx) => (
+                      <div key={idx} className="flex flex-col p-2.5 rounded-xl bg-white dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 shadow-2xs hover:shadow-xs transition-all">
+                        <div className="flex items-center gap-1.5 mb-1.5 shrink-0">
+                          <span
+                            className="flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-black text-white shadow-xs shrink-0 ring-2 ring-white dark:ring-slate-800"
+                            style={{ backgroundColor: activeTheme.accent }}
+                          >
+                            {idx + 1}
+                          </span>
+                          <span className="text-[11px] sm:text-xs font-bold text-slate-800 dark:text-slate-100 break-words leading-tight flex-1">
+                            {renderFormattedText(item.title || `阶段 ${idx + 1}`)}
+                          </span>
+                        </div>
+                        {item.description && (
+                          <p className="text-[10px] sm:text-[10.5px] text-slate-600 dark:text-slate-300 leading-snug break-words whitespace-normal mb-1">
+                            {renderFormattedText(item.description)}
+                          </p>
+                        )}
+                        {item.bullets && item.bullets.length > 0 && (
+                          <div className="space-y-0.5">
+                            {item.bullets.map((sub, sIdx) => (
+                              <div key={sIdx} className="text-[9.5px] sm:text-[10px] text-slate-600 dark:text-slate-300 leading-snug break-words">
+                                {renderFormattedText(sub)}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {currentSlide.notes && (
+                  <div className="px-3 py-1.5 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-900/40 text-[9.5px] sm:text-[10.5px] text-emerald-800 dark:text-emerald-300 leading-snug">
+                    💡 {renderFormattedText(currentSlide.notes)}
+                  </div>
+                )}
+              </div>
+            ) : /* 3. STATS / METRICS CARDS (Large bold numbers / accent badges) */
+            currentSlide.layout === 'stats' && currentSlide.items && currentSlide.items.length > 0 ? (
+              <div className="flex flex-col my-auto w-full space-y-2">
+                <div className={`grid gap-2 sm:gap-2.5 w-full ${
+                  currentSlide.items.length >= 5 ? 'grid-cols-2 sm:grid-cols-3' :
+                  currentSlide.items.length === 4 ? 'grid-cols-2' :
+                  currentSlide.items.length === 3 ? 'grid-cols-3' : 'grid-cols-2'
+                }`}>
+                  {currentSlide.items.slice(0, 6).map((item, idx) => (
+                    <div key={idx} className="relative p-2.5 sm:p-3 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 bg-linear-to-b from-white to-slate-50 dark:from-slate-800/90 dark:to-slate-900/90 shadow-2xs flex flex-col justify-between overflow-hidden group">
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5 pb-1 border-b border-slate-100 dark:border-slate-700/50">
+                          <span className="text-xs font-bold text-slate-900 dark:text-slate-100 break-words flex-1 truncate">
+                            {renderFormattedText(item.title || `指标 0${idx + 1}`)}
+                          </span>
+                          <span
+                            className="px-1.5 py-0.5 rounded text-[8.5px] font-bold uppercase text-white shrink-0 ml-1"
+                            style={{ backgroundColor: activeTheme.accent }}
+                          >
+                            KPI
+                          </span>
+                        </div>
+
+                        {item.description && (
+                          <p className="text-[10px] sm:text-[10.5px] text-slate-600 dark:text-slate-300 leading-snug break-words whitespace-normal">
+                            {renderFormattedText(item.description)}
+                          </p>
+                        )}
+
+                        {item.bullets && item.bullets.length > 0 && (
+                          <div className="space-y-0.5 mt-1">
+                            {item.bullets.map((sub, sIdx) => (
+                              <div key={sIdx} className="text-[9.5px] sm:text-[10px] text-slate-700 dark:text-slate-300 leading-tight break-words">
+                                {renderFormattedText(sub)}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="w-6 h-0.5 mt-2 rounded-full" style={{ backgroundColor: activeTheme.accent }} />
+                    </div>
+                  ))}
+                </div>
+
+                {currentSlide.notes && (
+                  <div className="px-3 py-1.5 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-900/40 text-[9.5px] sm:text-[10.5px] text-emerald-800 dark:text-emerald-300 leading-snug text-center">
+                    💡 {renderFormattedText(currentSlide.notes)}
+                  </div>
+                )}
+              </div>
+            ) : /* 4. TWO-COLUMN COMPARISON / HERO PILLARS (grid2) */
+            currentSlide.layout === 'grid2' && currentSlide.items && currentSlide.items.length >= 2 ? (
+              <div className="grid grid-cols-2 gap-2.5 sm:gap-3.5 my-auto w-full">
+                {currentSlide.items.slice(0, 2).map((item, idx) => (
+                  <div
+                    key={idx}
+                    className={`p-2.5 sm:p-3 rounded-2xl border shadow-2xs flex flex-col justify-between transition-all ${
+                      idx === 0
+                        ? 'bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700'
+                        : 'bg-emerald-50/30 dark:bg-emerald-950/20 border-emerald-200/70 dark:border-emerald-900/50'
+                    }`}
+                  >
+                    <div>
+                      {item.title && (
+                        <div className="flex items-center gap-1.5 mb-1 pb-1 border-b border-slate-200/70 dark:border-slate-700/60">
+                          <span
+                            className="w-1.5 h-1.5 rounded-full shrink-0"
+                            style={{ backgroundColor: activeTheme.accent }}
+                          />
+                          <span className="text-[11.5px] sm:text-xs font-bold text-slate-900 dark:text-slate-100 break-words leading-tight flex-1">
+                            {renderFormattedText(item.title)}
+                          </span>
+                        </div>
+                      )}
+                      {item.description && (
+                        <p className="text-[10px] sm:text-[10.5px] text-slate-500 dark:text-slate-400 italic mb-1 break-words leading-tight">
+                          {renderFormattedText(item.description)}
+                        </p>
+                      )}
+                      {item.bullets && item.bullets.length > 0 && (
+                        <div className="space-y-1 mt-1 pr-1">
+                          {item.bullets.map((sub, sIdx) => (
+                            <div key={sIdx} className="flex items-start gap-1 text-[9.5px] sm:text-[10px] text-slate-700 dark:text-slate-300 leading-snug">
+                              <span className="text-slate-400 font-bold shrink-0">•</span>
+                              <span className="break-words flex-1">{renderFormattedText(sub)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : /* 5. THREE-COLUMN PILLARS (grid3) */
+            currentSlide.layout === 'grid3' && currentSlide.items && currentSlide.items.length >= 3 ? (
+              <div className="flex flex-col my-auto w-full space-y-2">
+                <div className="grid grid-cols-3 gap-2.5 sm:gap-3 w-full">
+                  {currentSlide.items.slice(0, 3).map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="p-2.5 sm:p-3 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/70 shadow-2xs flex flex-col justify-between hover:border-slate-300 transition-all"
+                    >
+                      <div>
+                        <div className="flex items-center gap-1.5 mb-1.5 shrink-0">
+                          <span
+                            className="w-1.5 h-3 rounded-full shrink-0"
+                            style={{ backgroundColor: activeTheme.accent }}
+                          />
+                          <span className="text-[11px] sm:text-xs font-bold text-slate-900 dark:text-slate-100 break-words leading-tight flex-1">
+                            {renderFormattedText(item.title || `模块 0${idx + 1}`)}
+                          </span>
+                        </div>
+                        {item.description && (
+                          <p className="text-[10px] sm:text-[10.5px] text-slate-600 dark:text-slate-300 leading-snug break-words whitespace-normal mb-1">
+                            {renderFormattedText(item.description)}
+                          </p>
+                        )}
+                        {item.bullets && item.bullets.length > 0 && (
+                          <div className="space-y-0.5 mt-1">
+                            {item.bullets.map((sub, sIdx) => (
+                              <div key={sIdx} className="flex items-start gap-1 text-[9px] sm:text-[9.5px] text-slate-600 dark:text-slate-300 leading-snug">
+                                <span className="text-slate-400 font-bold shrink-0">•</span>
+                                <span className="break-words flex-1">{renderFormattedText(sub)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {currentSlide.notes && (
+                  <div className="px-3 py-1.5 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-900/40 text-[9.5px] sm:text-[10.5px] text-emerald-800 dark:text-emerald-300 leading-snug text-center">
+                    💡 {renderFormattedText(currentSlide.notes)}
+                  </div>
+                )}
+              </div>
+            ) : /* 6. FOUR-CARD 2x2 MATRIX (grid4) */
+            currentSlide.layout === 'grid4' && currentSlide.items && currentSlide.items.length >= 4 ? (
+              <div className="flex flex-col my-auto w-full space-y-2">
+                <div className="grid grid-cols-2 gap-2 sm:gap-2.5 w-full">
+                  {currentSlide.items.slice(0, 4).map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="p-2 sm:p-2.5 rounded-xl bg-slate-50/90 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700/60 shadow-2xs flex items-start gap-2"
+                    >
+                      <span
+                        className="flex items-center justify-center w-4 h-4 rounded-md text-[9px] font-bold text-white shrink-0 mt-0.5"
+                        style={{ backgroundColor: activeTheme.accent }}
+                      >
+                        {String.fromCharCode(65 + idx)}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        {item.title && (
+                          <div className="text-[11px] sm:text-xs font-bold text-slate-900 dark:text-slate-100 mb-0.5 break-words leading-tight">
+                            {renderFormattedText(item.title)}
+                          </div>
+                        )}
+                        {item.description && (
+                          <p className="text-[10px] sm:text-[10.5px] text-slate-600 dark:text-slate-300 leading-snug break-words whitespace-normal mb-1">
+                            {renderFormattedText(item.description)}
+                          </p>
+                        )}
+                        {item.bullets && item.bullets.length > 0 && (
+                          <div className="space-y-0.5 mt-0.5">
+                            {item.bullets.map((sub, sIdx) => (
+                              <div key={sIdx} className="flex items-start gap-1 text-[9.5px] sm:text-[10px] text-slate-600 dark:text-slate-300 leading-snug">
+                                <span className="text-slate-400 font-bold shrink-0">•</span>
+                                <span className="break-words flex-1">{renderFormattedText(sub)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {currentSlide.notes && (
+                  <div className="px-3 py-1.5 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-900/40 text-[9.5px] sm:text-[10.5px] text-emerald-800 dark:text-emerald-300 leading-snug">
+                    💡 {renderFormattedText(currentSlide.notes)}
+                  </div>
+                )}
+              </div>
+            ) : /* 7. FIVE-CARD / SIX-CARD MATRICES (grid5 / grid6) */
+            (currentSlide.layout === 'grid5' || currentSlide.layout === 'grid6') && currentSlide.items && currentSlide.items.length >= 5 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 my-auto w-full">
+                {currentSlide.items.slice(0, currentSlide.layout === 'grid6' ? 6 : 5).map((item, idx) => (
+                  <div
+                    key={idx}
+                    className="p-2.5 rounded-xl bg-slate-50/90 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700/60 shadow-2xs flex flex-col justify-between"
+                  >
+                    <div>
+                      <div className="flex items-center gap-1.5 mb-1 shrink-0 pb-1 border-b border-slate-200/60 dark:border-slate-700/50">
+                        <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: activeTheme.accent }} />
+                        <span className="text-[11px] font-bold text-slate-800 dark:text-slate-100 truncate flex-1">
+                          {renderFormattedText(item.title || `要点 ${idx + 1}`)}
+                        </span>
+                      </div>
+                      {item.description && (
+                        <p className="text-[9.5px] sm:text-[10px] text-slate-600 dark:text-slate-300 leading-tight break-words whitespace-normal mb-1">
+                          {renderFormattedText(item.description)}
+                        </p>
+                      )}
+                      {item.bullets && item.bullets.length > 0 && (
+                        <div className="space-y-0.5 mt-0.5">
+                          {item.bullets.map((sub, sIdx) => (
+                            <div key={sIdx} className="flex items-start gap-1 text-[9px] sm:text-[9.5px] text-slate-600 dark:text-slate-300 leading-tight">
+                              <span className="text-slate-400 font-bold shrink-0">•</span>
+                              <span className="break-words flex-1">{renderFormattedText(sub)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : /* 8. QUOTE / HIGHLIGHT CALLOUT (quote) */
+            currentSlide.layout === 'quote' ? (
+              <div className="flex flex-col my-auto w-full space-y-2.5 max-h-[340px] overflow-hidden">
+                {currentSlide.table ? (
+                  /* Dual-Panel Layout: Quotes on Left + Table Checklist on Right */
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-3 w-full items-stretch my-auto">
+                    {/* Left Column: Golden Quote Callout Cards (5 cols) */}
+                    <div className="md:col-span-5 flex flex-col justify-between space-y-2">
+                      {currentSlide.items && currentSlide.items.length > 0 ? (
+                        currentSlide.items.slice(0, 3).map((it, idx) => (
+                          <div
+                            key={idx}
+                            className="p-2.5 rounded-xl bg-linear-to-r from-emerald-500/10 via-teal-500/5 to-transparent border-l-3.5 border-emerald-500 shadow-2xs flex items-center"
+                          >
+                            <p className="text-[10px] sm:text-[10.5px] font-medium text-slate-800 dark:text-slate-200 leading-snug break-words">
+                              {renderFormattedText(it.title ? `${it.title}：${it.description}` : it.description || '')}
+                            </p>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="p-3 rounded-xl bg-linear-to-r from-emerald-500/15 via-teal-500/10 to-transparent border-l-4 border-emerald-500 my-auto">
+                          <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 leading-relaxed break-words">
+                            {renderFormattedText(currentSlide.quoteText || currentSlide.bullets[0] || '')}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Right Column: Checklist Table (7 cols) */}
+                    <div className="md:col-span-7 flex flex-col justify-between overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr style={{ backgroundColor: activeTheme.accent }}>
+                            {currentSlide.table.headers.map((head, hIdx) => (
+                              <th
+                                key={hIdx}
+                                className="px-2.5 py-1 text-[9.5px] sm:text-[10.5px] font-bold text-white tracking-wide border-r last:border-r-0 border-white/20"
+                              >
+                                {renderFormattedText(head)}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-800/90 text-[9px] sm:text-[10px]">
+                          {currentSlide.table.rows.slice(0, 5).map((row, rIdx) => (
+                            <tr
+                              key={rIdx}
+                              className={rIdx % 2 === 1 ? 'bg-slate-50/60 dark:bg-slate-800/40' : ''}
+                            >
+                              {row.map((cell, cIdx) => (
+                                <td
+                                  key={cIdx}
+                                  className="px-2.5 py-1 text-slate-700 dark:text-slate-200 border-r last:border-r-0 border-slate-100 dark:border-slate-800 leading-tight break-words"
+                                >
+                                  {renderFormattedText(cell)}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : currentSlide.items && currentSlide.items.length > 0 ? (
+                  <>
+                    {/* Top 3 Pillar Cards */}
+                    <div
+                      className={`grid gap-2.5 w-full ${
+                        currentSlide.items.length === 3
+                          ? 'grid-cols-1 sm:grid-cols-3'
+                          : currentSlide.items.length === 2
+                          ? 'grid-cols-2'
+                          : 'grid-cols-1'
+                      }`}
+                    >
+                      {currentSlide.items.slice(0, 3).map((it, idx) => (
+                        <div
+                          key={idx}
+                          className="p-3 rounded-2xl bg-white dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/70 shadow-2xs flex flex-col justify-between"
+                        >
+                          <div>
+                            {it.title && (
+                              <div className="text-[11.5px] sm:text-xs font-bold text-slate-900 dark:text-slate-100 mb-1.5 flex items-center gap-1.5 pb-1 border-b border-slate-100 dark:border-slate-700/60">
+                                <span
+                                  className="w-1.5 h-3 rounded-full shrink-0"
+                                  style={{ backgroundColor: activeTheme.accent }}
+                                />
+                                <span className="break-words flex-1">{renderFormattedText(it.title)}</span>
+                              </div>
+                            )}
+                            <div className="text-[10px] sm:text-[10.5px] text-slate-600 dark:text-slate-300 leading-snug break-words">
+                              {renderFormattedText(it.description || '')}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Bottom Conclusion Banner */}
+                    {currentSlide.quoteText && (
+                      <div className="p-2.5 rounded-xl bg-linear-to-r from-emerald-500/15 via-teal-500/10 to-emerald-500/5 border border-emerald-300/80 dark:border-emerald-700/80 text-center">
+                        <div className="text-[10.5px] sm:text-[11.5px] font-bold text-emerald-950 dark:text-emerald-100 leading-relaxed break-words">
+                          {renderFormattedText(currentSlide.quoteText)}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {/* Single Centered Golden Quote Banner */}
+                    <div className="p-4 rounded-2xl bg-linear-to-r from-emerald-500/15 via-teal-500/10 to-transparent border-l-4 border-emerald-500 text-left">
+                      <div className="text-xs sm:text-sm md:text-base font-bold text-slate-900 dark:text-slate-100 leading-relaxed break-words">
+                        {renderFormattedText(
+                          currentSlide.quoteText ||
+                            currentSlide.bullets[0] ||
+                            currentSlide.title ||
+                            ''
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* Thank you / interactive footer notes */}
+                {currentSlide.notes && (
+                  <div className="text-center pt-0.5">
+                    <span className="inline-block px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/70 dark:border-emerald-900/50 text-[10px] sm:text-[11px] font-bold text-emerald-700 dark:text-emerald-300">
+                      💡 {renderFormattedText(currentSlide.notes)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            ) : /* 9. STRUCTURED DATA TABLE (table) */
+            currentSlide.layout === 'table' && currentSlide.table ? (
+              <div className="my-auto w-full overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr style={{ backgroundColor: activeTheme.accent }}>
+                      {currentSlide.table.headers.map((head, hIdx) => (
+                        <th
+                          key={hIdx}
+                          className="px-2.5 py-1.5 text-[10px] sm:text-xs font-bold text-white tracking-wide border-r last:border-r-0 border-white/20"
+                        >
+                          {renderFormattedText(head)}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-800/90 text-[9.5px] sm:text-[11px]">
+                    {currentSlide.table.rows.slice(0, 5).map((row, rIdx) => (
+                      <tr
+                        key={rIdx}
+                        className={rIdx % 2 === 1 ? 'bg-slate-50/60 dark:bg-slate-800/40' : ''}
+                      >
+                        {row.map((cell, cIdx) => (
+                          <td
+                            key={cIdx}
+                            className="px-2.5 py-1.5 text-slate-700 dark:text-slate-200 border-r last:border-r-0 border-slate-100 dark:border-slate-800 leading-snug break-words"
+                          >
+                            {renderFormattedText(cell)}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                {currentSlide.notes && (
+                  <div className="px-3 py-1.5 bg-emerald-50/70 dark:bg-emerald-950/30 border-t border-emerald-200/60 dark:border-emerald-900/40 text-[9.5px] sm:text-[10.5px] text-emerald-800 dark:text-emerald-300 leading-snug text-center">
+                    💡 {renderFormattedText(currentSlide.notes)}
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* 10. HIGH-DENSITY & STANDARD ITEM CARDS (Auto Dual-Column for >= 6 items) */
+              (() => {
+                const allItems: SlideItem[] = currentSlide.items && currentSlide.items.length > 0
+                  ? currentSlide.items
+                  : currentSlide.bullets.map((b) => ({ description: b }));
+                const count = allItems.length;
+
+                if (count >= 6) {
+                  // 2-Column High Density Grid for 6~10 items
+                  return (
+                    <div className="grid grid-cols-2 gap-1.5 sm:gap-2 my-auto w-full overflow-hidden">
+                      {allItems.slice(0, 10).map((it, idx) => (
+                        <div
+                          key={idx}
+                          className={`flex items-start gap-1.5 rounded-lg bg-slate-50/90 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/60 shadow-2xs font-medium transition-all ${
+                            count >= 8 ? 'p-1 sm:p-1.5 text-[9px] sm:text-[10px]' : 'p-1.5 sm:p-2 text-[10px] sm:text-[11px]'
+                          }`}
+                        >
+                          <span
+                            className="flex items-center justify-center w-3.5 h-3.5 rounded-full text-[8.5px] font-bold text-white shrink-0 mt-0.5"
+                            style={{ backgroundColor: activeTheme.accent }}
+                          >
+                            {idx + 1}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            {it.title && (
+                              <span className="font-bold text-slate-900 dark:text-slate-100 mr-1 inline">
+                                {renderFormattedText(it.title)}:
+                              </span>
+                            )}
+                            <span className="text-slate-700 dark:text-slate-200 break-words leading-tight whitespace-normal">
+                              {renderFormattedText(it.description || '')}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                }
+
+                // 1-Column Elegant Stacked Cards for 1~5 items
+                return (
+                  <div className="space-y-1.5 sm:space-y-2 my-auto w-full">
+                    {allItems.map((it, bIdx) => (
+                      <div
+                        key={bIdx}
+                        className={`flex items-start gap-2 rounded-xl bg-slate-50/90 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/60 shadow-2xs font-medium transition-all ${
+                          count === 5 ? 'p-1.5 sm:p-2 text-[11px]' : 'p-2.5 sm:p-3 text-xs sm:text-[13px]'
+                        }`}
+                      >
+                        <span
+                          className="flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-bold text-white shrink-0 mt-0.5"
+                          style={{ backgroundColor: activeTheme.accent }}
+                        >
+                          {bIdx + 1}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          {it.title && (
+                            <span className="font-bold text-slate-900 dark:text-slate-100 mr-1 inline">
+                              {renderFormattedText(it.title)}:
+                            </span>
+                          )}
+                          <span className="text-slate-700 dark:text-slate-200 break-words leading-relaxed whitespace-normal">
+                            {renderFormattedText(it.description || '')}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()
+            )}
+          </>
+        )}
+      </div>
+    </>
+  );
+
   if (slides.length === 0) return null;
 
   return (
     <div
       className={`my-4 rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-md overflow-hidden transition-all duration-200 ${
         isFullscreen
-          ? 'fixed inset-0 z-50 rounded-none flex flex-col justify-between p-4 sm:p-8 bg-slate-950 text-white'
+          ? 'fixed inset-0 z-50 rounded-none flex flex-col justify-between p-3 sm:p-6 bg-slate-950 text-white my-0'
           : 'w-full max-w-3xl mx-auto'
       }`}
     >
       {/* 1. Header Toolbar */}
-      <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200/70 dark:border-slate-800 text-xs">
+      <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200/70 dark:border-slate-800 text-xs shrink-0">
         <div className="flex items-center gap-2">
           <div className="p-1 rounded-lg bg-orange-100 dark:bg-orange-950/70 text-orange-600 dark:text-orange-400">
             {isSourceMode ? <Code className="w-4 h-4" /> : <Presentation className="w-4 h-4" />}
@@ -1858,648 +2474,89 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
         </div>
       ) : (
         <>
-          {/* 2. Slide Visual Card Canvas (Strict 16:9 Fixed Ratio Box, No Scrollbars) */}
-      <div
-        className={`p-3 sm:p-5 flex items-center justify-center bg-slate-100/60 dark:bg-slate-950/40 ${
-          isFullscreen ? 'flex-1 overflow-hidden' : ''
-        }`}
-      >
-        <div
-          className={`w-full aspect-[16/9] min-h-[260px] max-h-[460px] rounded-xl shadow-lg border border-slate-200/80 dark:border-slate-800 p-5 sm:p-7 lg:p-9 flex flex-col justify-between transition-all duration-300 relative overflow-hidden select-none ${
-            currentSlide.layout === 'cover'
-              ? 'text-white'
-              : 'bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100'
-          }`}
-          style={{
-            backgroundColor: currentSlide.layout === 'cover' ? activeTheme.bg : undefined,
-          }}
-        >
-          {/* Top Decorative Line */}
-          {currentSlide.layout !== 'cover' && (
+          {/* 2. Slide Visual Card Canvas (Strict 16:9 Fixed Ratio Box, Proportional Scaling in Fullscreen) */}
+          {isFullscreen ? (
             <div
-              className="absolute top-0 left-0 right-0 h-1.5"
-              style={{ backgroundColor: activeTheme.accent }}
-            />
+              ref={fullscreenContainerRef}
+              className="flex-1 w-full h-full flex items-center justify-center overflow-hidden relative p-2 sm:p-4 bg-slate-950 select-none"
+            >
+              {/* Proportional Scaled 16:9 Slide Canvas */}
+              <div
+                style={{
+                  width: `${960 * fullscreenScale}px`,
+                  height: `${540 * fullscreenScale}px`,
+                }}
+                className="relative flex items-center justify-center shrink-0 shadow-2xl rounded-2xl overflow-hidden transition-all duration-75"
+              >
+                <div
+                  className={`w-[960px] h-[540px] rounded-2xl shadow-2xl border border-slate-700/60 p-8 flex flex-col justify-between relative overflow-hidden select-none origin-top-left ${
+                    currentSlide.layout === 'cover'
+                      ? 'text-white'
+                      : 'bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100'
+                  }`}
+                  style={{
+                    transform: `scale(${fullscreenScale})`,
+                    transformOrigin: 'top left',
+                    backgroundColor: currentSlide.layout === 'cover' ? activeTheme.bg : undefined,
+                  }}
+                >
+                  {renderSlideInner()}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="p-3 sm:p-5 flex items-center justify-center bg-slate-100/60 dark:bg-slate-950/40">
+              <div
+                className={`w-full aspect-[16/9] min-h-[260px] max-h-[460px] rounded-xl shadow-lg border border-slate-200/80 dark:border-slate-800 p-5 sm:p-7 lg:p-9 flex flex-col justify-between transition-all duration-300 relative overflow-hidden select-none ${
+                  currentSlide.layout === 'cover'
+                    ? 'text-white'
+                    : 'bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100'
+                }`}
+                style={{
+                  backgroundColor: currentSlide.layout === 'cover' ? activeTheme.bg : undefined,
+                }}
+              >
+                {renderSlideInner()}
+              </div>
+            </div>
           )}
 
-          {/* Slide Body Content (Rich layout renderer: cover / grid2 / grid3 / grid4 / timeline / stats / content) */}
-          <div className="flex-1 min-h-0 flex flex-col justify-center my-auto w-full py-1">
-            {/* 1. COVER SLIDE */}
-            {currentSlide.layout === 'cover' ? (
-              <div className="text-center my-auto space-y-2 sm:space-y-3 px-3 sm:px-6 w-full flex flex-col items-center justify-center">
-                <div className="inline-flex items-center px-3 py-0.5 rounded-full bg-white/20 backdrop-blur-xs text-[10px] sm:text-xs font-bold tracking-wider text-emerald-200 uppercase shrink-0">
-                  PRESENTATION DECK
-                </div>
-                <h1
-                  className={`font-black tracking-tight text-white leading-snug break-words w-full text-center drop-shadow-sm ${
-                    currentSlide.title.length > 25
-                      ? 'text-base sm:text-lg md:text-xl lg:text-2xl'
-                      : currentSlide.title.length > 15
-                      ? 'text-lg sm:text-xl md:text-2xl lg:text-3xl'
-                      : 'text-xl sm:text-2xl md:text-3xl lg:text-4xl'
-                  }`}
-                >
-                  {renderFormattedText(currentSlide.title)}
-                </h1>
-                {currentSlide.subtitle && (
-                  <p className="text-xs sm:text-sm text-slate-200/90 font-medium w-full text-center leading-relaxed break-words px-2">
-                    {renderFormattedText(currentSlide.subtitle)}
-                  </p>
-                )}
-                {currentSlide.notes && (
-                  <div className="inline-block px-3 py-1 rounded-full bg-white/10 text-emerald-300 text-[10px] sm:text-xs font-medium">
-                    {renderFormattedText(currentSlide.notes)}
-                  </div>
-                )}
-                {currentSlide.table && (
-                  <div className="w-full max-w-xl mx-auto overflow-hidden rounded-lg bg-white/10 backdrop-blur-xs border border-white/20 text-[10px] sm:text-xs text-white mt-1">
-                    <div className="grid grid-cols-3 bg-white/20 font-bold px-2 py-1 border-b border-white/20">
-                      {currentSlide.table.headers.map((h, hIdx) => (
-                        <div key={hIdx} className="text-center">{renderFormattedText(h)}</div>
-                      ))}
-                    </div>
-                    {currentSlide.table.rows.map((r, rIdx) => (
-                      <div key={rIdx} className="grid grid-cols-3 px-2 py-1 border-b last:border-b-0 border-white/10 text-slate-200 text-[9.5px] sm:text-[10.5px]">
-                        {r.map((c, cIdx) => (
-                          <div key={cIdx} className="text-center truncate px-1">{renderFormattedText(c)}</div>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <>
-                {/* Regular Header: Title & Subtitle */}
-                <div className="shrink-0 mb-2 sm:mb-2.5 w-full">
-                  <div className="flex items-start gap-2 w-full">
-                    <div className="w-1.5 h-4 rounded-full shrink-0 mt-0.5" style={{ backgroundColor: activeTheme.accent }} />
-                    <h2 className="text-xs sm:text-sm md:text-base font-bold text-slate-900 dark:text-white leading-snug break-words flex-1">
-                      {renderFormattedText(currentSlide.title)}
-                    </h2>
-                  </div>
-                  {currentSlide.subtitle && (
-                    <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium ml-3.5 mt-0.5 break-words">
-                      {renderFormattedText(currentSlide.subtitle)}
-                    </p>
-                  )}
-                </div>
-
-                {/* 2. TIMELINE / ROADMAP (2~5 items with connecting line) */}
-                {currentSlide.layout === 'timeline' && currentSlide.items && currentSlide.items.length > 0 ? (
-                  <div className="flex flex-col my-auto w-full space-y-2.5">
-                    <div className="relative w-full">
-                      {/* Horizontal connecting background line */}
-                      <div className="hidden sm:block absolute top-4 left-6 right-6 h-0.5 bg-slate-200 dark:bg-slate-700 z-0" />
-                      
-                      <div className={`grid gap-2 sm:gap-2.5 z-10 relative ${
-                        currentSlide.items.length === 5 ? 'grid-cols-2 sm:grid-cols-5' :
-                        currentSlide.items.length === 4 ? 'grid-cols-2 sm:grid-cols-4' :
-                        currentSlide.items.length === 3 ? 'grid-cols-3' : 'grid-cols-2'
-                      }`}>
-                        {currentSlide.items.slice(0, 5).map((item, idx) => (
-                          <div key={idx} className="flex flex-col p-2.5 rounded-xl bg-white dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 shadow-2xs hover:shadow-xs transition-all">
-                            <div className="flex items-center gap-1.5 mb-1.5 shrink-0">
-                              <span
-                                className="flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-black text-white shadow-xs shrink-0 ring-2 ring-white dark:ring-slate-800"
-                                style={{ backgroundColor: activeTheme.accent }}
-                              >
-                                {idx + 1}
-                              </span>
-                              <span className="text-[11px] sm:text-xs font-bold text-slate-800 dark:text-slate-100 break-words leading-tight flex-1">
-                                {renderFormattedText(item.title || `阶段 ${idx + 1}`)}
-                              </span>
-                            </div>
-                            {item.description && (
-                              <p className="text-[10px] sm:text-[10.5px] text-slate-600 dark:text-slate-300 leading-snug break-words whitespace-normal mb-1">
-                                {renderFormattedText(item.description)}
-                              </p>
-                            )}
-                            {item.bullets && item.bullets.length > 0 && (
-                              <div className="space-y-0.5">
-                                {item.bullets.map((sub, sIdx) => (
-                                  <div key={sIdx} className="text-[9.5px] sm:text-[10px] text-slate-600 dark:text-slate-300 leading-snug break-words">
-                                    {renderFormattedText(sub)}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    {currentSlide.notes && (
-                      <div className="px-3 py-1.5 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-900/40 text-[9.5px] sm:text-[10.5px] text-emerald-800 dark:text-emerald-300 leading-snug">
-                        💡 {renderFormattedText(currentSlide.notes)}
-                      </div>
-                    )}
-                  </div>
-                ) : /* 3. STATS / METRICS CARDS (Large bold numbers / accent badges) */
-                currentSlide.layout === 'stats' && currentSlide.items && currentSlide.items.length > 0 ? (
-                  <div className="flex flex-col my-auto w-full space-y-2">
-                    <div className={`grid gap-2 sm:gap-2.5 w-full ${
-                      currentSlide.items.length >= 5 ? 'grid-cols-2 sm:grid-cols-3' :
-                      currentSlide.items.length === 4 ? 'grid-cols-2' :
-                      currentSlide.items.length === 3 ? 'grid-cols-3' : 'grid-cols-2'
-                    }`}>
-                      {currentSlide.items.slice(0, 6).map((item, idx) => (
-                        <div key={idx} className="relative p-2.5 sm:p-3 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 bg-linear-to-b from-white to-slate-50 dark:from-slate-800/90 dark:to-slate-900/90 shadow-2xs flex flex-col justify-between overflow-hidden group">
-                          <div>
-                            <div className="flex items-center justify-between mb-1.5 pb-1 border-b border-slate-100 dark:border-slate-700/50">
-                              <span className="text-xs font-bold text-slate-900 dark:text-slate-100 break-words flex-1 truncate">
-                                {renderFormattedText(item.title || `指标 0${idx + 1}`)}
-                              </span>
-                              <span
-                                className="px-1.5 py-0.5 rounded text-[8.5px] font-bold uppercase text-white shrink-0 ml-1"
-                                style={{ backgroundColor: activeTheme.accent }}
-                              >
-                                KPI
-                              </span>
-                            </div>
-
-                            {item.description && (
-                              <p className="text-[10px] sm:text-[10.5px] text-slate-600 dark:text-slate-300 leading-snug break-words whitespace-normal">
-                                {renderFormattedText(item.description)}
-                              </p>
-                            )}
-
-                            {item.bullets && item.bullets.length > 0 && (
-                              <div className="space-y-0.5 mt-1">
-                                {item.bullets.map((sub, sIdx) => (
-                                  <div key={sIdx} className="text-[9.5px] sm:text-[10px] text-slate-700 dark:text-slate-300 leading-tight break-words">
-                                    {renderFormattedText(sub)}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="w-6 h-0.5 mt-2 rounded-full" style={{ backgroundColor: activeTheme.accent }} />
-                        </div>
-                      ))}
-                    </div>
-
-                    {currentSlide.notes && (
-                      <div className="px-3 py-1.5 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-900/40 text-[9.5px] sm:text-[10.5px] text-emerald-800 dark:text-emerald-300 leading-snug text-center">
-                        💡 {renderFormattedText(currentSlide.notes)}
-                      </div>
-                    )}
-                  </div>
-                ) : /* 4. TWO-COLUMN COMPARISON / HERO PILLARS (grid2) */
-                currentSlide.layout === 'grid2' && currentSlide.items && currentSlide.items.length >= 2 ? (
-                  <div className="grid grid-cols-2 gap-2.5 sm:gap-3.5 my-auto w-full max-h-[300px] overflow-hidden">
-                    {currentSlide.items.slice(0, 2).map((item, idx) => (
-                      <div
-                        key={idx}
-                        className={`p-2.5 sm:p-3 rounded-2xl border shadow-2xs flex flex-col justify-between transition-all ${
-                          idx === 0
-                            ? 'bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700'
-                            : 'bg-emerald-50/30 dark:bg-emerald-950/20 border-emerald-200/70 dark:border-emerald-900/50'
-                        }`}
-                      >
-                        <div>
-                          {item.title && (
-                            <div className="flex items-center gap-1.5 mb-1 pb-1 border-b border-slate-200/70 dark:border-slate-700/60">
-                              <span
-                                className="w-1.5 h-1.5 rounded-full shrink-0"
-                                style={{ backgroundColor: activeTheme.accent }}
-                              />
-                              <span className="text-[11.5px] sm:text-xs font-bold text-slate-900 dark:text-slate-100 break-words leading-tight flex-1">
-                                {renderFormattedText(item.title)}
-                              </span>
-                            </div>
-                          )}
-                          {item.description && (
-                            <p className="text-[10px] sm:text-[10.5px] text-slate-500 dark:text-slate-400 italic mb-1 break-words leading-tight">
-                              {renderFormattedText(item.description)}
-                            </p>
-                          )}
-                          {item.bullets && item.bullets.length > 0 && (
-                            <div className="space-y-1 mt-1 max-h-[200px] overflow-y-auto pr-1">
-                              {item.bullets.map((sub, sIdx) => (
-                                <div key={sIdx} className="flex items-start gap-1 text-[9.5px] sm:text-[10px] text-slate-700 dark:text-slate-300 leading-snug">
-                                  <span className="text-slate-400 font-bold shrink-0">•</span>
-                                  <span className="break-words flex-1">{renderFormattedText(sub)}</span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : /* 5. THREE-COLUMN PILLARS (grid3) */
-                currentSlide.layout === 'grid3' && currentSlide.items && currentSlide.items.length >= 3 ? (
-                  <div className="flex flex-col my-auto w-full space-y-2">
-                    <div className="grid grid-cols-3 gap-2.5 sm:gap-3 w-full">
-                      {currentSlide.items.slice(0, 3).map((item, idx) => (
-                        <div
-                          key={idx}
-                          className="p-2.5 sm:p-3 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/70 shadow-2xs flex flex-col justify-between hover:border-slate-300 transition-all"
-                        >
-                          <div>
-                            <div className="flex items-center gap-1.5 mb-1.5 shrink-0">
-                              <span
-                                className="w-1.5 h-3 rounded-full shrink-0"
-                                style={{ backgroundColor: activeTheme.accent }}
-                              />
-                              <span className="text-[11px] sm:text-xs font-bold text-slate-900 dark:text-slate-100 break-words leading-tight flex-1">
-                                {renderFormattedText(item.title || `模块 0${idx + 1}`)}
-                              </span>
-                            </div>
-                            {item.description && (
-                              <p className="text-[10px] sm:text-[10.5px] text-slate-600 dark:text-slate-300 leading-snug break-words whitespace-normal mb-1">
-                                {renderFormattedText(item.description)}
-                              </p>
-                            )}
-                            {item.bullets && item.bullets.length > 0 && (
-                              <div className="space-y-0.5 mt-1">
-                                {item.bullets.map((sub, sIdx) => (
-                                  <div key={sIdx} className="flex items-start gap-1 text-[9px] sm:text-[9.5px] text-slate-600 dark:text-slate-300 leading-snug">
-                                    <span className="text-slate-400 font-bold shrink-0">•</span>
-                                    <span className="break-words flex-1">{renderFormattedText(sub)}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    {currentSlide.notes && (
-                      <div className="px-3 py-1.5 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-900/40 text-[9.5px] sm:text-[10.5px] text-emerald-800 dark:text-emerald-300 leading-snug">
-                        💡 {renderFormattedText(currentSlide.notes)}
-                      </div>
-                    )}
-                  </div>
-                ) : /* 6. FOUR-COLUMN 2x2 MATRIX (grid4) */
-                currentSlide.layout === 'grid4' && currentSlide.items && currentSlide.items.length >= 4 ? (
-                  <div className="flex flex-col my-auto w-full space-y-2">
-                    <div className="grid grid-cols-2 gap-2 sm:gap-2.5 w-full">
-                      {currentSlide.items.slice(0, 4).map((item, idx) => (
-                        <div
-                          key={idx}
-                          className="p-2.5 rounded-xl bg-slate-50/90 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700/60 shadow-2xs flex items-start gap-2"
-                        >
-                          <span
-                            className="flex items-center justify-center w-4 h-4 rounded-md text-[9px] font-bold text-white shrink-0 mt-0.5"
-                            style={{ backgroundColor: activeTheme.accent }}
-                          >
-                            {String.fromCharCode(65 + idx)}
-                          </span>
-                          <div className="flex-1 min-w-0">
-                            {item.title && (
-                              <div className="text-[11px] sm:text-xs font-bold text-slate-900 dark:text-slate-100 mb-0.5 break-words leading-tight">
-                                {renderFormattedText(item.title)}
-                              </div>
-                            )}
-                            {item.description && (
-                              <p className="text-[10px] sm:text-[10.5px] text-slate-600 dark:text-slate-300 leading-snug break-words whitespace-normal mb-1">
-                                {renderFormattedText(item.description)}
-                              </p>
-                            )}
-                            {item.bullets && item.bullets.length > 0 && (
-                              <div className="space-y-0.5 mt-0.5">
-                                {item.bullets.map((sub, sIdx) => (
-                                  <div key={sIdx} className="flex items-start gap-1 text-[9.5px] sm:text-[10px] text-slate-600 dark:text-slate-300 leading-snug">
-                                    <span className="text-slate-400 font-bold shrink-0">•</span>
-                                    <span className="break-words flex-1">{renderFormattedText(sub)}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    {currentSlide.notes && (
-                      <div className="px-3 py-1.5 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-900/40 text-[9.5px] sm:text-[10.5px] text-emerald-800 dark:text-emerald-300 leading-snug">
-                        💡 {renderFormattedText(currentSlide.notes)}
-                      </div>
-                    )}
-                  </div>
-                ) : /* 7. FIVE-CARD / SIX-CARD MATRICES (grid5 / grid6) */
-                (currentSlide.layout === 'grid5' || currentSlide.layout === 'grid6') && currentSlide.items && currentSlide.items.length >= 5 ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 my-auto w-full">
-                    {currentSlide.items.slice(0, currentSlide.layout === 'grid6' ? 6 : 5).map((item, idx) => (
-                      <div
-                        key={idx}
-                        className="p-2.5 rounded-xl bg-slate-50/90 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700/60 shadow-2xs flex flex-col justify-between"
-                      >
-                        <div>
-                          <div className="flex items-center gap-1.5 mb-1 shrink-0 pb-1 border-b border-slate-200/60 dark:border-slate-700/50">
-                            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: activeTheme.accent }} />
-                            <span className="text-[11px] font-bold text-slate-800 dark:text-slate-100 truncate flex-1">
-                              {renderFormattedText(item.title || `要点 ${idx + 1}`)}
-                            </span>
-                          </div>
-                          {item.description && (
-                            <p className="text-[9.5px] sm:text-[10px] text-slate-600 dark:text-slate-300 leading-tight break-words whitespace-normal mb-1">
-                              {renderFormattedText(item.description)}
-                            </p>
-                          )}
-                          {item.bullets && item.bullets.length > 0 && (
-                            <div className="space-y-0.5 mt-0.5">
-                              {item.bullets.map((sub, sIdx) => (
-                                <div key={sIdx} className="flex items-start gap-1 text-[9px] sm:text-[9.5px] text-slate-600 dark:text-slate-300 leading-tight">
-                                  <span className="text-slate-400 font-bold shrink-0">•</span>
-                                  <span className="break-words flex-1">{renderFormattedText(sub)}</span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : /* 8. QUOTE / HIGHLIGHT CALLOUT (quote) */
-                currentSlide.layout === 'quote' ? (
-                  <div className="flex flex-col my-auto w-full space-y-2.5 max-h-[340px] overflow-hidden">
-                    {currentSlide.table ? (
-                      /* Dual-Panel Layout: Quotes on Left + Table Checklist on Right */
-                      <div className="grid grid-cols-1 md:grid-cols-12 gap-3 w-full items-stretch my-auto">
-                        {/* Left Column: Golden Quote Callout Cards (5 cols) */}
-                        <div className="md:col-span-5 flex flex-col justify-between space-y-2">
-                          {currentSlide.items && currentSlide.items.length > 0 ? (
-                            currentSlide.items.slice(0, 3).map((it, idx) => (
-                              <div
-                                key={idx}
-                                className="p-2.5 rounded-xl bg-linear-to-r from-emerald-500/10 via-teal-500/5 to-transparent border-l-3.5 border-emerald-500 shadow-2xs flex items-center"
-                              >
-                                <p className="text-[10px] sm:text-[10.5px] font-medium text-slate-800 dark:text-slate-200 leading-snug break-words">
-                                  {renderFormattedText(it.title ? `${it.title}：${it.description}` : it.description || '')}
-                                </p>
-                              </div>
-                            ))
-                          ) : (
-                            <div className="p-3 rounded-xl bg-linear-to-r from-emerald-500/15 via-teal-500/10 to-transparent border-l-4 border-emerald-500 my-auto">
-                              <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 leading-relaxed break-words">
-                                {renderFormattedText(currentSlide.quoteText || currentSlide.bullets[0] || '')}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Right Column: Checklist Table (7 cols) */}
-                        <div className="md:col-span-7 flex flex-col justify-between overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs">
-                          <table className="w-full text-left border-collapse">
-                            <thead>
-                              <tr style={{ backgroundColor: activeTheme.accent }}>
-                                {currentSlide.table.headers.map((head, hIdx) => (
-                                  <th
-                                    key={hIdx}
-                                    className="px-2.5 py-1 text-[9.5px] sm:text-[10.5px] font-bold text-white tracking-wide border-r last:border-r-0 border-white/20"
-                                  >
-                                    {renderFormattedText(head)}
-                                  </th>
-                                ))}
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-800/90 text-[9px] sm:text-[10px]">
-                              {currentSlide.table.rows.slice(0, 5).map((row, rIdx) => (
-                                <tr
-                                  key={rIdx}
-                                  className={rIdx % 2 === 1 ? 'bg-slate-50/60 dark:bg-slate-800/40' : ''}
-                                >
-                                  {row.map((cell, cIdx) => (
-                                    <td
-                                      key={cIdx}
-                                      className="px-2.5 py-1 text-slate-700 dark:text-slate-200 border-r last:border-r-0 border-slate-100 dark:border-slate-800 leading-tight break-words"
-                                    >
-                                      {renderFormattedText(cell)}
-                                    </td>
-                                  ))}
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    ) : currentSlide.items && currentSlide.items.length > 0 ? (
-                      <>
-                        {/* Top 3 Pillar Cards */}
-                        <div
-                          className={`grid gap-2.5 w-full ${
-                            currentSlide.items.length === 3
-                              ? 'grid-cols-1 sm:grid-cols-3'
-                              : currentSlide.items.length === 2
-                              ? 'grid-cols-2'
-                              : 'grid-cols-1'
-                          }`}
-                        >
-                          {currentSlide.items.slice(0, 3).map((it, idx) => (
-                            <div
-                              key={idx}
-                              className="p-3 rounded-2xl bg-white dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/70 shadow-2xs flex flex-col justify-between"
-                            >
-                              <div>
-                                {it.title && (
-                                  <div className="text-[11.5px] sm:text-xs font-bold text-slate-900 dark:text-slate-100 mb-1.5 flex items-center gap-1.5 pb-1 border-b border-slate-100 dark:border-slate-700/60">
-                                    <span
-                                      className="w-1.5 h-3 rounded-full shrink-0"
-                                      style={{ backgroundColor: activeTheme.accent }}
-                                    />
-                                    <span className="break-words flex-1">{renderFormattedText(it.title)}</span>
-                                  </div>
-                                )}
-                                <div className="text-[10px] sm:text-[10.5px] text-slate-600 dark:text-slate-300 leading-snug break-words">
-                                  {renderFormattedText(it.description || '')}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-
-                        {/* Bottom Conclusion Banner */}
-                        {currentSlide.quoteText && (
-                          <div className="p-2.5 rounded-xl bg-linear-to-r from-emerald-500/15 via-teal-500/10 to-emerald-500/5 border border-emerald-300/80 dark:border-emerald-700/80 text-center">
-                            <div className="text-[10.5px] sm:text-[11.5px] font-bold text-emerald-950 dark:text-emerald-100 leading-relaxed break-words">
-                              {renderFormattedText(currentSlide.quoteText)}
-                            </div>
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <>
-                        {/* Single Centered Golden Quote Banner */}
-                        <div className="p-4 rounded-2xl bg-linear-to-r from-emerald-500/15 via-teal-500/10 to-transparent border-l-4 border-emerald-500 text-left">
-                          <div className="text-xs sm:text-sm md:text-base font-bold text-slate-900 dark:text-slate-100 leading-relaxed break-words">
-                            {renderFormattedText(
-                              currentSlide.quoteText ||
-                                currentSlide.bullets[0] ||
-                                currentSlide.title ||
-                                ''
-                            )}
-                          </div>
-                        </div>
-                      </>
-                    )}
-
-                    {/* Thank you / interactive footer notes */}
-                    {currentSlide.notes && (
-                      <div className="text-center pt-0.5">
-                        <span className="inline-block px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/70 dark:border-emerald-900/50 text-[10px] sm:text-[11px] font-bold text-emerald-700 dark:text-emerald-300">
-                          💡 {renderFormattedText(currentSlide.notes)}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                ) : /* 9. STRUCTURED DATA TABLE (table) */
-                currentSlide.layout === 'table' && currentSlide.table ? (
-                  <div className="my-auto w-full overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr style={{ backgroundColor: activeTheme.accent }}>
-                          {currentSlide.table.headers.map((head, hIdx) => (
-                            <th
-                              key={hIdx}
-                              className="px-2.5 py-1.5 text-[10px] sm:text-xs font-bold text-white tracking-wide border-r last:border-r-0 border-white/20"
-                            >
-                              {renderFormattedText(head)}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-800/90 text-[9.5px] sm:text-[11px]">
-                        {currentSlide.table.rows.slice(0, 5).map((row, rIdx) => (
-                          <tr
-                            key={rIdx}
-                            className={rIdx % 2 === 1 ? 'bg-slate-50/60 dark:bg-slate-800/40' : ''}
-                          >
-                            {row.map((cell, cIdx) => (
-                              <td
-                                key={cIdx}
-                                className="px-2.5 py-1.5 text-slate-700 dark:text-slate-200 border-r last:border-r-0 border-slate-100 dark:border-slate-800 leading-snug break-words"
-                              >
-                                {renderFormattedText(cell)}
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-
-                    {currentSlide.notes && (
-                      <div className="px-3 py-1.5 bg-emerald-50/70 dark:bg-emerald-950/30 border-t border-emerald-200/60 dark:border-emerald-900/40 text-[9.5px] sm:text-[10.5px] text-emerald-800 dark:text-emerald-300 leading-snug text-center">
-                        💡 {renderFormattedText(currentSlide.notes)}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  /* 10. HIGH-DENSITY & STANDARD ITEM CARDS (Auto Dual-Column for >= 6 items) */
-                  (() => {
-                    const allItems: SlideItem[] = currentSlide.items && currentSlide.items.length > 0
-                      ? currentSlide.items
-                      : currentSlide.bullets.map((b) => ({ description: b }));
-                    const count = allItems.length;
-
-                    if (count >= 6) {
-                      // 2-Column High Density Grid for 6~10 items
-                      return (
-                        <div className="grid grid-cols-2 gap-1.5 sm:gap-2 my-auto w-full overflow-hidden">
-                          {allItems.slice(0, 10).map((it, idx) => (
-                            <div
-                              key={idx}
-                              className={`flex items-start gap-1.5 rounded-lg bg-slate-50/90 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/60 shadow-2xs font-medium transition-all ${
-                                count > 8 ? 'p-1 text-[9px] sm:text-[10px]' : 'p-1.5 sm:p-2 text-[10px] sm:text-[11px]'
-                              }`}
-                            >
-                              <span
-                                className="flex items-center justify-center w-3.5 h-3.5 rounded-md text-[8.5px] font-bold text-white shrink-0 mt-0.5"
-                                style={{ backgroundColor: activeTheme.accent }}
-                              >
-                                {idx + 1}
-                              </span>
-                              <div className="flex-1 min-w-0">
-                                {it.title && (
-                                  <span className="font-bold text-slate-900 dark:text-slate-100 mr-1 inline">
-                                    {renderFormattedText(it.title)}:
-                                  </span>
-                                )}
-                                <span className="text-slate-700 dark:text-slate-200 break-words leading-tight">
-                                  {renderFormattedText(it.description || '')}
-                                </span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    }
-
-                    // 1-Column Stacked Cards for <= 5 items
-                    return (
-                      <div className="grid gap-2 my-auto w-full overflow-hidden">
-                        {allItems.map((it, bIdx) => (
-                          <div
-                            key={bIdx}
-                            className={`flex items-start gap-2.5 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/60 shadow-2xs font-medium transition-all ${
-                              count === 5 ? 'p-1.5 sm:p-2 text-[11px]' : 'p-2.5 sm:p-3 text-xs sm:text-[13px]'
-                            }`}
-                          >
-                            <span
-                              className="flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-bold text-white shrink-0 mt-0.5"
-                              style={{ backgroundColor: activeTheme.accent }}
-                            >
-                              {bIdx + 1}
-                            </span>
-                            <div className="flex-1 min-w-0">
-                              {it.title && (
-                                <span className="font-bold text-slate-900 dark:text-slate-100 mr-1 inline">
-                                  {renderFormattedText(it.title)}:
-                                </span>
-                              )}
-                              <span className="text-slate-700 dark:text-slate-200 break-words leading-relaxed whitespace-normal">
-                                {renderFormattedText(it.description || '')}
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })()
-                )}
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* 3. Navigation Controls */}
-      <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200/70 dark:border-slate-800 text-xs">
-        <button
-          onClick={handlePrev}
-          disabled={safeIdx === 0}
-          className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95"
-        >
-          <ChevronLeft className="w-4 h-4" />
-          <span>上一页</span>
-        </button>
-
-        {/* Thumbnail Dots */}
-        <div className="flex items-center gap-1.5 max-w-[200px] overflow-x-auto py-1">
-          {slides.map((_, i) => (
+          {/* 3. Navigation Controls */}
+          <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200/70 dark:border-slate-800 text-xs shrink-0">
             <button
-              key={i}
-              onClick={() => setCurrentIdx(i)}
-              className={`w-2 h-2 rounded-full transition-all ${
-                safeIdx === i
-                  ? 'w-5 bg-emerald-600 dark:bg-emerald-400'
-                  : 'bg-slate-300 dark:bg-slate-600 hover:bg-slate-400'
-              }`}
-              title={`跳转到第 ${i + 1} 页`}
-            />
-          ))}
-        </div>
+              onClick={handlePrev}
+              disabled={safeIdx === 0}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              <span>上一页</span>
+            </button>
 
-        <button
-          onClick={handleNext}
-          disabled={safeIdx === totalSlides - 1}
-          className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95"
-        >
-          <span>下一页</span>
-          <ChevronRight className="w-4 h-4" />
-        </button>
-      </div>
+            {/* Thumbnail Dots */}
+            <div className="flex items-center gap-1.5 max-w-[200px] overflow-x-auto py-1">
+              {slides.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setCurrentIdx(i)}
+                  className={`w-2 h-2 rounded-full transition-all ${
+                    safeIdx === i
+                      ? 'w-5 bg-emerald-600 dark:bg-emerald-400'
+                      : 'bg-slate-300 dark:bg-slate-600 hover:bg-slate-400'
+                  }`}
+                  title={`跳转到第 ${i + 1} 页`}
+                />
+              ))}
+            </div>
+
+            <button
+              onClick={handleNext}
+              disabled={safeIdx === totalSlides - 1}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95"
+            >
+              <span>下一页</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
         </>
       )}
     </div>
