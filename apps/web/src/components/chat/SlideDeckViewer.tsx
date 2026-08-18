@@ -543,18 +543,28 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
           }
 
           const contentStartY = s.subtitle ? 1.25 : 1.05;
-          const cardTotalHeight = 3.6;
           const items: SlideItem[] = s.items && s.items.length > 0 ? s.items : s.bullets.map((b) => ({ description: b }));
 
-          // 2. TIMELINE LAYOUT (2~5 stages) - 1:1 with Web View
+          // Exact available content zone: from contentStartY to 5.25 (leaving 0.35 padding at bottom)
+          const contentAvailH = 5.25 - contentStartY;
+
+          // Helper to dynamically calculate centered start Y position for any block
+          const getCenteredY = (totalBlockH: number) => {
+            const extra = contentAvailH - totalBlockH;
+            return contentStartY + Math.max(0.1, extra / 2);
+          };
+
+          // 2. TIMELINE LAYOUT (2~5 stages) - True Dynamic Vertical Centering (1:1 with Web my-auto)
           if (s.layout === 'timeline') {
             const count = Math.min(items.length, 5);
             const totalWidth = 8.8;
             const colGap = 0.2;
             const colWidth = (totalWidth - (count - 1) * colGap) / count;
-            // Compact, vertically centered card height (1:1 with Web View aspect ratio)
             const timelineH = 2.15;
-            const timelineY = s.subtitle ? 1.85 : 1.65;
+            const notesGap = 0.3;
+            const notesH = s.notes ? 0.38 : 0;
+            const totalBlockH = timelineH + (s.notes ? notesGap + notesH : 0);
+            const timelineY = getCenteredY(totalBlockH);
 
             // Horizontal connecting background line behind number badges
             slide.addShape(pres.ShapeType.rect, {
@@ -638,18 +648,18 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
             if (s.notes) {
               slide.addShape(pres.ShapeType.roundRect, {
                 x: 0.6,
-                y: timelineY + timelineH + 0.35,
+                y: timelineY + timelineH + notesGap,
                 w: 8.8,
-                h: 0.4,
+                h: notesH,
                 rectRadius: 0.08,
                 fill: { color: 'F0FDF4' },
                 line: { color: hexAccent, width: 0.5 },
               });
               slide.addText(`💡 ${cleanMarkdownText(s.notes)}`, {
                 x: 0.75,
-                y: timelineY + timelineH + 0.35,
+                y: timelineY + timelineH + notesGap,
                 w: 8.5,
-                h: 0.4,
+                h: notesH,
                 fontSize: 9,
                 color: '065F46',
                 valign: 'middle',
@@ -657,25 +667,26 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
               });
             }
           } else if (s.layout === 'stats') {
-            // 3. STATS LAYOUT (2~3 KPI Cards)
+            // 3. STATS LAYOUT (2~3 KPI Cards) - Centered
             const count = Math.min(items.length, 3);
             const totalWidth = 8.8;
             const colGap = 0.25;
             const colWidth = (totalWidth - (count - 1) * colGap) / count;
-            const statsH = 3.3;
+            const statsH = 2.6;
+            const statsY = getCenteredY(statsH);
 
             items.slice(0, 3).forEach((item, iIdx) => {
               const cardX = 0.6 + iIdx * (colWidth + colGap);
-              const cardY = contentStartY + 0.15;
+              const cardY = statsY;
 
               slide.addShape(pres.ShapeType.roundRect, {
                 x: cardX,
                 y: cardY,
                 w: colWidth,
                 h: statsH,
-                rectRadius: 0.1,
+                rectRadius: 0.12,
                 fill: { color: 'FFFFFF' },
-                line: { color: 'E2E8F0', width: 0.75 },
+                line: { color: 'E2E8F0', width: 0.8 },
               });
 
               // Tag Badge
@@ -733,14 +744,13 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
               });
             });
           } else if (s.layout === 'grid2' && items.length >= 2) {
-            // 4. DUAL-COLUMN HERO PILLARS (grid2) - 1:1 with Web View
+            // 4. DUAL-COLUMN HERO PILLARS (grid2) - Centered
             const totalWidth = 8.8;
             const colGap = 0.25;
             const colWidth = (totalWidth - colGap) / 2;
-            // Calculate height based on content density: if dense bullets, 2.8~3.2; if compact, 2.5
             const maxBullets = Math.max(items[0]?.bullets?.length || 0, items[1]?.bullets?.length || 0);
-            const grid2H = maxBullets >= 4 ? 3.0 : 2.5;
-            const grid2Y = s.subtitle ? 1.6 : 1.45;
+            const grid2H = maxBullets >= 4 ? 2.85 : 2.4;
+            const grid2Y = getCenteredY(grid2H);
 
             items.slice(0, 2).forEach((item, iIdx) => {
               const cardX = 0.6 + iIdx * (colWidth + colGap);
@@ -826,18 +836,20 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
               }
             });
           } else if (s.layout === 'grid3' && items.length >= 3) {
-            // 5. THREE-COLUMN PILLARS (grid3) - 1:1 with Web View
+            // 5. THREE-COLUMN PILLARS (grid3) - True Dynamic Vertical Centering (1:1 with Web View)
             const totalWidth = 8.8;
             const colGap = 0.2;
             const colWidth = (totalWidth - 2 * colGap) / 3;
-            // Compact, vertically centered height (1:1 with Web View)
             const maxBullets = Math.max(
               items[0]?.bullets?.length || 0,
               items[1]?.bullets?.length || 0,
               items[2]?.bullets?.length || 0
             );
-            const grid3H = s.notes ? 2.3 : maxBullets >= 3 ? 2.35 : 2.0;
-            const grid3Y = s.subtitle ? 1.75 : 1.55;
+            const grid3H = maxBullets >= 3 ? 2.25 : 1.95;
+            const notesGap = 0.25;
+            const notesH = s.notes ? 0.38 : 0;
+            const totalBlockH = grid3H + (s.notes ? notesGap + notesH : 0);
+            const grid3Y = getCenteredY(totalBlockH);
 
             items.slice(0, 3).forEach((item, iIdx) => {
               const cardX = 0.6 + iIdx * (colWidth + colGap);
@@ -912,18 +924,18 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
             if (s.notes) {
               slide.addShape(pres.ShapeType.roundRect, {
                 x: 0.6,
-                y: grid3Y + grid3H + 0.3,
+                y: grid3Y + grid3H + notesGap,
                 w: 8.8,
-                h: 0.38,
+                h: notesH,
                 rectRadius: 0.08,
                 fill: { color: 'F0FDF4' },
                 line: { color: hexAccent, width: 0.5 },
               });
               slide.addText(`💡 ${cleanMarkdownText(s.notes)}`, {
                 x: 0.75,
-                y: grid3Y + grid3H + 0.3,
+                y: grid3Y + grid3H + notesGap,
                 w: 8.5,
-                h: 0.38,
+                h: notesH,
                 fontSize: 8.5,
                 color: '065F46',
                 valign: 'middle',
@@ -931,15 +943,20 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
               });
             }
           } else if (s.layout === 'grid4' && items.length >= 4) {
-            // 6. 2x2 MATRIX GRID (grid4) - 1:1 with Web View
+            // 6. 2x2 MATRIX GRID (grid4) - Centered
             const cellW = 4.25;
-            const cellH = s.notes ? 1.45 : 1.6;
+            const cellH = 1.45;
+            const rowGap = 0.15;
+            const notesGap = 0.2;
+            const notesH = s.notes ? 0.32 : 0;
+            const totalBlockH = 2 * cellH + rowGap + (s.notes ? notesGap + notesH : 0);
+            const grid4Y = getCenteredY(totalBlockH);
 
             items.slice(0, 4).forEach((item, iIdx) => {
               const row = Math.floor(iIdx / 2);
               const col = iIdx % 2;
               const cardX = 0.6 + col * (cellW + 0.3);
-              const cardY = contentStartY + 0.05 + row * (cellH + 0.15);
+              const cardY = grid4Y + row * (cellH + rowGap);
 
               slide.addShape(pres.ShapeType.roundRect, {
                 x: cardX,
@@ -1008,18 +1025,18 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
             if (s.notes) {
               slide.addShape(pres.ShapeType.roundRect, {
                 x: 0.6,
-                y: contentStartY + 2 * cellH + 0.38,
+                y: grid4Y + 2 * cellH + rowGap + notesGap,
                 w: 8.8,
-                h: 0.32,
+                h: notesH,
                 rectRadius: 0.06,
                 fill: { color: 'F0FDF4' },
                 line: { color: hexAccent, width: 0.5 },
               });
               slide.addText(`💡 ${cleanMarkdownText(s.notes)}`, {
                 x: 0.75,
-                y: contentStartY + 2 * cellH + 0.38,
+                y: grid4Y + 2 * cellH + rowGap + notesGap,
                 w: 8.5,
-                h: 0.32,
+                h: notesH,
                 fontSize: 8,
                 color: '065F46',
                 valign: 'middle',
@@ -1027,18 +1044,20 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
               });
             }
           } else if (s.layout === 'grid5' || s.layout === 'grid6') {
-            // 7. 6-CARD / 5-CARD MATRICES
+            // 7. 6-CARD / 5-CARD MATRICES - Centered
             const count = Math.min(items.length, s.layout === 'grid6' ? 6 : 5);
             const cols = 3;
             const rows = 2;
             const cellW = (8.8 - (cols - 1) * 0.2) / cols;
-            const cellH = (3.3 - (rows - 1) * 0.15) / rows;
+            const cellH = 1.35;
+            const rowGap = 0.15;
+            const grid6Y = getCenteredY(2 * cellH + rowGap);
 
             items.slice(0, count).forEach((item, iIdx) => {
               const r = Math.floor(iIdx / cols);
               const c = iIdx % cols;
               const cardX = 0.6 + c * (cellW + 0.2);
-              const cardY = contentStartY + 0.1 + r * (cellH + 0.15);
+              const cardY = grid6Y + r * (cellH + rowGap);
 
               slide.addShape(pres.ShapeType.roundRect, {
                 x: cardX,
@@ -1083,16 +1102,22 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
               });
             });
           } else if (s.layout === 'quote') {
+            // 8. QUOTE LAYOUT - Centered
             const quoteMainText = cleanMarkdownText(
               s.quoteText || s.bullets[0] || s.title || ''
             );
             const hasItems = items.length > 0;
+            const quoteH = hasItems ? 1.05 : 1.8;
+            const takeH = hasItems ? 1.25 : 0;
+            const notesH = s.notes ? 0.32 : 0;
+            const totalQuoteBlockH = quoteH + (hasItems ? 0.35 + takeH : 0) + (s.notes ? 0.25 + notesH : 0);
+            const quoteStartY = getCenteredY(totalQuoteBlockH);
 
             slide.addShape(pres.ShapeType.roundRect, {
               x: 0.6,
-              y: contentStartY + 0.1,
+              y: quoteStartY,
               w: 8.8,
-              h: hasItems ? 1.2 : cardTotalHeight - 0.2,
+              h: quoteH,
               rectRadius: 0.1,
               fill: { color: 'F0FDF4' },
               line: { color: hexAccent, width: 1 },
@@ -1100,10 +1125,10 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
 
             slide.addText(quoteMainText, {
               x: 0.8,
-              y: contentStartY + 0.15,
+              y: quoteStartY + 0.05,
               w: 8.4,
-              h: hasItems ? 1.0 : 1.8,
-              fontSize: hasItems ? 10.5 : 14,
+              h: quoteH - 0.1,
+              fontSize: hasItems ? 10 : 13,
               bold: true,
               color: '065F46',
               align: hasItems ? 'left' : 'center',
@@ -1112,43 +1137,45 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
               breakLine: true,
             });
 
+            let curY = quoteStartY + quoteH + 0.15;
+
             if (s.sectionTitle) {
               slide.addText(cleanMarkdownText(s.sectionTitle), {
                 x: 0.6,
-                y: contentStartY + 1.45,
+                y: curY,
                 w: 8.8,
-                h: 0.35,
-                fontSize: 12,
+                h: 0.3,
+                fontSize: 11,
                 bold: true,
                 color: '0F172A',
                 fontFace: 'Microsoft YaHei',
               });
+              curY += 0.35;
             }
 
             if (hasItems) {
               const takeCount = Math.min(items.length, 3);
-              const takeW = (8.0 - (takeCount - 1) * 0.2) / takeCount;
+              const takeW = (8.8 - (takeCount - 1) * 0.2) / takeCount;
               items.slice(0, 3).forEach((it, tIdx) => {
-                const tX = 1.0 + tIdx * (takeW + 0.2);
-                const tY = contentStartY + 1.7;
+                const tX = 0.6 + tIdx * (takeW + 0.2);
 
                 slide.addShape(pres.ShapeType.roundRect, {
                   x: tX,
-                  y: tY,
+                  y: curY,
                   w: takeW,
-                  h: 1.5,
+                  h: takeH,
                   rectRadius: 0.08,
-                  fill: { color: 'F8FAFC' },
-                  line: { color: 'E2E8F0', width: 0.5 },
+                  fill: { color: 'FFFFFF' },
+                  line: { color: 'E2E8F0', width: 0.75 },
                 });
 
                 if (it.title) {
                   slide.addText(cleanMarkdownText(it.title), {
                     x: tX + 0.1,
-                    y: tY + 0.1,
+                    y: curY + 0.08,
                     w: takeW - 0.2,
-                    h: 0.3,
-                    fontSize: 9.5,
+                    h: 0.28,
+                    fontSize: 9,
                     bold: true,
                     color: '0F172A',
                     fontFace: 'Microsoft YaHei',
@@ -1157,25 +1184,26 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
 
                 slide.addText(cleanMarkdownText(it.description || ''), {
                   x: tX + 0.1,
-                  y: tY + (it.title ? 0.42 : 0.12),
+                  y: curY + (it.title ? 0.36 : 0.1),
                   w: takeW - 0.2,
-                  h: 1.0,
-                  fontSize: 8.5,
-                  color: '334155',
+                  h: takeH - (it.title ? 0.42 : 0.16),
+                  fontSize: 8,
+                  color: '475569',
                   valign: 'top',
                   fontFace: 'Microsoft YaHei',
                   breakLine: true,
                 });
               });
+              curY += takeH + 0.2;
             }
 
             if (s.notes) {
               slide.addText(cleanMarkdownText(s.notes), {
                 x: 1.0,
-                y: contentStartY + cardTotalHeight - 0.45,
+                y: curY,
                 w: 8.0,
                 h: 0.3,
-                fontSize: 10,
+                fontSize: 9.5,
                 bold: true,
                 color: hexAccent,
                 align: 'center',
@@ -1183,7 +1211,7 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
               });
             }
           } else if (s.layout === 'table' && s.table) {
-            // 9. NATIVE POWERPOINT TABLE (table)
+            // 9. NATIVE POWERPOINT TABLE (table) - Centered
             const tableRows: any[][] = [];
 
             // Header row with accent theme background
@@ -1194,7 +1222,7 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                   fill: { color: hexAccent },
                   color: 'FFFFFF',
                   bold: true,
-                  fontSize: 10.5,
+                  fontSize: 10,
                   align: 'left',
                   valign: 'middle',
                   fontFace: 'Microsoft YaHei',
@@ -1203,7 +1231,8 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
             );
 
             // Data rows with alternating background
-            s.table.rows.slice(0, 6).forEach((row, rIdx) => {
+            const rowCount = Math.min(s.table.rows.length, 6);
+            s.table.rows.slice(0, rowCount).forEach((row, rIdx) => {
               const rowBg = rIdx % 2 === 1 ? 'F8FAFC' : 'FFFFFF';
               tableRows.push(
                 row.map((cell) => ({
@@ -1211,7 +1240,7 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                   options: {
                     fill: { color: rowBg },
                     color: '334155',
-                    fontSize: 9.5,
+                    fontSize: 9,
                     align: 'left',
                     valign: 'middle',
                     fontFace: 'Microsoft YaHei',
@@ -1220,16 +1249,19 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
               );
             });
 
+            const tableH = (rowCount + 1) * 0.38;
+            const tableY = getCenteredY(tableH);
+
             slide.addTable(tableRows, {
               x: 0.6,
-              y: contentStartY + 0.1,
+              y: tableY,
               w: 8.8,
-              h: cardTotalHeight - 0.2,
+              h: tableH,
               border: { type: 'solid', pt: 0.5, color: 'E2E8F0' },
-              margin: [0.08, 0.1, 0.08, 0.1],
+              margin: [0.06, 0.08, 0.06, 0.08],
             });
           } else {
-            // 10. HIGH-DENSITY & STANDARD ITEM CARDS (Dual Column for >= 6 items in PPTX export)
+            // 10. HIGH-DENSITY & STANDARD ITEM CARDS - True Dynamic Vertical Centering
             const allItems: SlideItem[] = s.items && s.items.length > 0
               ? s.items
               : s.bullets.map((b) => ({ description: b }));
@@ -1240,13 +1272,15 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
               const rowsPerCol = Math.ceil(Math.min(count, 10) / 2);
               const colW = (8.8 - 0.2) / 2;
               const rowGap = 0.08;
-              const cardH = (cardTotalHeight - (rowsPerCol - 1) * rowGap) / rowsPerCol;
+              const cardH = 0.52;
+              const totalBlockH = rowsPerCol * cardH + (rowsPerCol - 1) * rowGap;
+              const listY = getCenteredY(totalBlockH);
 
               allItems.slice(0, 10).forEach((it, iIdx) => {
                 const col = Math.floor(iIdx / rowsPerCol);
                 const row = iIdx % rowsPerCol;
                 const cardX = 0.6 + col * (colW + 0.2);
-                const cardY = contentStartY + row * (cardH + rowGap);
+                const cardY = listY + row * (cardH + rowGap);
 
                 slide.addShape(pres.ShapeType.roundRect, {
                   x: cardX,
@@ -1255,7 +1289,7 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                   h: cardH,
                   rectRadius: 0.06,
                   fill: { color: 'FFFFFF' },
-                  line: { color: 'E2E8F0', width: 1 },
+                  line: { color: 'E2E8F0', width: 0.75 },
                 });
 
                 slide.addShape(pres.ShapeType.ellipse, {
@@ -1283,7 +1317,7 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                   y: cardY,
                   w: colW - 0.45,
                   h: cardH,
-                  fontSize: 9,
+                  fontSize: 8.5,
                   color: '334155',
                   fontFace: 'Microsoft YaHei',
                   valign: 'middle',
@@ -1291,16 +1325,16 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                 });
               });
             } else {
-              // 1 Column in PPTX - Content-aware compact card height (matching web preview)
+              // 1 Column in PPTX - Centered Stacked Cards
               const bulletList = s.bullets.length > 0 ? s.bullets : allItems.map((it) => `${it.title ? it.title + ': ' : ''}${it.description || ''}`);
               const bulletCount = bulletList.length;
               const rowGap = 0.12;
-              const maxAllowedH = (cardTotalHeight - (bulletCount - 1) * rowGap) / Math.max(1, bulletCount);
-              // Compact card height: if only 2~3 items, limit height to 0.65~0.75 inches
-              const cardH = Math.min(maxAllowedH, bulletCount <= 3 ? 0.72 : maxAllowedH);
+              const cardH = bulletCount <= 3 ? 0.68 : 0.58;
+              const totalBlockH = bulletCount * cardH + (bulletCount - 1) * rowGap;
+              const listY = getCenteredY(totalBlockH);
 
               bulletList.forEach((b, bIdx) => {
-                const cardY = contentStartY + bIdx * (cardH + rowGap);
+                const cardY = listY + bIdx * (cardH + rowGap);
 
                 slide.addShape(pres.ShapeType.roundRect, {
                   x: 0.6,
@@ -1309,7 +1343,7 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                   h: cardH,
                   rectRadius: 0.08,
                   fill: { color: 'FFFFFF' },
-                  line: { color: 'E2E8F0', width: 1 },
+                  line: { color: 'E2E8F0', width: 0.75 },
                 });
 
                 slide.addShape(pres.ShapeType.ellipse, {
