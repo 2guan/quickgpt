@@ -13,16 +13,15 @@ export interface SlideItem {
   tag?: string;
   title?: string;
   description?: string;
-  value?: string;
 }
 
 export interface SlideData {
   title: string;
   subtitle?: string;
-  bullets?: string[];
-  items?: SlideItem[];
+  bullets: string[];
+  items: SlideItem[];
   notes?: string;
-  layout?: 'cover' | 'grid2' | 'grid3' | 'grid4' | 'timeline' | 'stats' | 'content';
+  layout: 'cover' | 'grid2' | 'grid3' | 'grid4' | 'timeline' | 'stats' | 'content';
 }
 
 interface SlideDeckProps {
@@ -38,11 +37,12 @@ const COLOR_THEMES = [
 ];
 
 /**
- * Strips raw markdown syntax (**bold**, *italic*, `code`) for plain text PPTX export
+ * Strips raw markdown syntax (**bold**, *italic*, `code`, #) for clean plain text PPTX export
  */
 export function cleanMarkdownText(text: string): string {
   if (!text) return '';
   return text
+    .replace(/^#+\s*/, '')
     .replace(/\*\*([^*]+)\*\*/g, '$1')
     .replace(/\*([^*]+)\*/g, '$1')
     .replace(/__([^_]+)__/g, '$1')
@@ -53,26 +53,26 @@ export function cleanMarkdownText(text: string): string {
 }
 
 /**
- * Renders inline markdown styling for React elements (supporting **bold**, *italic*, etc.)
+ * Renders inline markdown styling for React elements (supporting **bold**, *italic*, `code`)
  */
 export function renderFormattedText(text: string): React.ReactNode {
   if (!text) return '';
   const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g);
 
   return parts.map((part, index) => {
-    if (part.startsWith('**') && part.endsWith('**')) {
+    if (part.startsWith('**') && part.endsWith('**') && part.length > 4) {
       return (
-        <strong key={index} className="font-bold text-slate-900 dark:text-white">
+        <strong key={index} className="font-bold opacity-100">
           {part.slice(2, -2)}
         </strong>
       );
     }
-    if (part.startsWith('*') && part.endsWith('*')) {
+    if (part.startsWith('*') && part.endsWith('*') && part.length > 2) {
       return <em key={index} className="italic">{part.slice(1, -1)}</em>;
     }
-    if (part.startsWith('`') && part.endsWith('`')) {
+    if (part.startsWith('`') && part.endsWith('`') && part.length > 2) {
       return (
-        <code key={index} className="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono text-[90%]">
+        <code key={index} className="px-1 py-0.5 rounded bg-black/10 dark:bg-white/10 font-mono text-[90%]">
           {part.slice(1, -1)}
         </code>
       );
@@ -82,8 +82,8 @@ export function renderFormattedText(text: string): React.ReactNode {
 }
 
 /**
- * Parses markdown slide content:
- * Splits by `---` or page markers and extracts structured items, layouts, titles, notes.
+ * Robust markdown slide parser:
+ * Handles titles, subtitles, structured items (**Key**: Value), lists, and explicit/inferred layouts.
  */
 export function parseMarkdownSlides(raw: string): SlideData[] {
   if (!raw || !raw.trim()) return [];
@@ -108,10 +108,14 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
     let explicitLayout: SlideData['layout'] | null = null;
 
     for (const line of lines) {
-      // Check layout hint comment e.g. <!-- layout: timeline --> or <!-- layout: grid2 -->
       const layoutMatch = line.match(/<!--\s*layout:\s*(cover|grid2|grid3|grid4|timeline|stats|content)\s*-->/i);
       if (layoutMatch) {
         explicitLayout = layoutMatch[1].toLowerCase() as SlideData['layout'];
+        continue;
+      }
+
+      if (line.startsWith('> 演讲备注：') || line.startsWith('> 备注：') || line.startsWith('> Notes:')) {
+        notes = line.replace(/^>\s*(?:演讲备注：|备注：|Notes:)\s*/i, '').trim();
         continue;
       }
 
@@ -125,10 +129,9 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
         const cleaned = line.replace(/^[-*]\s+|\d+[\.、]\s*/, '').trim();
         rawBullets.push(cleaned);
 
-        // Parse structured items: "标题: 描述" or "阶段/年份: 内容" or "【标签】描述" or "**标题**: 描述"
         const boldMatch = cleaned.match(/^\*\*([^*]+)\*\*[：:\s]*(.+)$/);
         const bracketMatch = cleaned.match(/^【([^】]+)】[：:\s]*(.+)$/);
-        const colonMatch = cleaned.match(/^([^：:\s]{1,16})[：:](.+)$/);
+        const colonMatch = cleaned.match(/^([^：:\s]{2,16})[：:](.+)$/);
 
         if (boldMatch) {
           items.push({ title: boldMatch[1].trim(), description: boldMatch[2].trim() });
@@ -139,8 +142,6 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
         } else {
           items.push({ description: cleaned });
         }
-      } else if (line.startsWith('> 演讲备注：') || line.startsWith('> 备注：') || line.startsWith('> Notes:')) {
-        notes = line.replace(/^>\s*(?:演讲备注：|备注：|Notes:)\s*/i, '').trim();
       } else if (!title) {
         title = line;
       } else if (!subtitle && rawBullets.length === 0) {
@@ -155,11 +156,10 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
       const isCover = i === 0 && rawBullets.length === 0;
       let computedLayout: SlideData['layout'] = explicitLayout || (isCover ? 'cover' : 'content');
 
-      // Auto-detect layout based on item structure and keywords if not explicitly specified
       if (!explicitLayout && !isCover) {
         const titleLower = title.toLowerCase();
         const hasTimeKeywords = titleLower.includes('时序') || titleLower.includes('里程碑') || titleLower.includes('规划') || titleLower.includes('路线图') || titleLower.includes('发展历程') || titleLower.includes('阶段') || titleLower.includes('演进');
-        const hasStatsKeywords = titleLower.includes('数据') || titleLower.includes('成效') || titleLower.includes('指标') || titleLower.includes('概览');
+        const hasStatsKeywords = titleLower.includes('数据') || titleLower.includes('成效') || titleLower.includes('指标') || titleLower.includes('概览') || titleLower.includes('成果');
 
         const structuredCount = items.filter((it) => it.title).length;
 
@@ -195,16 +195,6 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
     }
   }
 
-  // Fallback if no delimiter was found
-  if (slides.length === 0 && raw.trim()) {
-    slides.push({
-      title: '演示幻灯片',
-      subtitle: '',
-      bullets: raw.split('\n').filter((l) => l.trim().length > 0),
-      layout: 'content',
-    });
-  }
-
   return slides;
 }
 
@@ -218,9 +208,8 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
   const activeTheme = COLOR_THEMES[themeIdx];
   const totalSlides = slides.length;
 
-  // Ensure currentIdx doesn't exceed totalSlides
   const safeIdx = Math.min(currentIdx, Math.max(0, totalSlides - 1));
-  const currentSlide = slides[safeIdx] || slides[0] || { title: '暂无内容', bullets: [] };
+  const currentSlide = slides[safeIdx] || slides[0] || { title: '暂无内容', bullets: [], items: [], layout: 'content' };
 
   const handlePrev = (e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -232,7 +221,7 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
     setCurrentIdx((prev) => Math.min(totalSlides - 1, prev + 1));
   };
 
-  // Keyboard navigation (active in fullscreen or when focused)
+  // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!isFullscreen) return;
@@ -250,7 +239,6 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isFullscreen, totalSlides]);
 
-  // Export to Native PowerPoint .pptx file using pptxgenjs with rich layout rendering
   const handleExportPPTX = async (e?: React.MouseEvent) => {
     e?.stopPropagation();
     if (slides.length === 0) return;
@@ -266,388 +254,82 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
       slides.forEach((s, idx) => {
         const slide = pres.addSlide();
 
-        // 1. Cover Slide Layout
         if (s.layout === 'cover' || (idx === 0 && !s.bullets?.length && !s.items?.length)) {
           slide.background = { color: hexDark };
 
-          // Decorative Top Accent Pill
-          slide.addShape(pres.ShapeType.roundRect, {
-            x: 4.5,
-            y: 1.8,
-            w: 4.3,
-            h: 0.4,
-            rectRadius: 0.2,
-            fill: { color: 'FFFFFF', transparency: 85 },
-            line: { color: hexAccent, width: 1 },
-          });
-          slide.addText('PRESENTATION DECK', {
-            x: 4.5,
-            y: 1.8,
-            w: 4.3,
-            h: 0.4,
-            fontSize: 10,
-            bold: true,
-            color: hexAccent,
-            align: 'center',
-            fontFace: 'Microsoft YaHei',
-          });
-
-          // Main Title
-          slide.addText(cleanMarkdownText(s.title || '演示文稿'), {
-            x: 1.0,
-            y: 2.5,
-            w: 11.3,
-            h: 1.8,
-            fontSize: 34,
-            bold: true,
-            color: 'FFFFFF',
-            align: 'center',
-            fontFace: 'Microsoft YaHei',
-          });
-
-          // Subtitle
-          if (s.subtitle) {
-            slide.addText(cleanMarkdownText(s.subtitle), {
-              x: 1.5,
-              y: 4.4,
-              w: 10.3,
-              h: 1.0,
-              fontSize: 16,
-              color: 'CBD5E1',
-              align: 'center',
-              fontFace: 'Microsoft YaHei',
-            });
-          }
-
-          // Footer branding
-          slide.addText('Generated by QuickGPT AI Presentation', {
-            x: 1.0,
-            y: 6.8,
-            w: 11.3,
-            h: 0.4,
-            fontSize: 10,
-            color: '64748B',
-            align: 'center',
-          });
+          slide.addShape(pres.ShapeType.roundRect, { x: 4.6, y: 1.5, w: 4.13, h: 0.38, rectRadius: 0.19, fill: { color: 'FFFFFF', transparency: 85 }, line: { color: hexAccent, width: 1 } });
+          slide.addText('PRESENTATION DECK', { x: 4.6, y: 1.5, w: 4.13, h: 0.38, fontSize: 10, bold: true, color: hexAccent, align: 'center', fontFace: 'Microsoft YaHei' });
+          slide.addText(cleanMarkdownText(s.title || '演示文稿'), { x: 1.0, y: 2.2, w: 11.33, h: 2.4, fontSize: 32, bold: true, color: 'FFFFFF', align: 'center', valign: 'middle', fontFace: 'Microsoft YaHei', breakLine: true });
+          if (s.subtitle) slide.addText(cleanMarkdownText(s.subtitle), { x: 1.5, y: 4.8, w: 10.33, h: 1.0, fontSize: 15, color: 'CBD5E1', align: 'center', fontFace: 'Microsoft YaHei', breakLine: true });
+          slide.addText('Generated by QuickGPT AI Presentation', { x: 1.0, y: 6.8, w: 11.33, h: 0.4, fontSize: 10, color: '64748B', align: 'center' });
         } else {
-          // Standard Slide Background
           slide.background = { color: 'F8FAFC' };
+          slide.addShape(pres.ShapeType.rect, { x: 0, y: 0, w: '100%', h: 0.08, fill: { color: hexAccent } });
+          slide.addShape(pres.ShapeType.roundRect, { x: 0.8, y: 0.55, w: 0.12, h: 0.45, rectRadius: 0.05, fill: { color: hexAccent } });
+          slide.addText(cleanMarkdownText(s.title), { x: 1.05, y: 0.45, w: 11.0, h: 0.6, fontSize: 20, bold: true, color: '0F172A', fontFace: 'Microsoft YaHei', breakLine: true });
+          if (s.subtitle) slide.addText(cleanMarkdownText(s.subtitle), { x: 1.05, y: 1.05, w: 11.0, h: 0.35, fontSize: 12, color: '64748B', fontFace: 'Microsoft YaHei', breakLine: true });
 
-          // Top Header Accent Bar
-          slide.addShape(pres.ShapeType.rect, {
-            x: 0,
-            y: 0,
-            w: '100%',
-            h: 0.08,
-            fill: { color: hexAccent },
-          });
+          const contentStartY = s.subtitle ? 1.55 : 1.3;
+          const items: SlideItem[] = s.items && s.items.length > 0 ? s.items : s.bullets.map((b) => ({ description: b }));
 
-          // Decorative accent marker before title
-          slide.addShape(pres.ShapeType.roundRect, {
-            x: 0.8,
-            y: 0.55,
-            w: 0.12,
-            h: 0.45,
-            rectRadius: 0.05,
-            fill: { color: hexAccent },
-          });
-
-          // Slide Title
-          slide.addText(cleanMarkdownText(s.title), {
-            x: 1.05,
-            y: 0.45,
-            w: 11.0,
-            h: 0.6,
-            fontSize: 22,
-            bold: true,
-            color: '0F172A',
-            fontFace: 'Microsoft YaHei',
-          });
-
-          // Subtitle
-          if (s.subtitle) {
-            slide.addText(cleanMarkdownText(s.subtitle), {
-              x: 1.05,
-              y: 1.05,
-              w: 11.0,
-              h: 0.4,
-              fontSize: 12,
-              color: '64748B',
-              fontFace: 'Microsoft YaHei',
-            });
-          }
-
-          const contentStartY = s.subtitle ? 1.6 : 1.35;
-          const items = s.items || [];
-
-          // 2. Timeline / Roadmap Layout in PPTX
-          if (s.layout === 'timeline' && items.length > 0) {
+          if (s.layout === 'timeline') {
             const count = Math.min(items.length, 4);
-            const colWidth = (11.7 - (count - 1) * 0.3) / count;
-
+            const colWidth = (11.7 - (count - 1) * 0.25) / count;
             items.slice(0, 4).forEach((item, iIdx) => {
-              const cardX = 0.8 + iIdx * (colWidth + 0.3);
-
-              // Background Card Shape
-              slide.addShape(pres.ShapeType.roundRect, {
-                x: cardX,
-                y: contentStartY,
-                w: colWidth,
-                h: 4.8,
-                rectRadius: 0.15,
-                fill: { color: 'FFFFFF' },
-                line: { color: 'E2E8F0', width: 1 },
-              });
-
-              // Step Badge Circle
-              slide.addShape(pres.ShapeType.ellipse, {
-                x: cardX + 0.25,
-                y: contentStartY + 0.3,
-                w: 0.45,
-                h: 0.45,
-                fill: { color: hexAccent },
-              });
-              slide.addText(`${iIdx + 1}`, {
-                x: cardX + 0.25,
-                y: contentStartY + 0.3,
-                w: 0.45,
-                h: 0.45,
-                fontSize: 11,
-                bold: true,
-                color: 'FFFFFF',
-                align: 'center',
-                valign: 'middle',
-              });
-
-              // Step Title
-              slide.addText(cleanMarkdownText(item.title || `阶段 ${iIdx + 1}`), {
-                x: cardX + 0.8,
-                y: contentStartY + 0.25,
-                w: colWidth - 0.9,
-                h: 0.5,
-                fontSize: 13,
-                bold: true,
-                color: '0F172A',
-                fontFace: 'Microsoft YaHei',
-              });
-
-              // Step Description
-              slide.addText(cleanMarkdownText(item.description || ''), {
-                x: cardX + 0.25,
-                y: contentStartY + 0.9,
-                w: colWidth - 0.5,
-                h: 3.6,
-                fontSize: 11,
-                color: '334155',
-                fontFace: 'Microsoft YaHei',
-                valign: 'top',
-              });
+              const cardX = 0.8 + iIdx * (colWidth + 0.25);
+              slide.addShape(pres.ShapeType.roundRect, { x: cardX, y: contentStartY, w: colWidth, h: 4.8, rectRadius: 0.15, fill: { color: 'FFFFFF' }, line: { color: 'E2E8F0', width: 1 } });
+              slide.addShape(pres.ShapeType.ellipse, { x: cardX + 0.2, y: contentStartY + 0.25, w: 0.4, h: 0.4, fill: { color: hexAccent } });
+              slide.addText(`${iIdx + 1}`, { x: cardX + 0.2, y: contentStartY + 0.25, w: 0.4, h: 0.4, fontSize: 11, bold: true, color: 'FFFFFF', align: 'center', valign: 'middle' });
+              slide.addText(cleanMarkdownText(item.title || `阶段 ${iIdx + 1}`), { x: cardX + 0.7, y: contentStartY + 0.2, w: colWidth - 0.8, h: 0.5, fontSize: 12, bold: true, color: '0F172A', fontFace: 'Microsoft YaHei', breakLine: true });
+              slide.addText(cleanMarkdownText(item.description || ''), { x: cardX + 0.2, y: contentStartY + 0.8, w: colWidth - 0.4, h: 3.8, fontSize: 11, color: '334155', fontFace: 'Microsoft YaHei', valign: 'top', breakLine: true });
             });
-          } else if (s.layout === 'stats' && items.length > 0) {
-            // 3. Stats / Metrics Cards Layout in PPTX
+          } else if (s.layout === 'stats') {
             const count = Math.min(items.length, 3);
-            const colWidth = (11.7 - (count - 1) * 0.4) / count;
-
+            const colWidth = (11.7 - (count - 1) * 0.35) / count;
             items.slice(0, 3).forEach((item, iIdx) => {
-              const cardX = 0.8 + iIdx * (colWidth + 0.4);
-
-              // Background Card Shape
-              slide.addShape(pres.ShapeType.roundRect, {
-                x: cardX,
-                y: contentStartY,
-                w: colWidth,
-                h: 4.8,
-                rectRadius: 0.15,
-                fill: { color: 'FFFFFF' },
-                line: { color: 'E2E8F0', width: 1 },
-              });
-
-              // Metric Title
-              slide.addText(cleanMarkdownText(item.title || `指标 ${iIdx + 1}`), {
-                x: cardX + 0.3,
-                y: contentStartY + 0.4,
-                w: colWidth - 0.6,
-                h: 0.5,
-                fontSize: 15,
-                bold: true,
-                color: hexDark,
-                fontFace: 'Microsoft YaHei',
-              });
-
-              // Metric Description
-              slide.addText(cleanMarkdownText(item.description || ''), {
-                x: cardX + 0.3,
-                y: contentStartY + 1.1,
-                w: colWidth - 0.6,
-                h: 3.0,
-                fontSize: 12,
-                color: '475569',
-                fontFace: 'Microsoft YaHei',
-                valign: 'top',
-              });
-
-              // Bottom Accent Line
-              slide.addShape(pres.ShapeType.roundRect, {
-                x: cardX + 0.3,
-                y: contentStartY + 4.3,
-                w: 0.8,
-                h: 0.08,
-                rectRadius: 0.04,
-                fill: { color: hexAccent },
-              });
+              const cardX = 0.8 + iIdx * (colWidth + 0.35);
+              slide.addShape(pres.ShapeType.roundRect, { x: cardX, y: contentStartY, w: colWidth, h: 4.8, rectRadius: 0.15, fill: { color: 'FFFFFF' }, line: { color: 'E2E8F0', width: 1 } });
+              slide.addText(cleanMarkdownText(item.title || `指标 ${iIdx + 1}`), { x: cardX + 0.25, y: contentStartY + 0.3, w: colWidth - 0.5, h: 0.5, fontSize: 14, bold: true, color: hexDark, fontFace: 'Microsoft YaHei', breakLine: true });
+              slide.addText(cleanMarkdownText(item.description || ''), { x: cardX + 0.25, y: contentStartY + 0.9, w: colWidth - 0.5, h: 3.3, fontSize: 11, color: '475569', fontFace: 'Microsoft YaHei', valign: 'top', breakLine: true });
+              slide.addShape(pres.ShapeType.roundRect, { x: cardX + 0.25, y: contentStartY + 4.4, w: 0.8, h: 0.08, rectRadius: 0.04, fill: { color: hexAccent } });
             });
           } else if (s.layout === 'grid2' && items.length === 2) {
-            // 4. Dual-Column Comparison Layout in PPTX
             const colWidth = 5.65;
             items.forEach((item, iIdx) => {
               const cardX = 0.8 + iIdx * (colWidth + 0.4);
-
-              slide.addShape(pres.ShapeType.roundRect, {
-                x: cardX,
-                y: contentStartY,
-                w: colWidth,
-                h: 4.8,
-                rectRadius: 0.15,
-                fill: { color: 'FFFFFF' },
-                line: { color: 'E2E8F0', width: 1 },
-              });
-
-              // Card Title Bar
+              slide.addShape(pres.ShapeType.roundRect, { x: cardX, y: contentStartY, w: colWidth, h: 4.8, rectRadius: 0.15, fill: { color: 'FFFFFF' }, line: { color: 'E2E8F0', width: 1 } });
               if (item.title) {
-                slide.addShape(pres.ShapeType.ellipse, {
-                  x: cardX + 0.3,
-                  y: contentStartY + 0.4,
-                  w: 0.15,
-                  h: 0.15,
-                  fill: { color: hexAccent },
-                });
-
-                slide.addText(cleanMarkdownText(item.title), {
-                  x: cardX + 0.55,
-                  y: contentStartY + 0.25,
-                  w: colWidth - 0.8,
-                  h: 0.45,
-                  fontSize: 14,
-                  bold: true,
-                  color: '0F172A',
-                  fontFace: 'Microsoft YaHei',
-                });
+                slide.addShape(pres.ShapeType.ellipse, { x: cardX + 0.25, y: contentStartY + 0.35, w: 0.15, h: 0.15, fill: { color: hexAccent } });
+                slide.addText(cleanMarkdownText(item.title), { x: cardX + 0.5, y: contentStartY + 0.2, w: colWidth - 0.7, h: 0.45, fontSize: 13, bold: true, color: '0F172A', fontFace: 'Microsoft YaHei', breakLine: true });
               }
-
-              // Card Description
-              slide.addText(cleanMarkdownText(item.description || ''), {
-                x: cardX + 0.3,
-                y: contentStartY + 0.85,
-                w: colWidth - 0.6,
-                h: 3.6,
-                fontSize: 12,
-                color: '334155',
-                fontFace: 'Microsoft YaHei',
-                valign: 'top',
-              });
+              slide.addText(cleanMarkdownText(item.description || ''), { x: cardX + 0.25, y: contentStartY + 0.75, w: colWidth - 0.5, h: 3.8, fontSize: 11, color: '334155', fontFace: 'Microsoft YaHei', valign: 'top', breakLine: true });
             });
           } else if ((s.layout === 'grid3' || s.layout === 'grid4') && items.length > 0) {
-            // 5. Multi-Column Grid Cards in PPTX
             const count = s.layout === 'grid4' ? Math.min(items.length, 4) : Math.min(items.length, 3);
-            const colWidth = (11.7 - (count - 1) * 0.3) / count;
-
+            const colWidth = (11.7 - (count - 1) * 0.25) / count;
             items.slice(0, count).forEach((item, iIdx) => {
-              const cardX = 0.8 + iIdx * (colWidth + 0.3);
-
-              slide.addShape(pres.ShapeType.roundRect, {
-                x: cardX,
-                y: contentStartY,
-                w: colWidth,
-                h: 4.8,
-                rectRadius: 0.15,
-                fill: { color: 'FFFFFF' },
-                line: { color: 'E2E8F0', width: 1 },
-              });
-
-              if (item.title) {
-                slide.addText(cleanMarkdownText(item.title), {
-                  x: cardX + 0.25,
-                  y: contentStartY + 0.3,
-                  w: colWidth - 0.5,
-                  h: 0.5,
-                  fontSize: 13,
-                  bold: true,
-                  color: '0F172A',
-                  fontFace: 'Microsoft YaHei',
-                });
-              }
-
-              slide.addText(cleanMarkdownText(item.description || ''), {
-                x: cardX + 0.25,
-                y: contentStartY + (item.title ? 0.9 : 0.4),
-                w: colWidth - 0.5,
-                h: 3.6,
-                fontSize: 11,
-                color: '334155',
-                fontFace: 'Microsoft YaHei',
-                valign: 'top',
-              });
+              const cardX = 0.8 + iIdx * (colWidth + 0.25);
+              slide.addShape(pres.ShapeType.roundRect, { x: cardX, y: contentStartY, w: colWidth, h: 4.8, rectRadius: 0.15, fill: { color: 'FFFFFF' }, line: { color: 'E2E8F0', width: 1 } });
+              if (item.title) slide.addText(cleanMarkdownText(item.title), { x: cardX + 0.2, y: contentStartY + 0.25, w: colWidth - 0.4, h: 0.45, fontSize: 12, bold: true, color: '0F172A', fontFace: 'Microsoft YaHei', breakLine: true });
+              slide.addText(cleanMarkdownText(item.description || ''), { x: cardX + 0.2, y: contentStartY + (item.title ? 0.75 : 0.3), w: colWidth - 0.4, h: 3.8, fontSize: 10.5, color: '334155', fontFace: 'Microsoft YaHei', valign: 'top', breakLine: true });
             });
           } else {
-            // 6. Standard Bullet Cards in PPTX
-            if (s.bullets && s.bullets.length > 0) {
-              const bulletCount = s.bullets.length;
-              const cardHeight = (4.8 - (bulletCount - 1) * 0.2) / bulletCount;
-
-              s.bullets.forEach((b, bIdx) => {
-                const cardY = contentStartY + bIdx * (cardHeight + 0.2);
-
-                slide.addShape(pres.ShapeType.roundRect, {
-                  x: 0.8,
-                  y: cardY,
-                  w: 11.7,
-                  h: cardHeight,
-                  rectRadius: 0.1,
-                  fill: { color: 'FFFFFF' },
-                  line: { color: 'E2E8F0', width: 1 },
-                });
-
-                slide.addShape(pres.ShapeType.ellipse, {
-                  x: 1.05,
-                  y: cardY + cardHeight / 2 - 0.06,
-                  w: 0.12,
-                  h: 0.12,
-                  fill: { color: hexAccent },
-                });
-
-                slide.addText(cleanMarkdownText(b), {
-                  x: 1.3,
-                  y: cardY,
-                  w: 11.0,
-                  h: cardHeight,
-                  fontSize: 12,
-                  color: '334155',
-                  fontFace: 'Microsoft YaHei',
-                  valign: 'middle',
-                });
-              });
-            }
+            const bulletList = s.bullets.length > 0 ? s.bullets : items.map((it) => `${it.title ? it.title + ': ' : ''}${it.description || ''}`);
+            const bulletCount = bulletList.length;
+            const cardHeight = (4.8 - (bulletCount - 1) * 0.18) / Math.max(1, bulletCount);
+            bulletList.forEach((b, bIdx) => {
+              const cardY = contentStartY + bIdx * (cardHeight + 0.18);
+              slide.addShape(pres.ShapeType.roundRect, { x: 0.8, y: cardY, w: 11.7, h: cardHeight, rectRadius: 0.1, fill: { color: 'FFFFFF' }, line: { color: 'E2E8F0', width: 1 } });
+              slide.addShape(pres.ShapeType.ellipse, { x: 1.05, y: cardY + cardHeight / 2 - 0.05, w: 0.1, h: 0.1, fill: { color: hexAccent } });
+              slide.addText(cleanMarkdownText(b), { x: 1.25, y: cardY, w: 11.0, h: cardHeight, fontSize: 11, color: '334155', fontFace: 'Microsoft YaHei', valign: 'middle', breakLine: true });
+            });
           }
-
-          // Slide Number Indicator
-          slide.addText(`${idx + 1} / ${slides.length}`, {
-            x: 10.5,
-            y: 6.8,
-            w: 2.0,
-            h: 0.4,
-            fontSize: 10,
-            color: '94A3B8',
-            align: 'right',
-          });
+          slide.addText(`${idx + 1} / ${slides.length}`, { x: 10.5, y: 6.8, w: 2.0, h: 0.4, fontSize: 10, color: '94A3B8', align: 'right' });
         }
-
-        // Speaker Notes
-        if (s.notes) {
-          slide.addNotes(s.notes);
-        }
+        if (s.notes) slide.addNotes(s.notes);
       });
 
-      const firstTitle = (slides[0]?.title || '演示文稿').replace(/[\\/:*?"<>|]/g, '_').slice(0, 30);
+      const firstTitle = cleanMarkdownText(slides[0]?.title || '演示文稿').replace(/[\\/:*?"<>|]/g, '_').slice(0, 30);
       await pres.writeFile({ fileName: `${firstTitle}_QuickGPT.pptx` });
     } catch (err: any) {
       alert(`导出 PPTX 失败: ${err.message}`);
@@ -740,18 +422,26 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
           )}
 
           {/* Slide Body Content (Rich layout renderer: cover / grid2 / grid3 / grid4 / timeline / stats / content) */}
-          <div className="flex-1 min-h-0 flex flex-col justify-center my-auto w-full">
+          <div className="flex-1 min-h-0 flex flex-col justify-center my-auto w-full py-1">
             {/* 1. COVER SLIDE */}
             {currentSlide.layout === 'cover' ? (
-              <div className="text-center my-auto space-y-2 sm:space-y-3 px-2 sm:px-6 w-full flex flex-col items-center justify-center">
-                <div className="inline-flex items-center px-3 py-0.5 rounded-full bg-white/20 backdrop-blur-xs text-[11px] font-bold tracking-wider text-emerald-200 uppercase shrink-0">
-                  Presentation Deck
+              <div className="text-center my-auto space-y-2.5 sm:space-y-3.5 px-3 sm:px-8 w-full flex flex-col items-center justify-center">
+                <div className="inline-flex items-center px-3 py-0.5 rounded-full bg-white/20 backdrop-blur-xs text-[10px] sm:text-xs font-bold tracking-wider text-emerald-200 uppercase shrink-0">
+                  PRESENTATION DECK
                 </div>
-                <h1 className="text-lg sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-white leading-snug break-all sm:break-words drop-shadow-sm w-full text-center">
+                <h1
+                  className={`font-black tracking-tight text-white leading-snug break-words w-full text-center drop-shadow-sm ${
+                    currentSlide.title.length > 25
+                      ? 'text-base sm:text-lg md:text-xl lg:text-2xl'
+                      : currentSlide.title.length > 15
+                      ? 'text-lg sm:text-xl md:text-2xl lg:text-3xl'
+                      : 'text-xl sm:text-2xl md:text-3xl lg:text-4xl'
+                  }`}
+                >
                   {renderFormattedText(currentSlide.title)}
                 </h1>
                 {currentSlide.subtitle && (
-                  <p className="text-xs sm:text-sm text-slate-200/95 font-medium w-full text-center leading-relaxed break-all sm:break-words">
+                  <p className="text-xs sm:text-sm md:text-base text-slate-200/90 font-medium w-full text-center leading-relaxed break-words px-2">
                     {renderFormattedText(currentSlide.subtitle)}
                   </p>
                 )}
@@ -762,12 +452,12 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                 <div className="shrink-0 mb-2 sm:mb-2.5 w-full">
                   <div className="flex items-start gap-2 w-full">
                     <div className="w-1.5 h-4 rounded-full shrink-0 mt-0.5" style={{ backgroundColor: activeTheme.accent }} />
-                    <h2 className="text-sm sm:text-base lg:text-lg font-bold text-slate-900 dark:text-white leading-snug break-all sm:break-words flex-1">
+                    <h2 className="text-xs sm:text-sm md:text-base font-bold text-slate-900 dark:text-white leading-snug break-words flex-1">
                       {renderFormattedText(currentSlide.title)}
                     </h2>
                   </div>
                   {currentSlide.subtitle && (
-                    <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium ml-3.5 mt-0.5 break-all sm:break-words">
+                    <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium ml-3.5 mt-0.5 break-words">
                       {renderFormattedText(currentSlide.subtitle)}
                     </p>
                   )}

@@ -68,6 +68,10 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) =
           rehypeHighlight,
         ]}
         components={{
+          pre({ node, children, ...props }: any) {
+            // If the pre contains a SlideDeckViewer, don't wrap it in a prose <pre>
+            return <div className="my-3 not-prose w-full overflow-visible">{children}</div>;
+          },
           code({ node, inline, className, children, ...props }: any) {
             const match = /language-(\w+)/.exec(className || '');
             const language = (match ? match[1] : '').toLowerCase();
