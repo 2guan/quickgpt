@@ -216,7 +216,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   sendMessage: async (content: string) => {
-    if (!content.trim() && get().attachments.length === 0) return;
+    const currentAttachments = [...get().attachments];
+    if (!content.trim() && currentAttachments.length === 0) return;
 
     let convId = get().currentConversationId;
     if (!convId) {
@@ -228,7 +229,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
     }
 
-    const currentAttachments = [...get().attachments];
     const selectedModels = get().selectedModelIds;
     const enableSearch = get().enableSearch;
     const imageParams = get().imageParams;
