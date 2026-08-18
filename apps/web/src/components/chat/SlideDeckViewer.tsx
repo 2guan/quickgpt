@@ -344,14 +344,14 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
         </div>
       </div>
 
-      {/* 2. Slide Visual Card Canvas (Strict 16:9 Fixed Ratio Box) */}
+      {/* 2. Slide Visual Card Canvas (Strict 16:9 Fixed Ratio Box, No Scrollbars) */}
       <div
         className={`p-3 sm:p-5 flex items-center justify-center bg-slate-100/60 dark:bg-slate-950/40 ${
           isFullscreen ? 'flex-1 overflow-hidden' : ''
         }`}
       >
         <div
-          className={`w-full aspect-[16/9] min-h-[260px] max-h-[460px] rounded-xl shadow-lg border border-slate-200/80 dark:border-slate-800 p-4 sm:p-6 lg:p-8 flex flex-col justify-between transition-all duration-300 relative select-none ${
+          className={`w-full aspect-[16/9] min-h-[260px] max-h-[460px] rounded-xl shadow-lg border border-slate-200/80 dark:border-slate-800 p-5 sm:p-7 lg:p-9 flex flex-col justify-between transition-all duration-300 relative overflow-hidden select-none ${
             currentSlide.layout === 'cover'
               ? 'text-white'
               : 'bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100'
@@ -363,19 +363,19 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
           {/* Top Decorative Line */}
           {currentSlide.layout !== 'cover' && (
             <div
-              className="absolute top-0 left-0 right-0 h-1"
+              className="absolute top-0 left-0 right-0 h-1.5"
               style={{ backgroundColor: activeTheme.accent }}
             />
           )}
 
-          {/* Slide Body Content (Scrollable & Padded if content is long) */}
-          <div className="flex-1 min-h-0 overflow-y-auto py-1 pr-1 custom-scrollbar flex flex-col justify-center">
+          {/* Slide Body Content (Clean presentation layout, completely overflow-hidden) */}
+          <div className="flex-1 min-h-0 overflow-hidden flex flex-col justify-center my-auto">
             {/* Title & Subtitle */}
-            <div className={`mb-3 ${currentSlide.layout === 'cover' ? 'text-center my-auto' : ''}`}>
+            <div className={`shrink-0 ${currentSlide.layout === 'cover' ? 'text-center my-auto' : 'mb-3'}`}>
               <h2
-                className={`font-bold tracking-tight leading-tight ${
+                className={`font-bold tracking-tight leading-snug line-clamp-2 ${
                   currentSlide.layout === 'cover'
-                    ? 'text-xl sm:text-2xl lg:text-3xl text-white drop-shadow-xs'
+                    ? 'text-2xl sm:text-3xl lg:text-4xl text-white drop-shadow-xs'
                     : 'text-base sm:text-lg lg:text-xl text-slate-900 dark:text-white'
                 }`}
               >
@@ -383,7 +383,7 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
               </h2>
               {currentSlide.subtitle && (
                 <p
-                  className={`mt-1 text-xs sm:text-sm leading-relaxed ${
+                  className={`mt-1.5 text-xs sm:text-sm line-clamp-2 leading-relaxed ${
                     currentSlide.layout === 'cover'
                       ? 'text-slate-200'
                       : 'text-slate-500 dark:text-slate-400 font-medium'
@@ -394,19 +394,19 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
               )}
             </div>
 
-            {/* Bullets List */}
+            {/* Bullets List (Auto space distribution, no scrollbars) */}
             {currentSlide.bullets && currentSlide.bullets.length > 0 && (
-              <div className="grid gap-2 sm:gap-2.5">
-                {currentSlide.bullets.map((b, bIdx) => (
+              <div className="grid gap-2 sm:gap-2.5 overflow-hidden">
+                {currentSlide.bullets.slice(0, 5).map((b, bIdx) => (
                   <div
                     key={bIdx}
-                    className="flex items-start gap-2.5 p-2 sm:p-2.5 rounded-xl bg-slate-50/90 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 text-[12px] sm:text-[13px] font-medium leading-relaxed"
+                    className="flex items-start gap-2.5 p-2 sm:p-2.5 rounded-xl bg-slate-50/90 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 text-[12px] sm:text-[13px] font-medium leading-snug overflow-hidden"
                   >
                     <div
                       className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0"
                       style={{ backgroundColor: activeTheme.accent }}
                     />
-                    <span className="text-slate-700 dark:text-slate-200 break-words">{b}</span>
+                    <span className="text-slate-700 dark:text-slate-200 line-clamp-2 break-words leading-snug">{b}</span>
                   </div>
                 ))}
               </div>
