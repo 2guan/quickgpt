@@ -100,7 +100,7 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
 }
 
 export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
-  const slides = parseMarkdownSlides(rawCode);
+  const slides = React.useMemo(() => parseMarkdownSlides(rawCode), [rawCode]);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [themeIdx, setThemeIdx] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -108,28 +108,42 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
 
   const activeTheme = COLOR_THEMES[themeIdx];
   const totalSlides = slides.length;
-  const currentSlide = slides[currentIdx] || slides[0] || { title: '暂无内容', bullets: [] };
 
-  const handlePrev = () => setCurrentIdx((prev) => Math.max(0, prev - 1));
-  const handleNext = () => setCurrentIdx((prev) => Math.min(totalSlides - 1, prev + 1));
+  // Ensure currentIdx doesn't exceed totalSlides
+  const safeIdx = Math.min(currentIdx, Math.max(0, totalSlides - 1));
+  const currentSlide = slides[safeIdx] || slides[0] || { title: '暂无内容', bullets: [] };
 
-  // Keyboard navigation
+  const handlePrev = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setCurrentIdx((prev) => Math.max(0, prev - 1));
+  };
+
+  const handleNext = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setCurrentIdx((prev) => Math.min(totalSlides - 1, prev + 1));
+  };
+
+  // Keyboard navigation (active in fullscreen or when focused)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (!isFullscreen) return;
       if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') {
-        handleNext();
+        e.preventDefault();
+        setCurrentIdx((prev) => Math.min(totalSlides - 1, prev + 1));
       } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
-        handlePrev();
-      } else if (e.key === 'Escape' && isFullscreen) {
+        e.preventDefault();
+        setCurrentIdx((prev) => Math.max(0, prev - 1));
+      } else if (e.key === 'Escape') {
         setIsFullscreen(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentIdx, isFullscreen, totalSlides]);
+  }, [isFullscreen, totalSlides]);
 
   // Export to Native PowerPoint .pptx file using pptxgenjs
-  const handleExportPPTX = async () => {
+  const handleExportPPTX = async (e?: React.MouseEvent) => {
+    e?.stopPropagation();
     if (slides.length === 0) return;
     setIsExporting(true);
 
@@ -276,7 +290,9 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
   return (
     <div
       className={`my-4 rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-md overflow-hidden transition-all duration-200 ${
-        isFullscreen ? 'fixed inset-0 z-50 rounded-none flex flex-col justify-between p-6 bg-slate-950 text-white' : ''
+        isFullscreen
+          ? 'fixed inset-0 z-50 rounded-none flex flex-col justify-between p-4 sm:p-8 bg-slate-950 text-white'
+          : 'w-full max-w-3xl mx-auto'
       }`}
     >
       {/* 1. Header Toolbar */}
@@ -286,7 +302,7 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
             <Presentation className="w-4 h-4" />
           </div>
           <span className="font-semibold text-slate-800 dark:text-slate-200">
-            AI 幻灯片演示 ({currentIdx + 1} / {totalSlides} 页)
+            AI 幻灯片演示 ({safeIdx + 1} / {totalSlides} 页)
           </span>
         </div>
 
@@ -328,10 +344,14 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
         </div>
       </div>
 
-      {/* 2. Slide Visual Card Canvas (16:9 Aspect Ratio) */}
-      <div className={`p-4 sm:p-6 flex items-center justify-center ${isFullscreen ? 'flex-1' : ''}`}>
+      {/* 2. Slide Visual Card Canvas (Strict 16:9 Fixed Ratio Box) */}
+      <div
+        className={`p-3 sm:p-5 flex items-center justify-center bg-slate-100/60 dark:bg-slate-950/40 ${
+          isFullscreen ? 'flex-1 overflow-hidden' : ''
+        }`}
+      >
         <div
-          className={`w-full aspect-16/9 rounded-xl shadow-lg border border-slate-200/60 dark:border-slate-800 p-6 sm:p-10 flex flex-col justify-between transition-all duration-300 relative overflow-hidden select-none ${
+          className={`w-full aspect-[16/9] max-h-[440px] rounded-xl shadow-lg border border-slate-200/80 dark:border-slate-800 p-5 sm:p-8 flex flex-col justify-between transition-all duration-300 relative overflow-y-auto select-none ${
             currentSlide.layout === 'cover'
               ? 'text-white'
               : 'bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100'
@@ -349,21 +369,21 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
           )}
 
           {/* Slide Body Content */}
-          <div className="space-y-4 my-auto">
+          <div className="space-y-3.5 my-auto">
             {/* Title & Subtitle */}
             <div className={currentSlide.layout === 'cover' ? 'text-center' : ''}>
               <h2
                 className={`font-bold tracking-tight ${
                   currentSlide.layout === 'cover'
-                    ? 'text-2xl sm:text-4xl text-white drop-shadow-xs'
-                    : 'text-xl sm:text-3xl text-slate-900 dark:text-white'
+                    ? 'text-2xl sm:text-3xl lg:text-4xl text-white drop-shadow-xs'
+                    : 'text-lg sm:text-2xl font-bold text-slate-900 dark:text-white'
                 }`}
               >
                 {currentSlide.title}
               </h2>
               {currentSlide.subtitle && (
                 <p
-                  className={`mt-2 text-xs sm:text-base ${
+                  className={`mt-1.5 text-xs sm:text-sm ${
                     currentSlide.layout === 'cover'
                       ? 'text-slate-200'
                       : 'text-slate-500 dark:text-slate-400 font-medium'
@@ -376,11 +396,11 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
 
             {/* Bullets List */}
             {currentSlide.bullets && currentSlide.bullets.length > 0 && (
-              <div className="grid gap-2.5 sm:gap-3.5 mt-4 sm:mt-6">
+              <div className="grid gap-2 sm:gap-2.5 mt-3 sm:mt-4">
                 {currentSlide.bullets.map((b, bIdx) => (
                   <div
                     key={bIdx}
-                    className="flex items-start gap-3 p-2.5 sm:p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 text-xs sm:text-sm font-medium leading-relaxed"
+                    className="flex items-start gap-2.5 p-2 sm:p-2.5 rounded-xl bg-slate-50/90 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 text-xs sm:text-sm font-medium leading-relaxed"
                   >
                     <div
                       className="w-2 h-2 rounded-full mt-1.5 shrink-0"
@@ -394,10 +414,10 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
           </div>
 
           {/* Slide Footer */}
-          <div className="flex items-center justify-between pt-4 text-[10px] sm:text-xs text-slate-400 dark:text-slate-500 border-t border-slate-100 dark:border-slate-800/60">
+          <div className="flex items-center justify-between pt-3 text-[10px] sm:text-xs text-slate-400 dark:text-slate-500 border-t border-slate-100 dark:border-slate-800/60 mt-auto">
             <span>QuickGPT AI Slide Deck</span>
             <span className="font-mono font-medium">
-              {currentIdx + 1} / {totalSlides}
+              {safeIdx + 1} / {totalSlides}
             </span>
           </div>
         </div>
@@ -407,7 +427,7 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
       <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200/70 dark:border-slate-800 text-xs">
         <button
           onClick={handlePrev}
-          disabled={currentIdx === 0}
+          disabled={safeIdx === 0}
           className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95"
         >
           <ChevronLeft className="w-4 h-4" />
@@ -421,7 +441,7 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
               key={i}
               onClick={() => setCurrentIdx(i)}
               className={`w-2 h-2 rounded-full transition-all ${
-                currentIdx === i
+                safeIdx === i
                   ? 'w-5 bg-emerald-600 dark:bg-emerald-400'
                   : 'bg-slate-300 dark:bg-slate-600 hover:bg-slate-400'
               }`}
@@ -432,7 +452,7 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
 
         <button
           onClick={handleNext}
-          disabled={currentIdx === totalSlides - 1}
+          disabled={safeIdx === totalSlides - 1}
           className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95"
         >
           <span>下一页</span>
