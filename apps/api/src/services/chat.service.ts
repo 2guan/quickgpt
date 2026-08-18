@@ -456,25 +456,40 @@ export async function handleStreamChat({
     const m = messages[i];
     const isLastUserMessage = m.role === 'user' && i === messages.length - 1;
 
-    if (isLastUserMessage && base64Images.length > 0) {
-      const contentParts: any[] = [];
-      if (m.content) {
-        contentParts.push({ type: 'text', text: m.content });
-      } else {
-        contentParts.push({ type: 'text', text: '请查看并分析上传的图片。' });
+    if (isLastUserMessage) {
+      let finalUserContent = m.content || '';
+      if (searchContextText) {
+        finalUserContent += searchContextText;
       }
-      for (const imgUrl of base64Images) {
-        contentParts.push({
-          type: 'image_url',
-          image_url: {
-            url: imgUrl,
-          },
+      if (attachmentContextText) {
+        finalUserContent += attachmentContextText;
+      }
+
+      if (base64Images.length > 0) {
+        const contentParts: any[] = [];
+        if (finalUserContent) {
+          contentParts.push({ type: 'text', text: finalUserContent });
+        } else {
+          contentParts.push({ type: 'text', text: '请查看并分析上传的图片。' });
+        }
+        for (const imgUrl of base64Images) {
+          contentParts.push({
+            type: 'image_url',
+            image_url: {
+              url: imgUrl,
+            },
+          });
+        }
+        payloadMessages.push({
+          role: 'user',
+          content: contentParts,
+        });
+      } else {
+        payloadMessages.push({
+          role: 'user',
+          content: finalUserContent,
         });
       }
-      payloadMessages.push({
-        role: 'user',
-        content: contentParts,
-      });
     } else {
       payloadMessages.push({
         role: m.role,

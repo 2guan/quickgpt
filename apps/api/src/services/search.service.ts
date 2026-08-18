@@ -6,7 +6,7 @@ export interface SearchResultItem {
   snippet: string;
 }
 
-export async function performWebSearch(query: string, maxResults = 4): Promise<SearchResultItem[]> {
+export async function performWebSearch(query: string, maxResults = 5): Promise<SearchResultItem[]> {
   const cleanQuery = query.trim();
   if (!cleanQuery) return [];
 
@@ -96,93 +96,76 @@ export async function performWebSearch(query: string, maxResults = 4): Promise<S
       }
     }
 
-    // 2. Built-in Multi-Source Free Search Engine (DuckDuckGo Lite & Bing HTML)
-    const results: SearchResultItem[] = [];
-
-    // Attempt 1: DuckDuckGo HTML
+    // 2. High-speed Built-in Multi-Source Search (Bing RSS & SearXNG JSON)
+    // Attempt A: Official Bing Search Real-Time RSS Stream
     try {
-      const ddgUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(cleanQuery)}`;
-      const response = await fetch(ddgUrl, {
+      const bingRssUrl = `https://www.bing.com/search?q=${encodeURIComponent(cleanQuery)}&format=rss`;
+      const response = await fetch(bingRssUrl, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-          'Accept': 'text/html,application/xhtml+xml',
+          'Accept': 'application/rss+xml, application/xml, text/xml, */*',
           'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
         },
         signal: AbortSignal.timeout(6000),
       });
 
       if (response.ok) {
-        const html = await response.text();
-        const titleRegex = /<a class="result__a" href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g;
-        const titles: { url: string; title: string }[] = [];
-        let match;
-        while ((match = titleRegex.exec(html)) !== null && titles.length < 10) {
-          let rawUrl = match[1];
-          if (rawUrl.includes('uddg=')) {
-            const urlParam = new URL('https://duckduckgo.com' + rawUrl).searchParams.get('uddg');
-            if (urlParam) rawUrl = decodeURIComponent(urlParam);
+        const xml = await response.text();
+        const itemMatches = [...xml.matchAll(/<item>[\s\S]*?<title>([\s\S]*?)<\/title>[\s\S]*?<link>([\s\S]*?)<\/link>[\s\S]*?<description>([\s\S]*?)<\/description>[\s\S]*?<\/item>/g)];
+        
+        if (itemMatches.length > 0) {
+          const results: SearchResultItem[] = [];
+          for (let i = 0; i < Math.min(itemMatches.length, maxResults); i++) {
+            const rawTitle = itemMatches[i][1].replace(/<!\[CDATA\[|\]\]>/g, '').replace(/<[^>]+>/g, '').trim();
+            const rawLink = itemMatches[i][2].replace(/<!\[CDATA\[|\]\]>/g, '').trim();
+            const rawSnippet = itemMatches[i][3].replace(/<!\[CDATA\[|\]\]>/g, '').replace(/<[^>]+>/g, '').trim();
+            if (rawTitle && rawLink.startsWith('http')) {
+              results.push({
+                title: rawTitle,
+                url: rawLink,
+                snippet: rawSnippet,
+              });
+            }
           }
-          const rawTitle = match[2].replace(/<[^>]+>/g, '').trim();
-          titles.push({ url: rawUrl, title: rawTitle });
-        }
-
-        const snippetRegex = /<a class="result__snippet[^"]*"[^>]*>([\s\S]*?)<\/a>/g;
-        const snippets: string[] = [];
-        while ((match = snippetRegex.exec(html)) !== null && snippets.length < 10) {
-          snippets.push(match[1].replace(/<[^>]+>/g, '').trim());
-        }
-
-        for (let i = 0; i < titles.length && results.length < maxResults; i++) {
-          if (titles[i].title && (titles[i].url.startsWith('http://') || titles[i].url.startsWith('https://'))) {
-            results.push({
-              title: titles[i].title,
-              url: titles[i].url,
-              snippet: snippets[i] || '',
-            });
+          if (results.length > 0) {
+            return results;
           }
         }
       }
     } catch (err: any) {
-      console.warn(`[Search] DuckDuckGo search fallback notice: ${err.message}`);
+      console.warn(`[Search] Bing RSS fallback notice: ${err.message}`);
     }
 
-    if (results.length > 0) {
-      return results;
-    }
+    // Attempt B: High-availability SearXNG fallback instances
+    const fallbackSearx = [
+      'https://search.mdosch.de',
+      'https://priv.au',
+      'https://searx.be',
+    ];
 
-    // Attempt 2: Bing Search HTML Fallback
-    try {
-      const bingUrl = `https://cn.bing.com/search?q=${encodeURIComponent(cleanQuery)}&setmkt=zh-CN&setlang=zh-Hans`;
-      const response = await fetch(bingUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-          'Accept-Language': 'zh-CN,zh;q=0.9',
-        },
-        signal: AbortSignal.timeout(6000),
-      });
-
-      if (response.ok) {
-        const html = await response.text();
-        const itemRegex = /<li class="b_algo"[\s\S]*?<h2><a href="([^"]+)"[^>]*>([\s\S]*?)<\/a><\/h2>[\s\S]*?<p[^>]*>([\s\S]*?)<\/p>/g;
-        let match;
-        while ((match = itemRegex.exec(html)) !== null && results.length < maxResults) {
-          const itemUrl = match[1];
-          const itemTitle = match[2].replace(/<[^>]+>/g, '').trim();
-          const itemSnippet = match[3].replace(/<[^>]+>/g, '').trim();
-          if (itemUrl.startsWith('http')) {
-            results.push({
-              title: itemTitle,
-              url: itemUrl,
-              snippet: itemSnippet,
-            });
+    for (const inst of fallbackSearx) {
+      try {
+        const searxUrl = `${inst}/search?q=${encodeURIComponent(cleanQuery)}&format=json&language=zh-CN`;
+        const res = await fetch(searxUrl, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)' },
+          signal: AbortSignal.timeout(4000),
+        });
+        if (res.ok) {
+          const data = (await res.json()) as any;
+          if (Array.isArray(data.results) && data.results.length > 0) {
+            return data.results.slice(0, maxResults).map((r: any) => ({
+              title: r.title || '网页结果',
+              url: r.url || '',
+              snippet: r.content || r.snippet || '',
+            }));
           }
         }
+      } catch {
+        // try next instance
       }
-    } catch (err: any) {
-      console.warn(`[Search] Bing fallback notice: ${err.message}`);
     }
 
-    return results;
+    return [];
   } catch (err: any) {
     console.error(`[Search] Error performing web search for "${query}":`, err.message);
     return [];
@@ -192,10 +175,10 @@ export async function performWebSearch(query: string, maxResults = 4): Promise<S
 export function formatSearchResultsForPrompt(results: SearchResultItem[]): string {
   if (!results || results.length === 0) return '';
   
-  let formatted = '\n\n【实时联网检索信息参考】\n';
+  let formatted = '\n\n【最新实时联网检索结果参考】\n';
   results.forEach((item, index) => {
-    formatted += `[${index + 1}] 标题: ${item.title}\n    来源: ${item.url}\n    摘要: ${item.snippet}\n\n`;
+    formatted += `[${index + 1}] 标题: ${item.title}\n    链接: ${item.url}\n    摘要: ${item.snippet}\n\n`;
   });
-  formatted += '请结合上述最新检索结果，用准确、客观且有条理的语言回答用户的问题。如果引用了检索结果，请在正文中以 [序号] 标注来源。\n';
+  formatted += '【要求】：请严格结合上述最新检索结果中的实时信息回答用户的问题。在正文中引用具体信息时，请在对应句子后使用 [序号] 标注来源。\n';
   return formatted;
 }
