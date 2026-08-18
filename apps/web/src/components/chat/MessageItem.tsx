@@ -124,7 +124,11 @@ const AssistantCard: React.FC<{
 
   const cleanTextForLocalSpeech = (rawText: string) => {
     return rawText
-      .replace(/<think[\s\S]*?<\/think>/gi, '')
+      .replace(/<(think|thought|thinking|reasoning|reflection)[\s\S]*?<\/\1>/gi, '')
+      .replace(/^<(think|thought|thinking|reasoning|reflection)[\s\S]*?(?:<\/\1>|$)/gi, '')
+      .replace(/【(?:思考过程|思考|深度思考)】[\s\S]*?【(?:回答|最终回答|正式回答)】/gi, '')
+      .replace(/(?:^|\n)(?:思考过程|Thinking Process|Thought Process)[：:]\s*[\s\S]*?(?:\n\n|\n(?=[^\s>]))/gi, '')
+      .replace(/\[\d+(?:[,\s\-]\d+)*\]/g, '')
       .replace(/```[\s\S]*?```/g, ' 代码块已省略 ')
       .replace(/`([^`]+)`/g, '$1')
       .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1')
@@ -132,8 +136,11 @@ const AssistantCard: React.FC<{
       .replace(/^[#>\-\*\+]\s+/gm, '')
       .replace(/(\*\*|__)(.*?)\1/g, '$2')
       .replace(/(\*|_)(.*?)\1/g, '$2')
+      .replace(/~~(.*?)~~/g, '$1')
       .replace(/\$\$[\s\S]*?\$\$/g, ' 公式 ')
       .replace(/\$([^\$]+)\$/g, '$1')
+      .replace(/\\\[[\s\S]*?\\\]/g, ' 公式 ')
+      .replace(/\\\(([^\)]+)\\\)/g, '$1')
       .replace(/\n{2,}/g, '\n')
       .trim();
   };

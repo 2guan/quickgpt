@@ -31,40 +31,48 @@ function createWavHeader(sampleRate = 24000, numChannels = 1, bitsPerSample = 16
   return buffer;
 }
 
-// Clean markdown, code fences, and symbols for clean spoken voice synthesis
+// Clean markdown, code fences, reasoning chain/think tags, and symbols for clean spoken voice synthesis
 export function cleanTextForSpeech(rawText: string): string {
   if (!rawText) return '';
 
   let text = rawText;
 
-  // 1. Remove thinking / reasoning blocks <think>...</think>
-  text = text.replace(/<think[\s\S]*?<\/think>/gi, '');
+  // 1. Remove all forms of thinking/reasoning tags: <think>...</think>, <thought>...</thought>, etc.
+  text = text.replace(/<(think|thought|thinking|reasoning|reflection)[\s\S]*?<\/\1>/gi, '');
+  text = text.replace(/^<(think|thought|thinking|reasoning|reflection)[\s\S]*?(?:<\/\1>|$)/gi, '');
 
-  // 2. Remove code blocks ```lang ... ```
+  // 2. Remove common thinking block prefixes: e.g. "【思考过程】...【最终回答】"
+  text = text.replace(/【(?:思考过程|思考|深度思考)】[\s\S]*?【(?:回答|最终回答|正式回答)】/gi, '');
+  text = text.replace(/(?:^|\n)(?:思考过程|Thinking Process|Thought Process)[：:]\s*[\s\S]*?(?:\n\n|\n(?=[^\s>]))/gi, '');
+
+  // 3. Remove citations like [1], [2], [1, 2] so speech is smooth and doesn't read brackets
+  text = text.replace(/\[\d+(?:[,\s\-]\d+)*\]/g, '');
+
+  // 4. Remove code blocks ```lang ... ```
   text = text.replace(/```[\s\S]*?```/g, ' [代码块已省略] ');
 
-  // 3. Remove inline code `...`
+  // 5. Remove inline code `...`
   text = text.replace(/`([^`]+)`/g, '$1');
 
-  // 4. Remove Markdown links [text](url) -> text
+  // 6. Remove Markdown links [text](url) -> text
   text = text.replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1');
 
-  // 5. Remove Markdown image tags ![alt](url)
+  // 7. Remove Markdown image tags ![alt](url)
   text = text.replace(/!\[([^\]]*)\]\([^\)]+\)/g, '');
 
-  // 6. Remove Markdown headers, bold, italics, strikethrough, blockquotes
+  // 8. Remove Markdown headers, bold, italics, strikethrough, blockquotes
   text = text.replace(/^[#>\-\*\+]\s+/gm, '');
   text = text.replace(/(\*\*|__)(.*?)\1/g, '$2');
   text = text.replace(/(\*|_)(.*?)\1/g, '$2');
   text = text.replace(/~~(.*?)~~/g, '$1');
 
-  // 7. Remove LaTeX math blocks $$...$$ and \(...\)
+  // 9. Remove LaTeX math blocks $$...$$ and \(...\)
   text = text.replace(/\$\$[\s\S]*?\$\$/g, ' [公式] ');
   text = text.replace(/\$([^\$]+)\$/g, '$1');
   text = text.replace(/\\\[[\s\S]*?\\\]/g, ' [公式] ');
   text = text.replace(/\\\(([^\)]+)\\\)/g, '$1');
 
-  // 8. Collapse excessive whitespace and newlines
+  // 10. Collapse excessive whitespace and newlines
   text = text.replace(/\n{2,}/g, '\n').trim();
 
   // Limit synthesis length to prevent huge payload timeouts (first 5000 characters)
