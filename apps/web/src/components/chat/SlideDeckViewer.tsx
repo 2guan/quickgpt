@@ -849,7 +849,13 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                 });
               }
 
-              slide.addText(cleanMarkdownText(item.description || ''), {
+              let fullCardText = cleanMarkdownText(item.description || '');
+              if (item.bullets && item.bullets.length > 0) {
+                const subText = item.bullets.map((b) => `• ${cleanMarkdownText(b)}`).join('\n');
+                fullCardText = fullCardText ? `${fullCardText}\n${subText}` : subText;
+              }
+
+              slide.addText(fullCardText, {
                 x: cardX + 0.15,
                 y: cardY + 0.48,
                 w: cellW - 0.3,
@@ -1582,9 +1588,21 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                                 {renderFormattedText(item.title)}
                               </div>
                             )}
-                            <p className="text-[10px] sm:text-[11px] text-slate-600 dark:text-slate-300 leading-snug break-words whitespace-normal">
-                              {renderFormattedText(item.description || '')}
-                            </p>
+                            {item.description && (
+                              <p className="text-[10px] sm:text-[10.5px] text-slate-600 dark:text-slate-300 leading-snug break-words whitespace-normal mb-1">
+                                {renderFormattedText(item.description)}
+                              </p>
+                            )}
+                            {item.bullets && item.bullets.length > 0 && (
+                              <div className="space-y-0.5 mt-0.5">
+                                {item.bullets.map((sub, sIdx) => (
+                                  <div key={sIdx} className="flex items-start gap-1 text-[9.5px] sm:text-[10px] text-slate-600 dark:text-slate-300 leading-snug">
+                                    <span className="text-slate-400 font-bold shrink-0">•</span>
+                                    <span className="break-words flex-1">{renderFormattedText(sub)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </div>
                       ))}
