@@ -657,11 +657,21 @@ export async function handleStreamChat({
 
       // Follow-up suggestions generation
       let followUpSuggestions: string[] = [];
-      if (candidate.enable_followup && fullAssistantContent) {
+      const globalFollowupStmt = db.prepare("SELECT value FROM system_settings WHERE key = 'enable_global_followup'");
+      const globalFollowupVal = (globalFollowupStmt.get() as { value: string } | undefined)?.value;
+      const isGlobalFollowupEnabled = globalFollowupVal === '1' || globalFollowupVal === undefined;
+
+      const globalFollowupModelStmt = db.prepare("SELECT value FROM system_settings WHERE key = 'global_followup_model_id'");
+      const globalFollowupModelVal = (globalFollowupModelStmt.get() as { value: string } | undefined)?.value || '';
+
+      const shouldGenerateFollowup = (candidate.enable_followup === 1 || isGlobalFollowupEnabled) && Boolean(fullAssistantContent);
+
+      if (shouldGenerateFollowup) {
+        const dedicatedModelId = candidate.followup_model_id || globalFollowupModelVal || candidate.model_id;
         followUpSuggestions = await generateFollowUpSuggestions(
           userLastMsg,
           fullAssistantContent,
-          candidate.followup_model_id || undefined
+          dedicatedModelId
         );
         if (followUpSuggestions.length > 0) {
           reply.raw.write(`data: ${JSON.stringify({ followup: followUpSuggestions, modelId })}\n\n`);

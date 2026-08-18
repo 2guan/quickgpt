@@ -741,6 +741,41 @@ export const ModelsTab: React.FC = () => {
                 </div>
               </div>
 
+              {/* Follow-up Suggestion Settings */}
+              <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200/80 dark:border-slate-700/80 space-y-2.5">
+                <label className="flex items-center gap-2 text-xs font-semibold text-slate-800 dark:text-slate-200 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(editingModel.enable_followup)}
+                    onChange={(e) => setEditingModel({ ...editingModel, enable_followup: e.target.checked ? 1 : 0 })}
+                    className="rounded text-emerald-600 focus:ring-0"
+                  />
+                  <span>✨ 启用回答后智能追问建议 (Follow-up)</span>
+                </label>
+
+                {Boolean(editingModel.enable_followup) && (
+                  <div className="pt-1">
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                      单独配置追问模型 (可选，默认使用当前模型或全局设置)
+                    </label>
+                    <select
+                      value={editingModel.followup_model_id || ''}
+                      onChange={(e) => setEditingModel({ ...editingModel, followup_model_id: e.target.value })}
+                      className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100 outline-hidden"
+                    >
+                      <option value="">跟随当前模型 / 全局默认</option>
+                      {models
+                        .filter((m) => m.is_active && m.id !== editingModel.id)
+                        .map((m) => (
+                          <option key={m.id} value={m.model_id}>
+                            {m.display_name} ({m.model_id})
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+
               <div className="grid grid-cols-2 gap-3 pt-1">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">

@@ -16,6 +16,7 @@ import {
 
 export const SettingsTab: React.FC = () => {
   const [settings, setSettings] = useState<Record<string, string>>({});
+  const [models, setModels] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
@@ -29,8 +30,12 @@ export const SettingsTab: React.FC = () => {
   useEffect(() => {
     async function loadSettings() {
       try {
-        const res = await adminApi.getSettings();
-        setSettings(res.settings || {});
+        const [settingsRes, modelsRes] = await Promise.all([
+          adminApi.getSettings(),
+          adminApi.getModels().catch(() => ({ models: [] })),
+        ]);
+        setSettings(settingsRes.settings || {});
+        setModels(modelsRes.models || []);
       } finally {
         setLoading(false);
       }
@@ -437,6 +442,51 @@ export const SettingsTab: React.FC = () => {
               </div>
             </div>
           )}
+        </div>
+
+        {/* 4. Follow-up Suggestions Configuration */}
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-2xs space-y-4 text-xs w-full">
+          <div className="font-bold text-sm text-slate-800 dark:text-slate-100 flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-slate-800">
+            <Sparkles className="w-4 h-4 text-amber-500" />
+            <span>智能追问建议设置 (Follow-up Suggestions)</span>
+          </div>
+
+          <div>
+            <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              追问建议全局触发策略
+            </label>
+            <select
+              value={settings.enable_global_followup ?? '1'}
+              onChange={(e) => setSettings({ ...settings, enable_global_followup: e.target.value })}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-xl focus:bg-white dark:focus:bg-slate-800 focus:border-emerald-500 focus:outline-hidden"
+            >
+              <option value="1">✨ 全局默认开启（回答结束后自动生成 3 个相关追问选项）</option>
+              <option value="0">🔒 仅在模型管理中单独开启的模型触发</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              全局默认追问模型 (可单独指定轻量极速模型)
+            </label>
+            <select
+              value={settings.global_followup_model_id || ''}
+              onChange={(e) => setSettings({ ...settings, global_followup_model_id: e.target.value })}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-xl focus:bg-white dark:focus:bg-slate-800 focus:border-emerald-500 focus:outline-hidden"
+            >
+              <option value="">跟随当前对话主模型（默认）</option>
+              {models
+                .filter((m) => m.is_active)
+                .map((m) => (
+                  <option key={m.id} value={m.model_id}>
+                    {m.display_name} ({m.model_id})
+                  </option>
+                ))}
+            </select>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
+              建议指定轻量且响应极快的大模型（如 gpt-4o-mini, qwen-turbo, deepseek-chat 等），在回答完毕后秒级输出追问提示。
+            </p>
+          </div>
         </div>
       </form>
     </div>
