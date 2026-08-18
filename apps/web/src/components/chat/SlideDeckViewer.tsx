@@ -149,6 +149,11 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
         continue;
       }
 
+      if (/^>\s*(?:💡|📌|⭐|✨)?\s*(?:\*\*|__)?(?:演讲备注|备注|核心结语|核心定义|核心提示|演示目标|结语|总结)[：:\s]/.test(trimmed)) {
+        notes = trimmed.replace(/^>\s*(?:💡|📌|⭐|✨)?\s*(?:\*\*|__)?(?:演讲备注|备注|核心结语|核心定义|核心提示|演示目标|结语|总结)[：:\s]*(?:\*\*|__)?\s*/i, '').trim();
+        continue;
+      }
+
       if (trimmed.startsWith('🙏') || trimmed.includes('感谢聆听') || trimmed.includes('欢迎交流')) {
         notes = trimmed.replace(/^#+\s*/, '').trim();
         continue;
@@ -1320,9 +1325,110 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
             });
           } else if (s.layout === 'quote') {
             // 8. QUOTE LAYOUT - Centered & 1:1 with Web View
+            const hasTable = !!s.table;
             const hasItems = items.length > 0;
 
-            if (hasItems) {
+            if (hasTable && s.table) {
+              // Dual-Panel Layout: Left Quotes (w: 3.8) + Right Table (w: 4.7) + Bottom Notes
+              const leftW = 3.8;
+              const rightW = 4.7;
+              const mainH = 2.45;
+              const notesH = s.notes ? 0.38 : 0;
+              const notesGap = 0.2;
+              const totalBlockH = mainH + (s.notes ? notesGap + notesH : 0);
+              const quoteStartY = getCenteredY(totalBlockH);
+
+              // Left Column: 3 Quotes
+              const quoteCount = Math.min(items.length, 3);
+              const qH = (mainH - (quoteCount - 1) * 0.12) / quoteCount;
+              items.slice(0, 3).forEach((it, qIdx) => {
+                const qY = quoteStartY + qIdx * (qH + 0.12);
+
+                slide.addShape(pres.ShapeType.roundRect, {
+                  x: 0.6,
+                  y: qY,
+                  w: leftW,
+                  h: qH,
+                  rectRadius: 0.08,
+                  fill: { color: 'F0FDF4' },
+                  line: { color: 'E2E8F0', width: 0.75 },
+                });
+
+                // Left green accent line
+                slide.addShape(pres.ShapeType.roundRect, {
+                  x: 0.6,
+                  y: qY,
+                  w: 0.06,
+                  h: qH,
+                  rectRadius: 0.03,
+                  fill: { color: hexAccent },
+                });
+
+                const fullText = it.title ? `${it.title}：${it.description}` : it.description || '';
+                slide.addText(cleanMarkdownText(fullText), {
+                  x: 0.78,
+                  y: qY + 0.04,
+                  w: leftW - 0.28,
+                  h: qH - 0.08,
+                  fontSize: 8.5,
+                  color: '065F46',
+                  fontFace: 'Microsoft YaHei',
+                  valign: 'middle',
+                  breakLine: true,
+                });
+              });
+
+              // Right Column: Native Table
+              const tableRows: any[][] = [
+                s.table.headers.map((h) => ({
+                  text: cleanMarkdownText(h),
+                  options: { fill: { color: hexAccent }, color: 'FFFFFF', bold: true, fontSize: 8.5, align: 'center' },
+                })),
+                ...s.table.rows.slice(0, 5).map((row, rIdx) =>
+                  row.map((cell) => ({
+                    text: cleanMarkdownText(cell),
+                    options: {
+                      fill: { color: rIdx % 2 === 1 ? 'F8FAFC' : 'FFFFFF' },
+                      color: '1E293B',
+                      fontSize: 8,
+                      align: 'left',
+                    },
+                  }))
+                ),
+              ];
+
+              slide.addTable(tableRows, {
+                x: 4.7,
+                y: quoteStartY,
+                w: rightW,
+                h: mainH,
+                border: { type: 'solid', pt: 0.5, color: 'E2E8F0' },
+                margin: [0.03, 0.06, 0.03, 0.06],
+              });
+
+              // Bottom Notes
+              if (s.notes) {
+                slide.addShape(pres.ShapeType.roundRect, {
+                  x: 0.6,
+                  y: quoteStartY + mainH + notesGap,
+                  w: 8.8,
+                  h: notesH,
+                  rectRadius: 0.08,
+                  fill: { color: 'F0FDF4' },
+                  line: { color: hexAccent, width: 0.5 },
+                });
+                slide.addText(`💡 ${cleanMarkdownText(s.notes)}`, {
+                  x: 0.75,
+                  y: quoteStartY + mainH + notesGap,
+                  w: 8.5,
+                  h: notesH,
+                  fontSize: 8.5,
+                  color: '065F46',
+                  valign: 'middle',
+                  fontFace: 'Microsoft YaHei',
+                });
+              }
+            } else if (hasItems) {
               // 3 Cards on Top + Conclusion Banner on Bottom
               const takeCount = Math.min(items.length, 3);
               const takeW = (8.8 - (takeCount - 1) * 0.2) / takeCount;
@@ -2108,8 +2214,68 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                   </div>
                 ) : /* 8. QUOTE / HIGHLIGHT CALLOUT (quote) */
                 currentSlide.layout === 'quote' ? (
-                  <div className="flex flex-col my-auto w-full space-y-3 max-h-[320px] overflow-hidden">
-                    {currentSlide.items && currentSlide.items.length > 0 ? (
+                  <div className="flex flex-col my-auto w-full space-y-2.5 max-h-[340px] overflow-hidden">
+                    {currentSlide.table ? (
+                      /* Dual-Panel Layout: Quotes on Left + Table Checklist on Right */
+                      <div className="grid grid-cols-1 md:grid-cols-12 gap-3 w-full items-stretch my-auto">
+                        {/* Left Column: Golden Quote Callout Cards (5 cols) */}
+                        <div className="md:col-span-5 flex flex-col justify-between space-y-2">
+                          {currentSlide.items && currentSlide.items.length > 0 ? (
+                            currentSlide.items.slice(0, 3).map((it, idx) => (
+                              <div
+                                key={idx}
+                                className="p-2.5 rounded-xl bg-linear-to-r from-emerald-500/10 via-teal-500/5 to-transparent border-l-3.5 border-emerald-500 shadow-2xs flex items-center"
+                              >
+                                <p className="text-[10px] sm:text-[10.5px] font-medium text-slate-800 dark:text-slate-200 leading-snug break-words">
+                                  {renderFormattedText(it.title ? `${it.title}：${it.description}` : it.description || '')}
+                                </p>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="p-3 rounded-xl bg-linear-to-r from-emerald-500/15 via-teal-500/10 to-transparent border-l-4 border-emerald-500 my-auto">
+                              <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 leading-relaxed break-words">
+                                {renderFormattedText(currentSlide.quoteText || currentSlide.bullets[0] || '')}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Right Column: Checklist Table (7 cols) */}
+                        <div className="md:col-span-7 flex flex-col justify-between overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs">
+                          <table className="w-full text-left border-collapse">
+                            <thead>
+                              <tr style={{ backgroundColor: activeTheme.accent }}>
+                                {currentSlide.table.headers.map((head, hIdx) => (
+                                  <th
+                                    key={hIdx}
+                                    className="px-2.5 py-1 text-[9.5px] sm:text-[10.5px] font-bold text-white tracking-wide border-r last:border-r-0 border-white/20"
+                                  >
+                                    {renderFormattedText(head)}
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-800/90 text-[9px] sm:text-[10px]">
+                              {currentSlide.table.rows.slice(0, 5).map((row, rIdx) => (
+                                <tr
+                                  key={rIdx}
+                                  className={rIdx % 2 === 1 ? 'bg-slate-50/60 dark:bg-slate-800/40' : ''}
+                                >
+                                  {row.map((cell, cIdx) => (
+                                    <td
+                                      key={cIdx}
+                                      className="px-2.5 py-1 text-slate-700 dark:text-slate-200 border-r last:border-r-0 border-slate-100 dark:border-slate-800 leading-tight break-words"
+                                    >
+                                      {renderFormattedText(cell)}
+                                    </td>
+                                  ))}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    ) : currentSlide.items && currentSlide.items.length > 0 ? (
                       <>
                         {/* Top 3 Pillar Cards */}
                         <div
@@ -2146,8 +2312,8 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
 
                         {/* Bottom Conclusion Banner */}
                         {currentSlide.quoteText && (
-                          <div className="p-3 rounded-xl bg-linear-to-r from-emerald-500/15 via-teal-500/10 to-emerald-500/5 border border-emerald-300/80 dark:border-emerald-700/80 text-center">
-                            <div className="text-[11px] sm:text-xs md:text-[12.5px] font-bold text-emerald-950 dark:text-emerald-100 leading-relaxed break-words">
+                          <div className="p-2.5 rounded-xl bg-linear-to-r from-emerald-500/15 via-teal-500/10 to-emerald-500/5 border border-emerald-300/80 dark:border-emerald-700/80 text-center">
+                            <div className="text-[10.5px] sm:text-[11.5px] font-bold text-emerald-950 dark:text-emerald-100 leading-relaxed break-words">
                               {renderFormattedText(currentSlide.quoteText)}
                             </div>
                           </div>
@@ -2171,9 +2337,9 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
 
                     {/* Thank you / interactive footer notes */}
                     {currentSlide.notes && (
-                      <div className="text-center pt-1">
-                        <span className="inline-block px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/70 dark:border-emerald-900/50 text-[10.5px] sm:text-xs font-bold text-emerald-700 dark:text-emerald-300">
-                          {renderFormattedText(currentSlide.notes)}
+                      <div className="text-center pt-0.5">
+                        <span className="inline-block px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/70 dark:border-emerald-900/50 text-[10px] sm:text-[11px] font-bold text-emerald-700 dark:text-emerald-300">
+                          💡 {renderFormattedText(currentSlide.notes)}
                         </span>
                       </div>
                     )}
