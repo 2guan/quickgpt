@@ -379,13 +379,13 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
 
           // Main Title
           const titleText = cleanMarkdownText(s.title || '演示文稿');
-          const titleFontSize = titleText.length > 25 ? 20 : titleText.length > 15 ? 24 : 28;
+          const titleFontSize = titleText.length > 25 ? 18 : titleText.length > 15 ? 22 : 26;
 
           slide.addText(titleText, {
             x: 0.8,
-            y: 1.6,
+            y: 1.4,
             w: 8.4,
-            h: 2.0,
+            h: 1.6,
             fontSize: titleFontSize,
             bold: true,
             color: 'FFFFFF',
@@ -399,14 +399,39 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
           if (s.subtitle) {
             slide.addText(cleanMarkdownText(s.subtitle), {
               x: 1.0,
-              y: 3.8,
+              y: 3.1,
               w: 8.0,
-              h: 0.8,
-              fontSize: 13,
+              h: 0.6,
+              fontSize: 11.5,
               color: 'CBD5E1',
               align: 'center',
               fontFace: 'Microsoft YaHei',
               breakLine: true,
+            });
+          }
+
+          // Embedded Table on Cover Slide if present
+          if (s.table) {
+            const tableRows: any[][] = [
+              s.table.headers.map((h) => ({
+                text: cleanMarkdownText(h),
+                options: { fill: { color: hexAccent }, color: 'FFFFFF', bold: true, fontSize: 9, align: 'center' },
+              })),
+              ...s.table.rows.map((row) =>
+                row.map((cell) => ({
+                  text: cleanMarkdownText(cell),
+                  options: { fill: { color: 'FFFFFF', transparency: 90 }, color: 'FFFFFF', fontSize: 8.5, align: 'center' },
+                }))
+              ),
+            ];
+
+            slide.addTable(tableRows, {
+              x: 1.5,
+              y: 3.8,
+              w: 7.0,
+              h: 1.1,
+              border: { type: 'solid', pt: 0.5, color: 'FFFFFF' },
+              margin: [0.04, 0.08, 0.04, 0.08],
             });
           }
 
@@ -714,18 +739,46 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                 });
               }
 
-              slide.addText(cleanMarkdownText(item.description || ''), {
+              let fullCardText = cleanMarkdownText(item.description || '');
+              if (item.bullets && item.bullets.length > 0) {
+                const subText = item.bullets.map((b) => `• ${cleanMarkdownText(b)}`).join('\n');
+                fullCardText = fullCardText ? `${fullCardText}\n\n${subText}` : subText;
+              }
+
+              slide.addText(fullCardText, {
                 x: cardX + 0.18,
                 y: contentStartY + 0.58,
                 w: colWidth - 0.36,
-                h: cardTotalHeight - 0.75,
-                fontSize: 9.5,
+                h: cardTotalHeight - (s.notes ? 1.1 : 0.75),
+                fontSize: 9,
                 color: '334155',
                 fontFace: 'Microsoft YaHei',
                 valign: 'top',
                 breakLine: true,
               });
             });
+
+            if (s.notes) {
+              slide.addShape(pres.ShapeType.roundRect, {
+                x: 0.6,
+                y: contentStartY + cardTotalHeight - 0.45,
+                w: 8.8,
+                h: 0.4,
+                rectRadius: 0.06,
+                fill: { color: 'F0FDF4' },
+                line: { color: hexAccent, width: 0.5 },
+              });
+              slide.addText(`💡 ${cleanMarkdownText(s.notes)}`, {
+                x: 0.75,
+                y: contentStartY + cardTotalHeight - 0.45,
+                w: 8.5,
+                h: 0.4,
+                fontSize: 8.5,
+                color: '065F46',
+                valign: 'middle',
+                fontFace: 'Microsoft YaHei',
+              });
+            }
           } else if (s.layout === 'grid4' && items.length >= 4) {
             // 6. 2x2 MATRIX GRID (grid4)
             const cellW = 4.25;
@@ -785,14 +838,36 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                 x: cardX + 0.15,
                 y: cardY + 0.48,
                 w: cellW - 0.3,
-                h: cellH - 0.55,
-                fontSize: 9,
+                h: cellH - (s.notes ? 0.65 : 0.55),
+                fontSize: 8.5,
                 color: '334155',
                 fontFace: 'Microsoft YaHei',
                 valign: 'top',
                 breakLine: true,
               });
             });
+
+            if (s.notes) {
+              slide.addShape(pres.ShapeType.roundRect, {
+                x: 0.6,
+                y: contentStartY + cardTotalHeight - 0.42,
+                w: 8.8,
+                h: 0.38,
+                rectRadius: 0.06,
+                fill: { color: 'F0FDF4' },
+                line: { color: hexAccent, width: 0.5 },
+              });
+              slide.addText(`💡 ${cleanMarkdownText(s.notes)}`, {
+                x: 0.75,
+                y: contentStartY + cardTotalHeight - 0.42,
+                w: 8.5,
+                h: 0.38,
+                fontSize: 8.5,
+                color: '065F46',
+                valign: 'middle',
+                fontFace: 'Microsoft YaHei',
+              });
+            }
           } else if ((s.layout === 'grid5' || s.layout === 'grid6') && items.length >= 5) {
             // 7. 2x3 MATRIX (grid5 / grid6)
             const count = s.layout === 'grid6' ? Math.min(items.length, 6) : 5;
@@ -842,23 +917,25 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
               });
             });
           } else if (s.layout === 'quote') {
-            // 8. QUOTE CALLOUT
+            const quoteMainText = `“ ${cleanMarkdownText(s.title || s.bullets[0] || '')} ”`;
+            const hasItems = items.length > 0;
+
             slide.addShape(pres.ShapeType.roundRect, {
-              x: 1.0,
-              y: contentStartY + 0.3,
-              w: 8.0,
-              h: cardTotalHeight - 0.6,
+              x: 0.8,
+              y: contentStartY + 0.1,
+              w: 8.4,
+              h: cardTotalHeight - 0.2,
               rectRadius: 0.15,
               fill: { color: 'FFFFFF' },
               line: { color: hexAccent, width: 1 },
             });
 
-            slide.addText(`“ ${cleanMarkdownText(s.title || s.bullets[0] || '')} ”`, {
-              x: 1.5,
-              y: contentStartY + 0.6,
-              w: 7.0,
-              h: 1.8,
-              fontSize: 16,
+            slide.addText(quoteMainText, {
+              x: 1.0,
+              y: contentStartY + 0.2,
+              w: 8.0,
+              h: hasItems ? 1.0 : 1.8,
+              fontSize: hasItems ? 13 : 16,
               bold: true,
               color: '0F172A',
               align: 'center',
@@ -869,12 +946,70 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
 
             if (s.subtitle) {
               slide.addText(`— ${cleanMarkdownText(s.subtitle)}`, {
-                x: 1.5,
-                y: contentStartY + 2.5,
-                w: 7.0,
-                h: 0.4,
-                fontSize: 12,
+                x: 1.0,
+                y: contentStartY + (hasItems ? 1.25 : 2.1),
+                w: 8.0,
+                h: 0.35,
+                fontSize: 10.5,
                 color: '64748B',
+                align: 'center',
+                fontFace: 'Microsoft YaHei',
+              });
+            }
+
+            if (hasItems) {
+              const takeCount = Math.min(items.length, 3);
+              const takeW = (8.0 - (takeCount - 1) * 0.2) / takeCount;
+              items.slice(0, 3).forEach((it, tIdx) => {
+                const tX = 1.0 + tIdx * (takeW + 0.2);
+                const tY = contentStartY + 1.7;
+
+                slide.addShape(pres.ShapeType.roundRect, {
+                  x: tX,
+                  y: tY,
+                  w: takeW,
+                  h: 1.5,
+                  rectRadius: 0.08,
+                  fill: { color: 'F8FAFC' },
+                  line: { color: 'E2E8F0', width: 0.5 },
+                });
+
+                if (it.title) {
+                  slide.addText(cleanMarkdownText(it.title), {
+                    x: tX + 0.1,
+                    y: tY + 0.1,
+                    w: takeW - 0.2,
+                    h: 0.3,
+                    fontSize: 9.5,
+                    bold: true,
+                    color: '0F172A',
+                    fontFace: 'Microsoft YaHei',
+                  });
+                }
+
+                slide.addText(cleanMarkdownText(it.description || ''), {
+                  x: tX + 0.1,
+                  y: tY + (it.title ? 0.42 : 0.12),
+                  w: takeW - 0.2,
+                  h: 1.0,
+                  fontSize: 8.5,
+                  color: '334155',
+                  valign: 'top',
+                  fontFace: 'Microsoft YaHei',
+                  breakLine: true,
+                });
+              });
+            }
+
+            if (s.notes) {
+              slide.addText(cleanMarkdownText(s.notes), {
+                x: 1.0,
+                y: contentStartY + cardTotalHeight - 0.45,
+                w: 8.0,
+                h: 0.3,
+                fontSize: 10,
+                bold: true,
+                color: hexAccent,
                 align: 'center',
                 fontFace: 'Microsoft YaHei',
               });
@@ -1199,7 +1334,7 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
           <div className="flex-1 min-h-0 flex flex-col justify-center my-auto w-full py-1">
             {/* 1. COVER SLIDE */}
             {currentSlide.layout === 'cover' ? (
-              <div className="text-center my-auto space-y-2.5 sm:space-y-3.5 px-3 sm:px-8 w-full flex flex-col items-center justify-center">
+              <div className="text-center my-auto space-y-2 sm:space-y-3 px-3 sm:px-6 w-full flex flex-col items-center justify-center">
                 <div className="inline-flex items-center px-3 py-0.5 rounded-full bg-white/20 backdrop-blur-xs text-[10px] sm:text-xs font-bold tracking-wider text-emerald-200 uppercase shrink-0">
                   PRESENTATION DECK
                 </div>
@@ -1215,9 +1350,30 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                   {renderFormattedText(currentSlide.title)}
                 </h1>
                 {currentSlide.subtitle && (
-                  <p className="text-xs sm:text-sm md:text-base text-slate-200/90 font-medium w-full text-center leading-relaxed break-words px-2">
+                  <p className="text-xs sm:text-sm text-slate-200/90 font-medium w-full text-center leading-relaxed break-words px-2">
                     {renderFormattedText(currentSlide.subtitle)}
                   </p>
+                )}
+                {currentSlide.notes && (
+                  <div className="inline-block px-3 py-1 rounded-full bg-white/10 text-emerald-300 text-[10px] sm:text-xs font-medium">
+                    {renderFormattedText(currentSlide.notes)}
+                  </div>
+                )}
+                {currentSlide.table && (
+                  <div className="w-full max-w-xl mx-auto overflow-hidden rounded-lg bg-white/10 backdrop-blur-xs border border-white/20 text-[10px] sm:text-xs text-white mt-1">
+                    <div className="grid grid-cols-3 bg-white/20 font-bold px-2 py-1 border-b border-white/20">
+                      {currentSlide.table.headers.map((h, hIdx) => (
+                        <div key={hIdx} className="text-center">{renderFormattedText(h)}</div>
+                      ))}
+                    </div>
+                    {currentSlide.table.rows.map((r, rIdx) => (
+                      <div key={rIdx} className="grid grid-cols-3 px-2 py-1 border-b last:border-b-0 border-white/10 text-slate-200 text-[9.5px] sm:text-[10.5px]">
+                        {r.map((c, cIdx) => (
+                          <div key={cIdx} className="text-center truncate px-1">{renderFormattedText(c)}</div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             ) : (
@@ -1344,53 +1500,81 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                   </div>
                 ) : /* 5. THREE-COLUMN PILLARS (grid3) */
                 currentSlide.layout === 'grid3' && currentSlide.items && currentSlide.items.length >= 3 ? (
-                  <div className="grid grid-cols-3 gap-2.5 sm:gap-3 my-auto w-full">
-                    {currentSlide.items.slice(0, 3).map((item, idx) => (
-                      <div
-                        key={idx}
-                        className="p-3 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/70 shadow-2xs flex flex-col justify-between hover:border-slate-300 transition-all"
-                      >
-                        <div className="flex items-center gap-1.5 mb-1.5 shrink-0">
-                          <span
-                            className="w-1.5 h-3 rounded-full shrink-0"
-                            style={{ backgroundColor: activeTheme.accent }}
-                          />
-                          <span className="text-[11px] sm:text-xs font-bold text-slate-900 dark:text-slate-100 break-words leading-tight flex-1">
-                            {renderFormattedText(item.title || `模块 0${idx + 1}`)}
-                          </span>
+                  <div className="flex flex-col my-auto w-full space-y-2">
+                    <div className="grid grid-cols-3 gap-2.5 sm:gap-3 w-full">
+                      {currentSlide.items.slice(0, 3).map((item, idx) => (
+                        <div
+                          key={idx}
+                          className="p-2.5 sm:p-3 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/70 shadow-2xs flex flex-col justify-between hover:border-slate-300 transition-all"
+                        >
+                          <div>
+                            <div className="flex items-center gap-1.5 mb-1.5 shrink-0">
+                              <span
+                                className="w-1.5 h-3 rounded-full shrink-0"
+                                style={{ backgroundColor: activeTheme.accent }}
+                              />
+                              <span className="text-[11px] sm:text-xs font-bold text-slate-900 dark:text-slate-100 break-words leading-tight flex-1">
+                                {renderFormattedText(item.title || `模块 0${idx + 1}`)}
+                              </span>
+                            </div>
+                            {item.description && (
+                              <p className="text-[10px] sm:text-[10.5px] text-slate-600 dark:text-slate-300 leading-snug break-words whitespace-normal mb-1">
+                                {renderFormattedText(item.description)}
+                              </p>
+                            )}
+                            {item.bullets && item.bullets.length > 0 && (
+                              <div className="space-y-0.5 mt-1">
+                                {item.bullets.map((sub, sIdx) => (
+                                  <div key={sIdx} className="flex items-start gap-1 text-[9px] sm:text-[9.5px] text-slate-600 dark:text-slate-300 leading-snug">
+                                    <span className="text-slate-400 font-bold shrink-0">•</span>
+                                    <span className="break-words flex-1">{renderFormattedText(sub)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                        <p className="text-[10px] sm:text-[11px] text-slate-600 dark:text-slate-300 leading-snug break-words whitespace-normal flex-1">
-                          {renderFormattedText(item.description || '')}
-                        </p>
+                      ))}
+                    </div>
+                    {currentSlide.notes && (
+                      <div className="px-3 py-1.5 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-900/40 text-[9.5px] sm:text-[10.5px] text-emerald-800 dark:text-emerald-300 leading-snug">
+                        💡 {renderFormattedText(currentSlide.notes)}
                       </div>
-                    ))}
+                    )}
                   </div>
                 ) : /* 6. FOUR-COLUMN 2x2 MATRIX (grid4) */
                 currentSlide.layout === 'grid4' && currentSlide.items && currentSlide.items.length >= 4 ? (
-                  <div className="grid grid-cols-2 gap-2 sm:gap-2.5 my-auto w-full">
-                    {currentSlide.items.slice(0, 4).map((item, idx) => (
-                      <div
-                        key={idx}
-                        className="p-2.5 rounded-xl bg-slate-50/90 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700/60 shadow-2xs flex items-start gap-2"
-                      >
-                        <span
-                          className="flex items-center justify-center w-4 h-4 rounded-md text-[9px] font-bold text-white shrink-0 mt-0.5"
-                          style={{ backgroundColor: activeTheme.accent }}
+                  <div className="flex flex-col my-auto w-full space-y-2">
+                    <div className="grid grid-cols-2 gap-2 sm:gap-2.5 w-full">
+                      {currentSlide.items.slice(0, 4).map((item, idx) => (
+                        <div
+                          key={idx}
+                          className="p-2.5 rounded-xl bg-slate-50/90 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700/60 shadow-2xs flex items-start gap-2"
                         >
-                          {String.fromCharCode(65 + idx)}
-                        </span>
-                        <div className="flex-1 min-w-0">
-                          {item.title && (
-                            <div className="text-[11px] sm:text-xs font-bold text-slate-900 dark:text-slate-100 mb-0.5 break-words leading-tight">
-                              {renderFormattedText(item.title)}
-                            </div>
-                          )}
-                          <p className="text-[10px] sm:text-[11px] text-slate-600 dark:text-slate-300 leading-snug break-words whitespace-normal">
-                            {renderFormattedText(item.description || '')}
-                          </p>
+                          <span
+                            className="flex items-center justify-center w-4 h-4 rounded-md text-[9px] font-bold text-white shrink-0 mt-0.5"
+                            style={{ backgroundColor: activeTheme.accent }}
+                          >
+                            {String.fromCharCode(65 + idx)}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            {item.title && (
+                              <div className="text-[11px] sm:text-xs font-bold text-slate-900 dark:text-slate-100 mb-0.5 break-words leading-tight">
+                                {renderFormattedText(item.title)}
+                              </div>
+                            )}
+                            <p className="text-[10px] sm:text-[11px] text-slate-600 dark:text-slate-300 leading-snug break-words whitespace-normal">
+                              {renderFormattedText(item.description || '')}
+                            </p>
+                          </div>
                         </div>
+                      ))}
+                    </div>
+                    {currentSlide.notes && (
+                      <div className="px-3 py-1.5 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-900/40 text-[9.5px] sm:text-[10.5px] text-emerald-800 dark:text-emerald-300 leading-snug">
+                        💡 {renderFormattedText(currentSlide.notes)}
                       </div>
-                    ))}
+                    )}
                   </div>
                 ) : /* 7. FIVE-CARD / SIX-CARD MATRICES (grid5 / grid6) */
                 (currentSlide.layout === 'grid5' || currentSlide.layout === 'grid6') && currentSlide.items && currentSlide.items.length >= 5 ? (
@@ -1414,15 +1598,36 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                   </div>
                 ) : /* 8. QUOTE / HIGHLIGHT CALLOUT (quote) */
                 currentSlide.layout === 'quote' ? (
-                  <div className="my-auto p-4 sm:p-6 rounded-2xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700 text-center flex flex-col items-center justify-center space-y-2">
+                  <div className="my-auto p-4 sm:p-5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700 text-center flex flex-col items-center justify-center space-y-2 max-h-[310px] overflow-hidden">
                     <span className="text-3xl text-emerald-500 font-serif leading-none">“</span>
-                    <p className="text-sm sm:text-base font-semibold text-slate-800 dark:text-slate-100 max-w-lg mx-auto leading-relaxed break-words">
+                    <p className="text-xs sm:text-sm md:text-base font-bold text-slate-900 dark:text-slate-100 max-w-xl mx-auto leading-relaxed break-words">
                       {renderFormattedText(currentSlide.title || currentSlide.bullets[0] || '')}
                     </p>
                     {currentSlide.subtitle && (
-                      <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                      <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium">
                         — {renderFormattedText(currentSlide.subtitle)}
                       </p>
+                    )}
+                    {currentSlide.items && currentSlide.items.length > 0 && (
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full mt-2 pt-2 border-t border-slate-200/60 dark:border-slate-700/60 text-left">
+                        {currentSlide.items.slice(0, 3).map((it, idx) => (
+                          <div key={idx} className="p-2 rounded-lg bg-white/80 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/50 text-[10px] sm:text-[11px]">
+                            {it.title && (
+                              <div className="font-bold text-slate-900 dark:text-slate-100 mb-0.5 truncate">
+                                {renderFormattedText(it.title)}
+                              </div>
+                            )}
+                            <div className="text-slate-600 dark:text-slate-300 leading-snug">
+                              {renderFormattedText(it.description || '')}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {currentSlide.notes && (
+                      <div className="text-[11px] sm:text-xs font-semibold text-emerald-600 dark:text-emerald-400 mt-1">
+                        {renderFormattedText(currentSlide.notes)}
+                      </div>
                     )}
                   </div>
                 ) : /* 9. STRUCTURED DATA TABLE (table) */
