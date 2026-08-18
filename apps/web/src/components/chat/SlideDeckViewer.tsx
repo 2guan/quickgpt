@@ -1335,28 +1335,6 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
               });
             }
           }
-
-          // Footer: Left Branding & Right Slide Number (1:1 with Web View)
-          slide.addText('QuickGPT AI Slide Deck', {
-            x: 0.6,
-            y: 5.2,
-            w: 4.0,
-            h: 0.3,
-            fontSize: 9,
-            color: '94A3B8',
-            fontFace: 'Microsoft YaHei',
-          });
-
-          slide.addText(`${idx + 1} / ${slides.length}`, {
-            x: 8.0,
-            y: 5.2,
-            w: 1.4,
-            h: 0.3,
-            fontSize: 9,
-            color: '94A3B8',
-            align: 'right',
-            fontFace: 'Microsoft YaHei',
-          });
         }
 
         if (s.notes) {
@@ -1961,14 +1939,6 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                 )}
               </>
             )}
-          </div>
-
-          {/* Slide Footer */}
-          <div className="flex items-center justify-between pt-2 mt-1.5 text-[10px] sm:text-xs text-slate-400 dark:text-slate-500 border-t border-slate-100 dark:border-slate-800/60 shrink-0">
-            <span>QuickGPT AI Slide Deck</span>
-            <span className="font-mono font-medium">
-              {safeIdx + 1} / {totalSlides}
-            </span>
           </div>
         </div>
       </div>
