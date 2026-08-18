@@ -21,7 +21,7 @@ export interface SlideData {
   bullets: string[];
   items: SlideItem[];
   notes?: string;
-  layout: 'cover' | 'grid2' | 'grid3' | 'grid4' | 'timeline' | 'stats' | 'content';
+  layout: 'cover' | 'grid2' | 'grid3' | 'grid4' | 'grid5' | 'grid6' | 'timeline' | 'stats' | 'quote' | 'content';
 }
 
 interface SlideDeckProps {
@@ -108,7 +108,7 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
     let explicitLayout: SlideData['layout'] | null = null;
 
     for (const line of lines) {
-      const layoutMatch = line.match(/<!--\s*layout:\s*(cover|grid2|grid3|grid4|timeline|stats|content)\s*-->/i);
+      const layoutMatch = line.match(/<!--\s*layout:\s*(cover|grid2|grid3|grid4|grid5|grid6|timeline|stats|quote|content)\s*-->/i);
       if (layoutMatch) {
         explicitLayout = layoutMatch[1].toLowerCase() as SlideData['layout'];
         continue;
@@ -117,6 +117,12 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
       if (line.startsWith('> 演讲备注：') || line.startsWith('> 备注：') || line.startsWith('> Notes:')) {
         notes = line.replace(/^>\s*(?:演讲备注：|备注：|Notes:)\s*/i, '').trim();
         continue;
+      }
+
+      if (line.startsWith('> ') || line.startsWith('”') || line.startsWith('“')) {
+        if (!explicitLayout && lines.length <= 3) {
+          explicitLayout = 'quote';
+        }
       }
 
       if (line.startsWith('# ')) {
@@ -158,29 +164,30 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
 
       if (!explicitLayout && !isCover) {
         const titleLower = title.toLowerCase();
-        const hasTimeKeywords = titleLower.includes('时序') || titleLower.includes('里程碑') || titleLower.includes('规划') || titleLower.includes('路线图') || titleLower.includes('发展历程') || titleLower.includes('阶段') || titleLower.includes('演进');
-        const hasStatsKeywords = titleLower.includes('数据') || titleLower.includes('成效') || titleLower.includes('指标') || titleLower.includes('概览') || titleLower.includes('成果');
+        const hasTimeKeywords = titleLower.includes('时序') || titleLower.includes('里程碑') || titleLower.includes('规划') || titleLower.includes('路线图') || titleLower.includes('发展历程') || titleLower.includes('阶段') || titleLower.includes('演进') || titleLower.includes('步骤') || titleLower.includes('流程');
+        const hasStatsKeywords = titleLower.includes('数据') || titleLower.includes('成效') || titleLower.includes('指标') || titleLower.includes('概览') || titleLower.includes('成果') || titleLower.includes('核心亮点');
+        const hasCompareKeywords = titleLower.includes('对比') || titleLower.includes('vs') || titleLower.includes('比较') || titleLower.includes('优劣') || titleLower.includes('传统') || titleLower.includes('痛点');
 
-        const structuredCount = items.filter((it) => it.title).length;
+        const count = items.length;
 
-        if (hasTimeKeywords && items.length >= 2) {
+        if (hasTimeKeywords && count >= 2 && count <= 5) {
           computedLayout = 'timeline';
-        } else if (hasStatsKeywords && items.length >= 2 && items.length <= 4) {
+        } else if (hasStatsKeywords && count >= 2 && count <= 4) {
           computedLayout = 'stats';
-        } else if (structuredCount >= 2 && items.length === 2) {
+        } else if (hasCompareKeywords && count === 2) {
           computedLayout = 'grid2';
-        } else if (structuredCount >= 3 && items.length === 3) {
-          computedLayout = 'grid3';
-        } else if (structuredCount >= 3 && items.length === 4) {
-          computedLayout = 'grid4';
-        } else if (items.length === 2) {
-          computedLayout = 'grid2';
-        } else if (items.length === 3) {
-          computedLayout = 'grid3';
-        } else if (items.length === 4) {
-          computedLayout = 'grid4';
+        } else if (count === 2) {
+          computedLayout = 'grid2'; // 2 columns
+        } else if (count === 3) {
+          computedLayout = 'grid3'; // 3 columns
+        } else if (count === 4) {
+          computedLayout = 'grid4'; // 2x2 grid matrix
+        } else if (count === 5) {
+          computedLayout = 'grid5'; // 5 cards timeline-grid
+        } else if (count === 6) {
+          computedLayout = 'grid6'; // 2x3 matrix
         } else {
-          computedLayout = 'content';
+          computedLayout = 'content'; // Elegant multi-row stacked cards
         }
       }
 
@@ -377,14 +384,14 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
           const cardTotalHeight = 5.0 - contentStartY;
           const items: SlideItem[] = s.items && s.items.length > 0 ? s.items : s.bullets.map((b) => ({ description: b }));
 
-          // 2. TIMELINE LAYOUT
+          // 2. TIMELINE LAYOUT (2~5 stages)
           if (s.layout === 'timeline') {
-            const count = Math.min(items.length, 4);
+            const count = Math.min(items.length, 5);
             const totalWidth = 8.8;
-            const colGap = 0.2;
+            const colGap = 0.15;
             const colWidth = (totalWidth - (count - 1) * colGap) / count;
 
-            items.slice(0, 4).forEach((item, iIdx) => {
+            items.slice(0, 5).forEach((item, iIdx) => {
               const cardX = 0.6 + iIdx * (colWidth + colGap);
 
               slide.addShape(pres.ShapeType.roundRect, {
@@ -398,17 +405,17 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
               });
 
               slide.addShape(pres.ShapeType.ellipse, {
-                x: cardX + 0.15,
-                y: contentStartY + 0.18,
-                w: 0.3,
-                h: 0.3,
+                x: cardX + 0.12,
+                y: contentStartY + 0.15,
+                w: 0.28,
+                h: 0.28,
                 fill: { color: hexAccent },
               });
               slide.addText(`${iIdx + 1}`, {
-                x: cardX + 0.15,
-                y: contentStartY + 0.18,
-                w: 0.3,
-                h: 0.3,
+                x: cardX + 0.12,
+                y: contentStartY + 0.15,
+                w: 0.28,
+                h: 0.28,
                 fontSize: 9,
                 bold: true,
                 color: 'FFFFFF',
@@ -417,11 +424,11 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
               });
 
               slide.addText(cleanMarkdownText(item.title || `阶段 ${iIdx + 1}`), {
-                x: cardX + 0.52,
-                y: contentStartY + 0.14,
-                w: colWidth - 0.6,
+                x: cardX + 0.45,
+                y: contentStartY + 0.12,
+                w: colWidth - 0.5,
                 h: 0.38,
-                fontSize: 11,
+                fontSize: 10.5,
                 bold: true,
                 color: '0F172A',
                 fontFace: 'Microsoft YaHei',
@@ -429,11 +436,11 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
               });
 
               slide.addText(cleanMarkdownText(item.description || ''), {
-                x: cardX + 0.15,
-                y: contentStartY + 0.6,
-                w: colWidth - 0.3,
-                h: cardTotalHeight - 0.75,
-                fontSize: 9.5,
+                x: cardX + 0.12,
+                y: contentStartY + 0.55,
+                w: colWidth - 0.24,
+                h: cardTotalHeight - 0.7,
+                fontSize: 9,
                 color: '334155',
                 fontFace: 'Microsoft YaHei',
                 valign: 'top',
@@ -441,7 +448,7 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
               });
             });
           } else if (s.layout === 'stats') {
-            // 3. STATS LAYOUT
+            // 3. STATS LAYOUT (2~3 KPI Cards)
             const count = Math.min(items.length, 3);
             const totalWidth = 8.8;
             const colGap = 0.25;
@@ -455,15 +462,36 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                 y: contentStartY,
                 w: colWidth,
                 h: cardTotalHeight,
-                rectRadius: 0.1,
+                rectRadius: 0.12,
                 fill: { color: 'FFFFFF' },
                 line: { color: 'E2E8F0', width: 1 },
               });
 
+              // Tag Badge
+              slide.addShape(pres.ShapeType.roundRect, {
+                x: cardX + colWidth - 0.6,
+                y: contentStartY + 0.18,
+                w: 0.45,
+                h: 0.22,
+                rectRadius: 0.04,
+                fill: { color: hexAccent },
+              });
+              slide.addText('KPI', {
+                x: cardX + colWidth - 0.6,
+                y: contentStartY + 0.18,
+                w: 0.45,
+                h: 0.22,
+                fontSize: 7.5,
+                bold: true,
+                color: 'FFFFFF',
+                align: 'center',
+                valign: 'middle',
+              });
+
               slide.addText(cleanMarkdownText(item.title || `指标 ${iIdx + 1}`), {
                 x: cardX + 0.2,
-                y: contentStartY + 0.2,
-                w: colWidth - 0.4,
+                y: contentStartY + 0.15,
+                w: colWidth - 0.85,
                 h: 0.4,
                 fontSize: 12,
                 bold: true,
@@ -474,9 +502,9 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
 
               slide.addText(cleanMarkdownText(item.description || ''), {
                 x: cardX + 0.2,
-                y: contentStartY + 0.7,
+                y: contentStartY + 0.65,
                 w: colWidth - 0.4,
-                h: cardTotalHeight - 1.1,
+                h: cardTotalHeight - 1.05,
                 fontSize: 10,
                 color: '475569',
                 fontFace: 'Microsoft YaHei',
@@ -493,23 +521,25 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                 fill: { color: hexAccent },
               });
             });
-          } else if (s.layout === 'grid2' && items.length === 2) {
-            // 4. DUAL-COLUMN GRID LAYOUT
+          } else if (s.layout === 'grid2' && items.length >= 2) {
+            // 4. DUAL-COLUMN HERO PILLARS (grid2)
             const totalWidth = 8.8;
             const colGap = 0.3;
             const colWidth = (totalWidth - colGap) / 2;
 
-            items.forEach((item, iIdx) => {
+            items.slice(0, 2).forEach((item, iIdx) => {
               const cardX = 0.6 + iIdx * (colWidth + colGap);
+              const cardBg = iIdx === 1 ? 'F0FDF4' : 'FFFFFF';
+              const cardLine = iIdx === 1 ? hexAccent : 'E2E8F0';
 
               slide.addShape(pres.ShapeType.roundRect, {
                 x: cardX,
                 y: contentStartY,
                 w: colWidth,
                 h: cardTotalHeight,
-                rectRadius: 0.1,
-                fill: { color: 'FFFFFF' },
-                line: { color: 'E2E8F0', width: 1 },
+                rectRadius: 0.12,
+                fill: { color: cardBg },
+                line: { color: cardLine, width: 1 },
               });
 
               if (item.title) {
@@ -526,7 +556,7 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                   y: contentStartY + 0.15,
                   w: colWidth - 0.55,
                   h: 0.38,
-                  fontSize: 12,
+                  fontSize: 12.5,
                   bold: true,
                   color: '0F172A',
                   fontFace: 'Microsoft YaHei',
@@ -546,14 +576,13 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                 breakLine: true,
               });
             });
-          } else if ((s.layout === 'grid3' || s.layout === 'grid4') && items.length > 0) {
-            // 5. 3/4-COLUMN GRID CARDS
-            const count = s.layout === 'grid4' ? Math.min(items.length, 4) : Math.min(items.length, 3);
+          } else if (s.layout === 'grid3' && items.length >= 3) {
+            // 5. THREE-COLUMN PILLARS (grid3)
             const totalWidth = 8.8;
             const colGap = 0.2;
-            const colWidth = (totalWidth - (count - 1) * colGap) / count;
+            const colWidth = (totalWidth - 2 * colGap) / 3;
 
-            items.slice(0, count).forEach((item, iIdx) => {
+            items.slice(0, 3).forEach((item, iIdx) => {
               const cardX = 0.6 + iIdx * (colWidth + colGap);
 
               slide.addShape(pres.ShapeType.roundRect, {
@@ -566,12 +595,21 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                 line: { color: 'E2E8F0', width: 1 },
               });
 
+              slide.addShape(pres.ShapeType.roundRect, {
+                x: cardX + 0.18,
+                y: contentStartY + 0.22,
+                w: 0.06,
+                h: 0.25,
+                rectRadius: 0.03,
+                fill: { color: hexAccent },
+              });
+
               if (item.title) {
                 slide.addText(cleanMarkdownText(item.title), {
-                  x: cardX + 0.15,
-                  y: contentStartY + 0.15,
-                  w: colWidth - 0.3,
-                  h: 0.35,
+                  x: cardX + 0.3,
+                  y: contentStartY + 0.16,
+                  w: colWidth - 0.45,
+                  h: 0.38,
                   fontSize: 11,
                   bold: true,
                   color: '0F172A',
@@ -581,10 +619,10 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
               }
 
               slide.addText(cleanMarkdownText(item.description || ''), {
-                x: cardX + 0.15,
-                y: contentStartY + (item.title ? 0.55 : 0.2),
-                w: colWidth - 0.3,
-                h: cardTotalHeight - (item.title ? 0.7 : 0.35),
+                x: cardX + 0.18,
+                y: contentStartY + 0.58,
+                w: colWidth - 0.36,
+                h: cardTotalHeight - 0.75,
                 fontSize: 9.5,
                 color: '334155',
                 fontFace: 'Microsoft YaHei',
@@ -592,11 +630,164 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                 breakLine: true,
               });
             });
+          } else if (s.layout === 'grid4' && items.length >= 4) {
+            // 6. 2x2 MATRIX GRID (grid4)
+            const cellW = 4.25;
+            const cellH = (cardTotalHeight - 0.2) / 2;
+
+            items.slice(0, 4).forEach((item, iIdx) => {
+              const row = Math.floor(iIdx / 2);
+              const col = iIdx % 2;
+              const cardX = 0.6 + col * (cellW + 0.3);
+              const cardY = contentStartY + row * (cellH + 0.2);
+
+              slide.addShape(pres.ShapeType.roundRect, {
+                x: cardX,
+                y: cardY,
+                w: cellW,
+                h: cellH,
+                rectRadius: 0.08,
+                fill: { color: 'FFFFFF' },
+                line: { color: 'E2E8F0', width: 1 },
+              });
+
+              slide.addShape(pres.ShapeType.roundRect, {
+                x: cardX + 0.15,
+                y: cardY + 0.15,
+                w: 0.28,
+                h: 0.28,
+                rectRadius: 0.04,
+                fill: { color: hexAccent },
+              });
+              slide.addText(String.fromCharCode(65 + iIdx), {
+                x: cardX + 0.15,
+                y: cardY + 0.15,
+                w: 0.28,
+                h: 0.28,
+                fontSize: 8.5,
+                bold: true,
+                color: 'FFFFFF',
+                align: 'center',
+                valign: 'middle',
+              });
+
+              if (item.title) {
+                slide.addText(cleanMarkdownText(item.title), {
+                  x: cardX + 0.5,
+                  y: cardY + 0.12,
+                  w: cellW - 0.6,
+                  h: 0.32,
+                  fontSize: 10.5,
+                  bold: true,
+                  color: '0F172A',
+                  fontFace: 'Microsoft YaHei',
+                  breakLine: true,
+                });
+              }
+
+              slide.addText(cleanMarkdownText(item.description || ''), {
+                x: cardX + 0.15,
+                y: cardY + 0.48,
+                w: cellW - 0.3,
+                h: cellH - 0.55,
+                fontSize: 9,
+                color: '334155',
+                fontFace: 'Microsoft YaHei',
+                valign: 'top',
+                breakLine: true,
+              });
+            });
+          } else if ((s.layout === 'grid5' || s.layout === 'grid6') && items.length >= 5) {
+            // 7. 2x3 MATRIX (grid5 / grid6)
+            const count = s.layout === 'grid6' ? Math.min(items.length, 6) : 5;
+            const cellW = (8.8 - 2 * 0.15) / 3;
+            const cellH = (cardTotalHeight - 0.15) / 2;
+
+            items.slice(0, count).forEach((item, iIdx) => {
+              const row = Math.floor(iIdx / 3);
+              const col = iIdx % 3;
+              const cardX = 0.6 + col * (cellW + 0.15);
+              const cardY = contentStartY + row * (cellH + 0.15);
+
+              slide.addShape(pres.ShapeType.roundRect, {
+                x: cardX,
+                y: cardY,
+                w: cellW,
+                h: cellH,
+                rectRadius: 0.08,
+                fill: { color: 'FFFFFF' },
+                line: { color: 'E2E8F0', width: 1 },
+              });
+
+              if (item.title) {
+                slide.addText(cleanMarkdownText(item.title), {
+                  x: cardX + 0.12,
+                  y: cardY + 0.1,
+                  w: cellW - 0.24,
+                  h: 0.3,
+                  fontSize: 9.5,
+                  bold: true,
+                  color: '0F172A',
+                  fontFace: 'Microsoft YaHei',
+                  breakLine: true,
+                });
+              }
+
+              slide.addText(cleanMarkdownText(item.description || ''), {
+                x: cardX + 0.12,
+                y: cardY + (item.title ? 0.42 : 0.12),
+                w: cellW - 0.24,
+                h: cellH - (item.title ? 0.5 : 0.2),
+                fontSize: 8.5,
+                color: '334155',
+                fontFace: 'Microsoft YaHei',
+                valign: 'top',
+                breakLine: true,
+              });
+            });
+          } else if (s.layout === 'quote') {
+            // 8. QUOTE CALLOUT
+            slide.addShape(pres.ShapeType.roundRect, {
+              x: 1.0,
+              y: contentStartY + 0.3,
+              w: 8.0,
+              h: cardTotalHeight - 0.6,
+              rectRadius: 0.15,
+              fill: { color: 'FFFFFF' },
+              line: { color: hexAccent, width: 1 },
+            });
+
+            slide.addText(`“ ${cleanMarkdownText(s.title || s.bullets[0] || '')} ”`, {
+              x: 1.5,
+              y: contentStartY + 0.6,
+              w: 7.0,
+              h: 1.8,
+              fontSize: 16,
+              bold: true,
+              color: '0F172A',
+              align: 'center',
+              valign: 'middle',
+              fontFace: 'Microsoft YaHei',
+              breakLine: true,
+            });
+
+            if (s.subtitle) {
+              slide.addText(`— ${cleanMarkdownText(s.subtitle)}`, {
+                x: 1.5,
+                y: contentStartY + 2.5,
+                w: 7.0,
+                h: 0.4,
+                fontSize: 12,
+                color: '64748B',
+                align: 'center',
+                fontFace: 'Microsoft YaHei',
+              });
+            }
           } else {
-            // 6. STANDARD BULLET CARDS
+            // 9. STANDARD ELEGANT STACKED CARDS
             const bulletList = s.bullets.length > 0 ? s.bullets : items.map((it) => `${it.title ? it.title + ': ' : ''}${it.description || ''}`);
             const bulletCount = bulletList.length;
-            const rowGap = 0.12;
+            const rowGap = 0.1;
             const cardH = (cardTotalHeight - (bulletCount - 1) * rowGap) / Math.max(1, bulletCount);
 
             bulletList.forEach((b, bIdx) => {
@@ -614,16 +805,27 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
 
               slide.addShape(pres.ShapeType.ellipse, {
                 x: 0.8,
-                y: cardY + cardH / 2 - 0.04,
-                w: 0.08,
-                h: 0.08,
+                y: cardY + cardH / 2 - 0.1,
+                w: 0.2,
+                h: 0.2,
                 fill: { color: hexAccent },
+              });
+              slide.addText(`${bIdx + 1}`, {
+                x: 0.8,
+                y: cardY + cardH / 2 - 0.1,
+                w: 0.2,
+                h: 0.2,
+                fontSize: 8,
+                bold: true,
+                color: 'FFFFFF',
+                align: 'center',
+                valign: 'middle',
               });
 
               slide.addText(cleanMarkdownText(b), {
-                x: 1.0,
+                x: 1.1,
                 y: cardY,
-                w: 8.2,
+                w: 8.1,
                 h: cardH,
                 fontSize: 10,
                 color: '334155',
@@ -785,49 +987,87 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                   )}
                 </div>
 
-                {/* 2. TIMELINE / ROADMAP LAYOUT */}
+                {/* 2. TIMELINE / ROADMAP (2~5 items with connecting line) */}
                 {currentSlide.layout === 'timeline' && currentSlide.items && currentSlide.items.length > 0 ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5 my-auto overflow-hidden">
-                    {currentSlide.items.slice(0, 4).map((item, idx) => (
-                      <div key={idx} className="relative flex flex-col p-2 sm:p-2.5 rounded-xl bg-slate-50/90 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60 shadow-2xs">
-                        <div className="flex items-center gap-1.5 mb-1 shrink-0">
-                          <span className="flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-bold text-white shadow-2xs shrink-0" style={{ backgroundColor: activeTheme.accent }}>
-                            {idx + 1}
-                          </span>
-                          <span className="text-[11px] sm:text-xs font-bold text-slate-800 dark:text-slate-100 break-words leading-tight flex-1">
-                            {renderFormattedText(item.title || `阶段 ${idx + 1}`)}
-                          </span>
+                  <div className="relative my-auto w-full">
+                    {/* Horizontal connecting background line */}
+                    <div className="hidden sm:block absolute top-4 left-6 right-6 h-0.5 bg-slate-200 dark:bg-slate-700 z-0" />
+                    
+                    <div className={`grid gap-2 sm:gap-2.5 z-10 relative ${
+                      currentSlide.items.length === 5 ? 'grid-cols-2 sm:grid-cols-5' :
+                      currentSlide.items.length === 4 ? 'grid-cols-2 sm:grid-cols-4' :
+                      currentSlide.items.length === 3 ? 'grid-cols-3' : 'grid-cols-2'
+                    }`}>
+                      {currentSlide.items.slice(0, 5).map((item, idx) => (
+                        <div key={idx} className="flex flex-col p-2.5 rounded-xl bg-white dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 shadow-2xs hover:shadow-xs transition-all">
+                          <div className="flex items-center gap-1.5 mb-1.5 shrink-0">
+                            <span
+                              className="flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-black text-white shadow-xs shrink-0 ring-2 ring-white dark:ring-slate-800"
+                              style={{ backgroundColor: activeTheme.accent }}
+                            >
+                              {idx + 1}
+                            </span>
+                            <span className="text-[11px] sm:text-xs font-bold text-slate-800 dark:text-slate-100 break-words leading-tight flex-1">
+                              {renderFormattedText(item.title || `阶段 ${idx + 1}`)}
+                            </span>
+                          </div>
+                          <p className="text-[10px] sm:text-[11px] text-slate-600 dark:text-slate-300 leading-snug break-words whitespace-normal flex-1">
+                            {renderFormattedText(item.description || '')}
+                          </p>
                         </div>
-                        <p className="text-[10px] sm:text-[11px] text-slate-600 dark:text-slate-300 leading-snug break-words whitespace-normal flex-1">
-                          {renderFormattedText(item.description || '')}
-                        </p>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                ) : /* 3. STATS / METRICS / COLOR CARDS LAYOUT */
+                ) : /* 3. STATS / METRICS CARDS (Large bold numbers / accent badges) */
                 currentSlide.layout === 'stats' && currentSlide.items && currentSlide.items.length > 0 ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 my-auto overflow-hidden">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3.5 my-auto w-full">
                     {currentSlide.items.slice(0, 3).map((item, idx) => (
-                      <div key={idx} className="p-2.5 sm:p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-linear-to-br from-slate-50 to-slate-100/70 dark:from-slate-800/80 dark:to-slate-900/80 shadow-2xs flex flex-col justify-between">
-                        <div className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 break-words leading-tight">
-                          {renderFormattedText(item.title || `指标 ${idx + 1}`)}
+                      <div key={idx} className="relative p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 bg-linear-to-b from-white to-slate-50 dark:from-slate-800/90 dark:to-slate-900/90 shadow-2xs flex flex-col justify-between overflow-hidden group">
+                        {/* Corner Glow Pill */}
+                        <div
+                          className="absolute -top-6 -right-6 w-16 h-16 rounded-full opacity-15 blur-sm"
+                          style={{ backgroundColor: activeTheme.accent }}
+                        />
+                        
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-extrabold tracking-wide uppercase text-slate-900 dark:text-slate-100 break-words flex-1">
+                            {renderFormattedText(item.title || `指标 0${idx + 1}`)}
+                          </span>
+                          <span
+                            className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase text-white shrink-0 ml-1"
+                            style={{ backgroundColor: activeTheme.accent }}
+                          >
+                            KPI
+                          </span>
                         </div>
-                        <p className="text-[10px] sm:text-xs text-slate-600 dark:text-slate-400 leading-snug break-words whitespace-normal flex-1">
+
+                        <p className="text-[11px] sm:text-xs text-slate-600 dark:text-slate-300 leading-relaxed break-words whitespace-normal flex-1">
                           {renderFormattedText(item.description || '')}
                         </p>
-                        <div className="w-6 h-0.5 mt-1.5 rounded-full shrink-0" style={{ backgroundColor: activeTheme.accent }} />
+
+                        <div className="w-8 h-1 mt-2.5 rounded-full" style={{ backgroundColor: activeTheme.accent }} />
                       </div>
                     ))}
                   </div>
-                ) : /* 4. TWO-COLUMN / COMPARISON LAYOUT (grid2) */
-                currentSlide.layout === 'grid2' && currentSlide.items && currentSlide.items.length === 2 ? (
-                  <div className="grid grid-cols-2 gap-2.5 sm:gap-3.5 my-auto overflow-hidden">
-                    {currentSlide.items.map((item, idx) => (
-                      <div key={idx} className="p-2.5 sm:p-3 rounded-xl bg-slate-50/90 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 shadow-2xs flex flex-col">
+                ) : /* 4. TWO-COLUMN COMPARISON / HERO PILLARS (grid2) */
+                currentSlide.layout === 'grid2' && currentSlide.items && currentSlide.items.length >= 2 ? (
+                  <div className="grid grid-cols-2 gap-3 sm:gap-4 my-auto w-full">
+                    {currentSlide.items.slice(0, 2).map((item, idx) => (
+                      <div
+                        key={idx}
+                        className={`p-3.5 sm:p-4 rounded-2xl border shadow-2xs flex flex-col justify-between transition-all ${
+                          idx === 0
+                            ? 'bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700'
+                            : 'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200/80 dark:border-emerald-900/60'
+                        }`}
+                      >
                         {item.title && (
-                          <div className="flex items-center gap-1.5 mb-1.5 pb-1 border-b border-slate-200/60 dark:border-slate-700/50">
-                            <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: activeTheme.accent }} />
-                            <span className="text-xs font-bold text-slate-900 dark:text-slate-100 break-words leading-tight flex-1">
+                          <div className="flex items-center gap-2 mb-2 pb-1.5 border-b border-slate-200/70 dark:border-slate-700/60">
+                            <span
+                              className="w-2 h-2 rounded-full shrink-0"
+                              style={{ backgroundColor: activeTheme.accent }}
+                            />
+                            <span className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-slate-100 break-words flex-1">
                               {renderFormattedText(item.title)}
                             </span>
                           </div>
@@ -838,36 +1078,108 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                       </div>
                     ))}
                   </div>
-                ) : /* 5. THREE-COLUMN / FOUR-COLUMN GRID LAYOUT (grid3 / grid4) */
-                (currentSlide.layout === 'grid3' || currentSlide.layout === 'grid4') && currentSlide.items && currentSlide.items.length > 0 ? (
-                  <div className={`grid gap-2 sm:gap-2.5 my-auto overflow-hidden ${currentSlide.layout === 'grid4' ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3'}`}>
-                    {currentSlide.items.slice(0, currentSlide.layout === 'grid4' ? 4 : 3).map((item, idx) => (
-                      <div key={idx} className="p-2 sm:p-2.5 rounded-xl bg-slate-50/90 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60 shadow-2xs flex flex-col">
-                        {item.title && (
-                          <div className="text-[11px] sm:text-xs font-bold text-slate-800 dark:text-slate-100 mb-1 break-words leading-tight">
-                            {renderFormattedText(item.title)}
-                          </div>
-                        )}
+                ) : /* 5. THREE-COLUMN PILLARS (grid3) */
+                currentSlide.layout === 'grid3' && currentSlide.items && currentSlide.items.length >= 3 ? (
+                  <div className="grid grid-cols-3 gap-2.5 sm:gap-3 my-auto w-full">
+                    {currentSlide.items.slice(0, 3).map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="p-3 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/70 shadow-2xs flex flex-col justify-between hover:border-slate-300 transition-all"
+                      >
+                        <div className="flex items-center gap-1.5 mb-1.5 shrink-0">
+                          <span
+                            className="w-1.5 h-3 rounded-full shrink-0"
+                            style={{ backgroundColor: activeTheme.accent }}
+                          />
+                          <span className="text-[11px] sm:text-xs font-bold text-slate-900 dark:text-slate-100 break-words leading-tight flex-1">
+                            {renderFormattedText(item.title || `模块 0${idx + 1}`)}
+                          </span>
+                        </div>
                         <p className="text-[10px] sm:text-[11px] text-slate-600 dark:text-slate-300 leading-snug break-words whitespace-normal flex-1">
                           {renderFormattedText(item.description || '')}
                         </p>
                       </div>
                     ))}
                   </div>
+                ) : /* 6. FOUR-COLUMN 2x2 MATRIX (grid4) */
+                currentSlide.layout === 'grid4' && currentSlide.items && currentSlide.items.length >= 4 ? (
+                  <div className="grid grid-cols-2 gap-2 sm:gap-2.5 my-auto w-full">
+                    {currentSlide.items.slice(0, 4).map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="p-2.5 rounded-xl bg-slate-50/90 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700/60 shadow-2xs flex items-start gap-2"
+                      >
+                        <span
+                          className="flex items-center justify-center w-4 h-4 rounded-md text-[9px] font-bold text-white shrink-0 mt-0.5"
+                          style={{ backgroundColor: activeTheme.accent }}
+                        >
+                          {String.fromCharCode(65 + idx)}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          {item.title && (
+                            <div className="text-[11px] sm:text-xs font-bold text-slate-900 dark:text-slate-100 mb-0.5 break-words leading-tight">
+                              {renderFormattedText(item.title)}
+                            </div>
+                          )}
+                          <p className="text-[10px] sm:text-[11px] text-slate-600 dark:text-slate-300 leading-snug break-words whitespace-normal">
+                            {renderFormattedText(item.description || '')}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : /* 7. FIVE-CARD / SIX-CARD MATRICES (grid5 / grid6) */
+                (currentSlide.layout === 'grid5' || currentSlide.layout === 'grid6') && currentSlide.items && currentSlide.items.length >= 5 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 my-auto w-full">
+                    {currentSlide.items.slice(0, currentSlide.layout === 'grid6' ? 6 : 5).map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="p-2 rounded-xl bg-slate-50/90 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700/60 shadow-2xs flex flex-col"
+                      >
+                        <div className="flex items-center gap-1 mb-1 shrink-0">
+                          <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: activeTheme.accent }} />
+                          <span className="text-[10.5px] font-bold text-slate-800 dark:text-slate-100 truncate flex-1">
+                            {item.title || `要点 ${idx + 1}`}
+                          </span>
+                        </div>
+                        <p className="text-[9.5px] sm:text-[10px] text-slate-600 dark:text-slate-300 leading-tight break-words whitespace-normal flex-1">
+                          {renderFormattedText(item.description || '')}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : /* 8. QUOTE / HIGHLIGHT CALLOUT (quote) */
+                currentSlide.layout === 'quote' ? (
+                  <div className="my-auto p-4 sm:p-6 rounded-2xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700 text-center flex flex-col items-center justify-center space-y-2">
+                    <span className="text-3xl text-emerald-500 font-serif leading-none">“</span>
+                    <p className="text-sm sm:text-base font-semibold text-slate-800 dark:text-slate-100 max-w-lg mx-auto leading-relaxed break-words">
+                      {renderFormattedText(currentSlide.title || currentSlide.bullets[0] || '')}
+                    </p>
+                    {currentSlide.subtitle && (
+                      <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                        — {renderFormattedText(currentSlide.subtitle)}
+                      </p>
+                    )}
+                  </div>
                 ) : (
-                  /* 6. STANDARD BULLET POINTS LIST */
+                  /* 9. STANDARD ELEGANT STACKED LIST */
                   currentSlide.bullets && currentSlide.bullets.length > 0 && (
-                    <div className={`grid overflow-hidden ${currentSlide.bullets.length > 3 ? 'gap-1.5 sm:gap-2' : 'gap-2 sm:gap-2.5'}`}>
+                    <div className="grid gap-2 my-auto w-full overflow-hidden">
                       {currentSlide.bullets.map((b, bIdx) => {
-                        const isDense = (currentSlide.bullets?.length || 0) >= 4;
+                        const isDense = (currentSlide.bullets?.length || 0) >= 5;
                         return (
                           <div
                             key={bIdx}
-                            className={`flex items-start gap-2 sm:gap-2.5 rounded-lg bg-slate-50/90 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800/80 font-medium transition-all ${
-                              isDense ? 'p-1.5 sm:p-2 text-[11px] sm:text-xs' : 'p-2 sm:p-2.5 text-xs sm:text-[13px]'
+                            className={`flex items-start gap-2.5 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/60 shadow-2xs font-medium transition-all ${
+                              isDense ? 'p-1.5 sm:p-2 text-[11px]' : 'p-2.5 sm:p-3 text-xs sm:text-[13px]'
                             }`}
                           >
-                            <div className="w-1.5 h-1.5 rounded-full mt-1 shrink-0" style={{ backgroundColor: activeTheme.accent }} />
+                            <span
+                              className="flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-bold text-white shrink-0 mt-0.5"
+                              style={{ backgroundColor: activeTheme.accent }}
+                            >
+                              {bIdx + 1}
+                            </span>
                             <span className="text-slate-700 dark:text-slate-200 break-words leading-relaxed whitespace-normal flex-1">
                               {renderFormattedText(b)}
                             </span>
