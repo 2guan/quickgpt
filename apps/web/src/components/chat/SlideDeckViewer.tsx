@@ -24,8 +24,12 @@ export interface SlideData {
   subtitle?: string;
   bullets: string[];
   items: SlideItem[];
+  table?: {
+    headers: string[];
+    rows: string[][];
+  };
   notes?: string;
-  layout: 'cover' | 'grid2' | 'grid3' | 'grid4' | 'grid5' | 'grid6' | 'timeline' | 'stats' | 'quote' | 'content';
+  layout: 'cover' | 'grid2' | 'grid3' | 'grid4' | 'grid5' | 'grid6' | 'timeline' | 'stats' | 'quote' | 'table' | 'content';
 }
 
 interface SlideDeckProps {
@@ -110,9 +114,10 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
     const items: SlideItem[] = [];
     let notes = '';
     let explicitLayout: SlideData['layout'] | null = null;
+    const tableLines: string[] = [];
 
     for (const line of lines) {
-      const layoutMatch = line.match(/<!--\s*layout:\s*(cover|grid2|grid3|grid4|grid5|grid6|timeline|stats|quote|content)\s*-->/i);
+      const layoutMatch = line.match(/<!--\s*layout:\s*(cover|grid2|grid3|grid4|grid5|grid6|timeline|stats|quote|table|content)\s*-->/i);
       if (layoutMatch) {
         explicitLayout = layoutMatch[1].toLowerCase() as SlideData['layout'];
         continue;
@@ -135,6 +140,8 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
         title = line.replace(/^##\s+/, '').trim();
       } else if (line.startsWith('### ') && !subtitle) {
         subtitle = line.replace(/^###\s+/, '').trim();
+      } else if (line.startsWith('|') && line.endsWith('|')) {
+        tableLines.push(line);
       } else if (line.startsWith('- ') || line.startsWith('* ') || /^\d+[\.、]\s*/.test(line)) {
         const cleaned = line.replace(/^[-*]\s+|\d+[\.、]\s*/, '').trim();
         rawBullets.push(cleaned);
@@ -154,7 +161,7 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
         }
       } else if (!title) {
         title = line;
-      } else if (!subtitle && rawBullets.length === 0) {
+      } else if (!subtitle && rawBullets.length === 0 && tableLines.length === 0) {
         subtitle = line;
       } else {
         rawBullets.push(line);
@@ -162,11 +169,40 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
       }
     }
 
-    if (title || rawBullets.length > 0) {
-      const isCover = i === 0 && rawBullets.length === 0;
-      let computedLayout: SlideData['layout'] = explicitLayout || (isCover ? 'cover' : 'content');
+    // Parse Markdown Table if present
+    let parsedTable: SlideData['table'] | undefined = undefined;
+    if (tableLines.length >= 2) {
+      const headerLine = tableLines[0];
+      const headers = headerLine
+        .split('|')
+        .map((h) => h.trim())
+        .filter((_, idx, arr) => idx > 0 && idx < arr.length - 1);
 
-      if (!explicitLayout && !isCover) {
+      const rows: string[][] = [];
+      for (let rIdx = 1; rIdx < tableLines.length; rIdx++) {
+        const rowStr = tableLines[rIdx];
+        if (/^\|?[\s-:]+\|?$/.test(rowStr) || rowStr.includes('---')) {
+          continue; // skip separator row |---|---|
+        }
+        const cells = rowStr
+          .split('|')
+          .map((c) => c.trim())
+          .filter((_, idx, arr) => idx > 0 && idx < arr.length - 1);
+        if (cells.length > 0) {
+          rows.push(cells);
+        }
+      }
+
+      if (headers.length > 0 && rows.length > 0) {
+        parsedTable = { headers, rows };
+      }
+    }
+
+    if (title || rawBullets.length > 0 || parsedTable) {
+      const isCover = i === 0 && rawBullets.length === 0 && !parsedTable;
+      let computedLayout: SlideData['layout'] = explicitLayout || (parsedTable ? 'table' : (isCover ? 'cover' : 'content'));
+
+      if (!explicitLayout && !isCover && !parsedTable) {
         const titleLower = title.toLowerCase();
         const hasTimeKeywords = titleLower.includes('时序') || titleLower.includes('里程碑') || titleLower.includes('规划') || titleLower.includes('路线图') || titleLower.includes('发展历程') || titleLower.includes('阶段') || titleLower.includes('演进') || titleLower.includes('步骤') || titleLower.includes('流程');
         const hasStatsKeywords = titleLower.includes('数据') || titleLower.includes('成效') || titleLower.includes('指标') || titleLower.includes('概览') || titleLower.includes('成果') || titleLower.includes('核心亮点');
@@ -200,6 +236,7 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
         subtitle,
         bullets: rawBullets,
         items,
+        table: parsedTable,
         notes,
         layout: computedLayout,
       });
@@ -800,8 +837,54 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                 fontFace: 'Microsoft YaHei',
               });
             }
+          } else if (s.layout === 'table' && s.table) {
+            // 9. NATIVE POWERPOINT TABLE (table)
+            const tableRows: any[][] = [];
+
+            // Header row with accent theme background
+            tableRows.push(
+              s.table.headers.map((h) => ({
+                text: cleanMarkdownText(h),
+                options: {
+                  fill: { color: hexAccent },
+                  color: 'FFFFFF',
+                  bold: true,
+                  fontSize: 10.5,
+                  align: 'left',
+                  valign: 'middle',
+                  fontFace: 'Microsoft YaHei',
+                },
+              }))
+            );
+
+            // Data rows with alternating background
+            s.table.rows.slice(0, 6).forEach((row, rIdx) => {
+              const rowBg = rIdx % 2 === 1 ? 'F8FAFC' : 'FFFFFF';
+              tableRows.push(
+                row.map((cell) => ({
+                  text: cleanMarkdownText(cell),
+                  options: {
+                    fill: { color: rowBg },
+                    color: '334155',
+                    fontSize: 9.5,
+                    align: 'left',
+                    valign: 'middle',
+                    fontFace: 'Microsoft YaHei',
+                  },
+                }))
+              );
+            });
+
+            slide.addTable(tableRows, {
+              x: 0.6,
+              y: contentStartY + 0.1,
+              w: 8.8,
+              h: cardTotalHeight - 0.2,
+              border: { type: 'solid', pt: 0.5, color: 'E2E8F0' },
+              margin: [0.08, 0.1, 0.08, 0.1],
+            });
           } else {
-            // 9. HIGH-DENSITY & STANDARD ITEM CARDS (Dual Column for >= 6 items in PPTX export)
+            // 10. HIGH-DENSITY & STANDARD ITEM CARDS (Dual Column for >= 6 items in PPTX export)
             const allItems: SlideItem[] = s.items && s.items.length > 0
               ? s.items
               : s.bullets.map((b) => ({ description: b }));
@@ -1286,8 +1369,43 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                       </p>
                     )}
                   </div>
+                ) : /* 9. STRUCTURED DATA TABLE (table) */
+                currentSlide.layout === 'table' && currentSlide.table ? (
+                  <div className="my-auto w-full overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr style={{ backgroundColor: activeTheme.accent }}>
+                          {currentSlide.table.headers.map((head, hIdx) => (
+                            <th
+                              key={hIdx}
+                              className="px-2.5 py-1.5 text-[10px] sm:text-xs font-bold text-white tracking-wide border-r last:border-r-0 border-white/20"
+                            >
+                              {renderFormattedText(head)}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-800/90 text-[9.5px] sm:text-[11px]">
+                        {currentSlide.table.rows.slice(0, 5).map((row, rIdx) => (
+                          <tr
+                            key={rIdx}
+                            className={rIdx % 2 === 1 ? 'bg-slate-50/60 dark:bg-slate-800/40' : ''}
+                          >
+                            {row.map((cell, cIdx) => (
+                              <td
+                                key={cIdx}
+                                className="px-2.5 py-1.5 text-slate-700 dark:text-slate-200 border-r last:border-r-0 border-slate-100 dark:border-slate-800 leading-snug break-words"
+                              >
+                                {renderFormattedText(cell)}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 ) : (
-                  /* 9. HIGH-DENSITY & STANDARD ITEM CARDS (Auto Dual-Column for >= 6 items) */
+                  /* 10. HIGH-DENSITY & STANDARD ITEM CARDS (Auto Dual-Column for >= 6 items) */
                   (() => {
                     const allItems: SlideItem[] = currentSlide.items && currentSlide.items.length > 0
                       ? currentSlide.items
