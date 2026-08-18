@@ -9,12 +9,20 @@ import {
   Minimize2,
 } from 'lucide-react';
 
+export interface SlideItem {
+  tag?: string;
+  title?: string;
+  description?: string;
+  value?: string;
+}
+
 export interface SlideData {
   title: string;
   subtitle?: string;
   bullets?: string[];
+  items?: SlideItem[];
   notes?: string;
-  layout?: 'cover' | 'content' | 'split' | 'summary';
+  layout?: 'cover' | 'grid2' | 'grid3' | 'grid4' | 'timeline' | 'stats' | 'content';
 }
 
 interface SlideDeckProps {
@@ -31,12 +39,11 @@ const COLOR_THEMES = [
 
 /**
  * Parses markdown slide content:
- * Splits by `---` or `## ` headers and extracts title, subtitle, bullets, notes.
+ * Splits by `---` or page markers and extracts structured items, layouts, titles, notes.
  */
 export function parseMarkdownSlides(raw: string): SlideData[] {
   if (!raw || !raw.trim()) return [];
 
-  // Split by horizontal rule `---` or page markers
   const rawSections = raw
     .split(/\n\s*---\s*\n/)
     .map((s) => s.trim())
@@ -51,10 +58,19 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
 
     let title = '';
     let subtitle = '';
-    const bullets: string[] = [];
+    const rawBullets: string[] = [];
+    const items: SlideItem[] = [];
     let notes = '';
+    let explicitLayout: SlideData['layout'] | null = null;
 
     for (const line of lines) {
+      // Check layout hint comment e.g. <!-- layout: timeline --> or <!-- layout: grid2 -->
+      const layoutMatch = line.match(/<!--\s*layout:\s*(cover|grid2|grid3|grid4|timeline|stats|content)\s*-->/i);
+      if (layoutMatch) {
+        explicitLayout = layoutMatch[1].toLowerCase() as SlideData['layout'];
+        continue;
+      }
+
       if (line.startsWith('# ')) {
         title = line.replace(/^#\s+/, '').trim();
       } else if (line.startsWith('## ') && !title) {
@@ -62,26 +78,67 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
       } else if (line.startsWith('### ') && !subtitle) {
         subtitle = line.replace(/^###\s+/, '').trim();
       } else if (line.startsWith('- ') || line.startsWith('* ') || /^\d+\.\s+/.test(line)) {
-        bullets.push(line.replace(/^[-*]\s+|\d+\.\s+/, '').trim());
+        const cleaned = line.replace(/^[-*]\s+|\d+\.\s+/, '').trim();
+        rawBullets.push(cleaned);
+
+        // Parse structured items: "标题: 描述" or "阶段/年份: 内容" or "【标签】描述"
+        const colonMatch = cleaned.match(/^([^\s：:]{1,12})[：:](.+)$/);
+        const bracketMatch = cleaned.match(/^【([^】]+)】(.+)$/);
+        const boldMatch = cleaned.match(/^\*\*([^*]+)\*\*[：:]?\s*(.+)$/);
+
+        if (boldMatch) {
+          items.push({ title: boldMatch[1].trim(), description: boldMatch[2].trim() });
+        } else if (bracketMatch) {
+          items.push({ tag: bracketMatch[1].trim(), title: bracketMatch[1].trim(), description: bracketMatch[2].trim() });
+        } else if (colonMatch) {
+          items.push({ title: colonMatch[1].trim(), description: colonMatch[2].trim() });
+        } else {
+          items.push({ description: cleaned });
+        }
       } else if (line.startsWith('> 演讲备注：') || line.startsWith('> 备注：') || line.startsWith('> Notes:')) {
         notes = line.replace(/^>\s*(?:演讲备注：|备注：|Notes:)\s*/i, '').trim();
       } else if (!title) {
         title = line;
-      } else if (!subtitle && bullets.length === 0) {
+      } else if (!subtitle && rawBullets.length === 0) {
         subtitle = line;
       } else {
-        bullets.push(line);
+        rawBullets.push(line);
+        items.push({ description: line });
       }
     }
 
-    if (title || bullets.length > 0) {
-      const isCover = i === 0 && bullets.length === 0;
+    if (title || rawBullets.length > 0) {
+      const isCover = i === 0 && rawBullets.length === 0;
+      let computedLayout: SlideData['layout'] = explicitLayout || (isCover ? 'cover' : 'content');
+
+      // Auto-detect layout based on item structure and keywords if not explicitly specified
+      if (!explicitLayout && !isCover) {
+        const titleLower = title.toLowerCase();
+        const hasTimeKeywords = titleLower.includes('时序') || titleLower.includes('里程碑') || titleLower.includes('规划') || titleLower.includes('路线图') || titleLower.includes('发展历程') || titleLower.includes('阶段');
+        const hasStatsKeywords = titleLower.includes('数据') || titleLower.includes('成效') || titleLower.includes('指标') || titleLower.includes('概览');
+
+        if (hasTimeKeywords && items.length >= 3) {
+          computedLayout = 'timeline';
+        } else if (hasStatsKeywords && items.length >= 2 && items.length <= 4) {
+          computedLayout = 'stats';
+        } else if (items.length === 2) {
+          computedLayout = 'grid2';
+        } else if (items.length === 3) {
+          computedLayout = 'grid3';
+        } else if (items.length === 4) {
+          computedLayout = 'grid4';
+        } else {
+          computedLayout = 'content';
+        }
+      }
+
       slides.push({
         title: title || `幻灯片 ${i + 1}`,
         subtitle,
-        bullets,
+        bullets: rawBullets,
+        items,
         notes,
-        layout: isCover ? 'cover' : 'content',
+        layout: computedLayout,
       });
     }
   }
@@ -368,59 +425,131 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
             />
           )}
 
-          {/* Slide Body Content (Clean presentation layout with dynamic auto-scaling typography and wrapping) */}
+          {/* Slide Body Content (Rich layout renderer: cover / grid2 / grid3 / grid4 / timeline / stats / content) */}
           <div className="flex-1 min-h-0 flex flex-col justify-center my-auto overflow-hidden">
-            {/* Title & Subtitle */}
-            <div className={`shrink-0 ${currentSlide.layout === 'cover' ? 'text-center my-auto space-y-2' : 'mb-2 sm:mb-3'}`}>
-              <h2
-                className={`font-bold tracking-tight leading-tight break-words ${
-                  currentSlide.layout === 'cover'
-                    ? 'text-xl sm:text-3xl lg:text-4xl text-white drop-shadow-xs'
-                    : 'text-sm sm:text-base lg:text-lg font-bold text-slate-900 dark:text-white'
-                }`}
-              >
-                {currentSlide.title}
-              </h2>
-              {currentSlide.subtitle && (
-                <p
-                  className={`text-xs sm:text-sm leading-snug break-words ${
-                    currentSlide.layout === 'cover'
-                      ? 'text-slate-200'
-                      : 'text-slate-500 dark:text-slate-400 font-medium'
-                  }`}
-                >
-                  {currentSlide.subtitle}
-                </p>
-              )}
-            </div>
-
-            {/* Bullets List (Full wrapping, compact dynamic line-height and gap) */}
-            {currentSlide.bullets && currentSlide.bullets.length > 0 && (
-              <div
-                className={`grid overflow-hidden ${
-                  currentSlide.bullets.length > 3 ? 'gap-1.5 sm:gap-2' : 'gap-2 sm:gap-3'
-                }`}
-              >
-                {currentSlide.bullets.map((b, bIdx) => {
-                  const isDense = (currentSlide.bullets?.length || 0) >= 4;
-                  return (
-                    <div
-                      key={bIdx}
-                      className={`flex items-start gap-2 sm:gap-2.5 rounded-lg bg-slate-50/90 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800/80 font-medium transition-all ${
-                        isDense ? 'p-1.5 sm:p-2 text-[11px] sm:text-xs' : 'p-2 sm:p-2.5 text-xs sm:text-[13px]'
-                      }`}
-                    >
-                      <div
-                        className="w-1.5 h-1.5 rounded-full mt-1 shrink-0"
-                        style={{ backgroundColor: activeTheme.accent }}
-                      />
-                      <span className="text-slate-700 dark:text-slate-200 break-words leading-relaxed whitespace-normal flex-1">
-                        {b}
-                      </span>
-                    </div>
-                  );
-                })}
+            {/* 1. COVER SLIDE */}
+            {currentSlide.layout === 'cover' ? (
+              <div className="text-center my-auto space-y-3 px-4">
+                <div className="inline-block px-3 py-1 rounded-full bg-white/10 backdrop-blur-xs text-[11px] font-semibold tracking-wider text-emerald-300 uppercase mb-1">
+                  Presentation Deck
+                </div>
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-white leading-tight break-words drop-shadow-sm">
+                  {currentSlide.title}
+                </h1>
+                {currentSlide.subtitle && (
+                  <p className="text-xs sm:text-base text-slate-200/90 font-medium max-w-xl mx-auto leading-relaxed break-words">
+                    {currentSlide.subtitle}
+                  </p>
+                )}
               </div>
+            ) : (
+              <>
+                {/* Regular Header: Title & Subtitle */}
+                <div className="shrink-0 mb-2 sm:mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1 h-4 rounded-full" style={{ backgroundColor: activeTheme.accent }} />
+                    <h2 className="text-sm sm:text-base lg:text-lg font-bold text-slate-900 dark:text-white leading-snug break-words">
+                      {currentSlide.title}
+                    </h2>
+                  </div>
+                  {currentSlide.subtitle && (
+                    <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium ml-3 mt-0.5 break-words">
+                      {currentSlide.subtitle}
+                    </p>
+                  )}
+                </div>
+
+                {/* 2. TIMELINE / ROADMAP LAYOUT */}
+                {currentSlide.layout === 'timeline' && currentSlide.items && currentSlide.items.length > 0 ? (
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 sm:gap-3 my-auto overflow-hidden">
+                    {currentSlide.items.slice(0, 4).map((item, idx) => (
+                      <div key={idx} className="relative flex flex-col p-2.5 rounded-xl bg-slate-50/90 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60 shadow-2xs">
+                        <div className="flex items-center gap-1.5 mb-1.5">
+                          <span className="flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold text-white shadow-2xs" style={{ backgroundColor: activeTheme.accent }}>
+                            {idx + 1}
+                          </span>
+                          <span className="text-[11px] sm:text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
+                            {item.title || `阶段 ${idx + 1}`}
+                          </span>
+                        </div>
+                        <p className="text-[10px] sm:text-[11px] text-slate-600 dark:text-slate-300 leading-snug break-words">
+                          {item.description}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : /* 3. STATS / METRICS / COLOR CARDS LAYOUT */
+                currentSlide.layout === 'stats' && currentSlide.items && currentSlide.items.length > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 my-auto overflow-hidden">
+                    {currentSlide.items.slice(0, 3).map((item, idx) => (
+                      <div key={idx} className="p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-linear-to-br from-slate-50 to-slate-100/70 dark:from-slate-800/80 dark:to-slate-900/80 shadow-2xs flex flex-col justify-between">
+                        <div className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          {item.title || `指标 ${idx + 1}`}
+                        </div>
+                        <p className="text-[11px] sm:text-xs text-slate-600 dark:text-slate-400 leading-snug break-words">
+                          {item.description}
+                        </p>
+                        <div className="w-6 h-0.5 mt-2 rounded-full" style={{ backgroundColor: activeTheme.accent }} />
+                      </div>
+                    ))}
+                  </div>
+                ) : /* 4. TWO-COLUMN / COMPARISON LAYOUT (grid2) */
+                currentSlide.layout === 'grid2' && currentSlide.items && currentSlide.items.length === 2 ? (
+                  <div className="grid grid-cols-2 gap-2.5 sm:gap-3.5 my-auto overflow-hidden">
+                    {currentSlide.items.map((item, idx) => (
+                      <div key={idx} className="p-3 rounded-xl bg-slate-50/90 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 shadow-2xs flex flex-col">
+                        {item.title && (
+                          <div className="flex items-center gap-1.5 mb-1.5 pb-1 border-b border-slate-200/60 dark:border-slate-700/50">
+                            <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: activeTheme.accent }} />
+                            <span className="text-xs font-bold text-slate-900 dark:text-slate-100">{item.title}</span>
+                          </div>
+                        )}
+                        <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed break-words flex-1">
+                          {item.description}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : /* 5. THREE-COLUMN / FOUR-COLUMN GRID LAYOUT (grid3 / grid4) */
+                (currentSlide.layout === 'grid3' || currentSlide.layout === 'grid4') && currentSlide.items && currentSlide.items.length > 0 ? (
+                  <div className={`grid gap-2 sm:gap-2.5 my-auto overflow-hidden ${currentSlide.layout === 'grid4' ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3'}`}>
+                    {currentSlide.items.slice(0, currentSlide.layout === 'grid4' ? 4 : 3).map((item, idx) => (
+                      <div key={idx} className="p-2 sm:p-2.5 rounded-xl bg-slate-50/90 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60 shadow-2xs flex flex-col">
+                        {item.title && (
+                          <div className="text-[11px] sm:text-xs font-bold text-slate-800 dark:text-slate-100 mb-1 truncate">
+                            {item.title}
+                          </div>
+                        )}
+                        <p className="text-[10px] sm:text-[11px] text-slate-600 dark:text-slate-300 leading-snug break-words flex-1">
+                          {item.description}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  /* 6. STANDARD BULLET POINTS LIST */
+                  currentSlide.bullets && currentSlide.bullets.length > 0 && (
+                    <div className={`grid overflow-hidden ${currentSlide.bullets.length > 3 ? 'gap-1.5 sm:gap-2' : 'gap-2 sm:gap-2.5'}`}>
+                      {currentSlide.bullets.map((b, bIdx) => {
+                        const isDense = (currentSlide.bullets?.length || 0) >= 4;
+                        return (
+                          <div
+                            key={bIdx}
+                            className={`flex items-start gap-2 sm:gap-2.5 rounded-lg bg-slate-50/90 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800/80 font-medium transition-all ${
+                              isDense ? 'p-1.5 sm:p-2 text-[11px] sm:text-xs' : 'p-2 sm:p-2.5 text-xs sm:text-[13px]'
+                            }`}
+                          >
+                            <div className="w-1.5 h-1.5 rounded-full mt-1 shrink-0" style={{ backgroundColor: activeTheme.accent }} />
+                            <span className="text-slate-700 dark:text-slate-200 break-words leading-relaxed whitespace-normal flex-1">
+                              {b}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )
+                )}
+              </>
             )}
           </div>
 
