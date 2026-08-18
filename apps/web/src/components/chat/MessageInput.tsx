@@ -234,7 +234,8 @@ export const MessageInput: React.FC<MessageInputProps> = ({ onSend }) => {
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="输入问题，Shift + Enter 换行..."
-          className="w-full bg-transparent border-0 focus:ring-0 resize-none max-h-48 py-1.5 text-[14px] text-slate-800 dark:text-slate-100 placeholder:text-slate-400/80 dark:placeholder:text-slate-500/80 outline-hidden leading-relaxed"
+          style={{ outline: 'none', border: 'none', boxShadow: 'none' }}
+          className="w-full bg-transparent border-0 outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 shadow-none resize-none max-h-48 py-1.5 px-0 text-[14px] text-slate-800 dark:text-slate-100 placeholder:text-slate-400/80 dark:placeholder:text-slate-500/80 leading-relaxed"
         />
 
         {/* Right side buttons: Mic & Send / Stop */}
