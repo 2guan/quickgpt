@@ -17,6 +17,7 @@ export interface SlideItem {
   tag?: string;
   title?: string;
   description?: string;
+  bullets?: string[];
 }
 
 export interface SlideData {
@@ -105,9 +106,7 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
 
   for (let i = 0; i < rawSections.length; i++) {
     const sec = rawSections[i];
-    const lines = sec.split('\n').map((l) => l.trim()).filter(Boolean);
-    if (lines.length === 0) continue;
-
+    const rawLines = sec.split('\n');
     let title = '';
     let subtitle = '';
     const rawBullets: string[] = [];
@@ -116,56 +115,93 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
     let explicitLayout: SlideData['layout'] | null = null;
     const tableLines: string[] = [];
 
-    for (const line of lines) {
-      const layoutMatch = line.match(/<!--\s*layout:\s*(cover|grid2|grid3|grid4|grid5|grid6|timeline|stats|quote|table|content)\s*-->/i);
+    for (let lineIdx = 0; lineIdx < rawLines.length; lineIdx++) {
+      const rawLine = rawLines[lineIdx];
+      const trimmed = rawLine.trim();
+      if (!trimmed) continue;
+
+      const layoutMatch = trimmed.match(/<!--\s*layout:\s*(cover|grid2|grid3|grid4|grid5|grid6|timeline|stats|quote|table|content)\s*-->/i);
       if (layoutMatch) {
         explicitLayout = layoutMatch[1].toLowerCase() as SlideData['layout'];
         continue;
       }
 
-      if (line.startsWith('> 演讲备注：') || line.startsWith('> 备注：') || line.startsWith('> Notes:')) {
-        notes = line.replace(/^>\s*(?:演讲备注：|备注：|Notes:)\s*/i, '').trim();
+      if (trimmed.startsWith('> 演讲备注：') || trimmed.startsWith('> 备注：') || trimmed.startsWith('> Notes:')) {
+        notes = trimmed.replace(/^>\s*(?:演讲备注：|备注：|Notes:)\s*/i, '').trim();
         continue;
       }
 
-      if (line.startsWith('> ') || line.startsWith('”') || line.startsWith('“')) {
-        if (!explicitLayout && lines.length <= 3) {
+      if (trimmed.startsWith('> ') || trimmed.startsWith('”') || trimmed.startsWith('“')) {
+        if (!explicitLayout && rawLines.length <= 3) {
           explicitLayout = 'quote';
         }
       }
 
-      if (line.startsWith('# ')) {
-        title = line.replace(/^#\s+/, '').trim();
-      } else if (line.startsWith('## ') && !title) {
-        title = line.replace(/^##\s+/, '').trim();
-      } else if (line.startsWith('### ') && !subtitle) {
-        subtitle = line.replace(/^###\s+/, '').trim();
-      } else if (line.startsWith('|') && line.endsWith('|')) {
-        tableLines.push(line);
-      } else if (line.startsWith('- ') || line.startsWith('* ') || /^\d+[\.、]\s*/.test(line)) {
-        const cleaned = line.replace(/^[-*]\s+|\d+[\.、]\s*/, '').trim();
-        rawBullets.push(cleaned);
-
-        const boldMatch = cleaned.match(/^\*\*([^*]+)\*\*[：:\s]*(.+)$/);
-        const bracketMatch = cleaned.match(/^【([^】]+)】[：:\s]*(.+)$/);
-        const colonMatch = cleaned.match(/^([^：:\s]{2,16})[：:](.+)$/);
-
-        if (boldMatch) {
-          items.push({ title: boldMatch[1].trim(), description: boldMatch[2].trim() });
-        } else if (bracketMatch) {
-          items.push({ tag: bracketMatch[1].trim(), title: bracketMatch[1].trim(), description: bracketMatch[2].trim() });
-        } else if (colonMatch) {
-          items.push({ title: colonMatch[1].trim(), description: colonMatch[2].trim() });
-        } else {
-          items.push({ description: cleaned });
-        }
-      } else if (!title) {
-        title = line;
-      } else if (!subtitle && rawBullets.length === 0 && tableLines.length === 0) {
-        subtitle = line;
+      if (trimmed.startsWith('# ')) {
+        title = trimmed.replace(/^#\s+/, '').trim();
+      } else if (trimmed.startsWith('## ') && !title) {
+        title = trimmed.replace(/^##\s+/, '').trim();
+      } else if (trimmed.startsWith('### ') && !subtitle) {
+        subtitle = trimmed.replace(/^###\s+/, '').trim();
+      } else if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+        tableLines.push(trimmed);
       } else {
-        rawBullets.push(line);
-        items.push({ description: line });
+        const isIndented = /^(\s{2,}|\t+)[-*]\s+/.test(rawLine);
+        const isTopLevelBullet = /^[-*]\s+|\d+[\.、]\s*/.test(trimmed);
+
+        if (isIndented && items.length > 0) {
+          // Nested sub-bullet under the current item
+          const subBullet = trimmed.replace(/^[-*]\s+|\d+[\.、]\s*/, '').trim();
+          const lastItem = items[items.length - 1];
+          if (!lastItem.bullets) lastItem.bullets = [];
+          lastItem.bullets.push(subBullet);
+        } else if (isTopLevelBullet) {
+          const cleaned = trimmed.replace(/^[-*]\s+|\d+[\.、]\s*/, '').trim();
+          rawBullets.push(cleaned);
+
+          const boldMatch = cleaned.match(/^\*\*([^*]+)\*\*[：:\s]*(.*)$/);
+          const bracketMatch = cleaned.match(/^【([^】]+)】[：:\s]*(.*)$/);
+          const colonMatch = cleaned.match(/^([^：:\s]{2,16})[：:](.+)$/);
+
+          if (boldMatch) {
+            items.push({ title: boldMatch[1].trim(), description: boldMatch[2].trim(), bullets: [] });
+          } else if (bracketMatch) {
+            items.push({ tag: bracketMatch[1].trim(), title: bracketMatch[1].trim(), description: bracketMatch[2].trim(), bullets: [] });
+          } else if (colonMatch) {
+            items.push({ title: colonMatch[1].trim(), description: colonMatch[2].trim(), bullets: [] });
+          } else {
+            // Check if this is an italic tagline under previous item
+            if (trimmed.startsWith('*') && trimmed.endsWith('*') && items.length > 0) {
+              const lastItem = items[items.length - 1];
+              const tagText = trimmed.replace(/^\*|\*$/g, '').trim();
+              if (!lastItem.description) {
+                lastItem.description = tagText;
+              } else {
+                if (!lastItem.bullets) lastItem.bullets = [];
+                lastItem.bullets.push(tagText);
+              }
+            } else {
+              items.push({ description: cleaned, bullets: [] });
+            }
+          }
+        } else if (!title) {
+          title = trimmed;
+        } else if (!subtitle && rawBullets.length === 0 && tableLines.length === 0) {
+          subtitle = trimmed;
+        } else if (items.length > 0 && trimmed.startsWith('*') && trimmed.endsWith('*')) {
+          // Italic tagline under previous item
+          const lastItem = items[items.length - 1];
+          const tagText = trimmed.replace(/^\*|\*$/g, '').trim();
+          if (!lastItem.description) {
+            lastItem.description = tagText;
+          } else {
+            if (!lastItem.bullets) lastItem.bullets = [];
+            lastItem.bullets.push(tagText);
+          }
+        } else {
+          rawBullets.push(trimmed);
+          items.push({ description: trimmed, bullets: [] });
+        }
       }
     }
 
@@ -618,12 +654,18 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                 });
               }
 
-              slide.addText(cleanMarkdownText(item.description || ''), {
+              let fullCardText = cleanMarkdownText(item.description || '');
+              if (item.bullets && item.bullets.length > 0) {
+                const subText = item.bullets.map((b) => `• ${cleanMarkdownText(b)}`).join('\n');
+                fullCardText = fullCardText ? `${fullCardText}\n\n${subText}` : subText;
+              }
+
+              slide.addText(fullCardText, {
                 x: cardX + 0.2,
-                y: contentStartY + 0.6,
+                y: contentStartY + 0.55,
                 w: colWidth - 0.4,
-                h: cardTotalHeight - 0.75,
-                fontSize: 10,
+                h: cardTotalHeight - 0.7,
+                fontSize: 9.5,
                 color: '334155',
                 fontFace: 'Microsoft YaHei',
                 valign: 'top',
@@ -1259,30 +1301,44 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                   </div>
                 ) : /* 4. TWO-COLUMN COMPARISON / HERO PILLARS (grid2) */
                 currentSlide.layout === 'grid2' && currentSlide.items && currentSlide.items.length >= 2 ? (
-                  <div className="grid grid-cols-2 gap-3 sm:gap-4 my-auto w-full">
+                  <div className="grid grid-cols-2 gap-2.5 sm:gap-3.5 my-auto w-full max-h-[300px] overflow-hidden">
                     {currentSlide.items.slice(0, 2).map((item, idx) => (
                       <div
                         key={idx}
-                        className={`p-3.5 sm:p-4 rounded-2xl border shadow-2xs flex flex-col justify-between transition-all ${
+                        className={`p-2.5 sm:p-3 rounded-2xl border shadow-2xs flex flex-col justify-between transition-all ${
                           idx === 0
                             ? 'bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700'
-                            : 'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200/80 dark:border-emerald-900/60'
+                            : 'bg-emerald-50/30 dark:bg-emerald-950/20 border-emerald-200/70 dark:border-emerald-900/50'
                         }`}
                       >
-                        {item.title && (
-                          <div className="flex items-center gap-2 mb-2 pb-1.5 border-b border-slate-200/70 dark:border-slate-700/60">
-                            <span
-                              className="w-2 h-2 rounded-full shrink-0"
-                              style={{ backgroundColor: activeTheme.accent }}
-                            />
-                            <span className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-slate-100 break-words flex-1">
-                              {renderFormattedText(item.title)}
-                            </span>
-                          </div>
-                        )}
-                        <p className="text-[11px] sm:text-xs text-slate-700 dark:text-slate-300 leading-relaxed break-words whitespace-normal flex-1">
-                          {renderFormattedText(item.description || '')}
-                        </p>
+                        <div>
+                          {item.title && (
+                            <div className="flex items-center gap-1.5 mb-1 pb-1 border-b border-slate-200/70 dark:border-slate-700/60">
+                              <span
+                                className="w-1.5 h-1.5 rounded-full shrink-0"
+                                style={{ backgroundColor: activeTheme.accent }}
+                              />
+                              <span className="text-[11.5px] sm:text-xs font-bold text-slate-900 dark:text-slate-100 break-words leading-tight flex-1">
+                                {renderFormattedText(item.title)}
+                              </span>
+                            </div>
+                          )}
+                          {item.description && (
+                            <p className="text-[10px] sm:text-[10.5px] text-slate-500 dark:text-slate-400 italic mb-1 break-words leading-tight">
+                              {renderFormattedText(item.description)}
+                            </p>
+                          )}
+                          {item.bullets && item.bullets.length > 0 && (
+                            <div className="space-y-1 mt-1 max-h-[200px] overflow-y-auto pr-1">
+                              {item.bullets.map((sub, sIdx) => (
+                                <div key={sIdx} className="flex items-start gap-1 text-[9.5px] sm:text-[10px] text-slate-700 dark:text-slate-300 leading-snug">
+                                  <span className="text-slate-400 font-bold shrink-0">•</span>
+                                  <span className="break-words flex-1">{renderFormattedText(sub)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
