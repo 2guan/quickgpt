@@ -105,7 +105,10 @@ export async function streamSynthesizeSpeech(
   const preferredModelId = req.modelId || globalTTSModelId;
   let modelRow: any = null;
 
-  if (preferredModelId) {
+  // If preferredModelId was supplied from a chat message (like mimo-v2.5, qwen-turbo), check if there is a dedicated TTS model
+  const isDirectTTSModel = (modelIdStr: string) => /tts/i.test(modelIdStr);
+  
+  if (preferredModelId && isDirectTTSModel(preferredModelId)) {
     const stmt = db.prepare(`
       SELECT m.*, c.base_url as channel_base_url, c.api_key as channel_api_key, c.status as channel_status
       FROM models m
@@ -117,13 +120,26 @@ export async function streamSynthesizeSpeech(
     modelRow = stmt.get(preferredModelId, preferredModelId, preferredModelId);
   }
 
-  // If no specific model found, look for any active TTS model (e.g. mimo-v2.5-tts, mimo-*, tts-*)
+  // If global setting has a dedicated TTS model configured
+  if (!modelRow && globalTTSModelId && isDirectTTSModel(globalTTSModelId)) {
+    const stmt = db.prepare(`
+      SELECT m.*, c.base_url as channel_base_url, c.api_key as channel_api_key, c.status as channel_status
+      FROM models m
+      JOIN channels c ON m.channel_id = c.id
+      WHERE (m.model_id = ? OR m.id = ? OR m.real_model_id = ?) AND m.is_active = 1 AND c.status = 1
+      ORDER BY c.priority DESC
+      LIMIT 1
+    `);
+    modelRow = stmt.get(globalTTSModelId, globalTTSModelId, globalTTSModelId);
+  }
+
+  // Look for any active dedicated TTS model (prioritizing mimo-v2.5-tts or OpenAI tts-1)
   if (!modelRow) {
     const stmt = db.prepare(`
       SELECT m.*, c.base_url as channel_base_url, c.api_key as channel_api_key, c.status as channel_status
       FROM models m
       JOIN channels c ON m.channel_id = c.id
-      WHERE (m.model_id LIKE '%mimo%tts%' OR m.model_id LIKE '%tts%' OR m.real_model_id LIKE '%mimo%tts%' OR m.real_model_id LIKE '%tts%')
+      WHERE (m.model_id LIKE '%tts%' OR m.real_model_id LIKE '%tts%')
         AND m.is_active = 1 AND c.status = 1
       ORDER BY 
         CASE 
@@ -145,10 +161,14 @@ export async function streamSynthesizeSpeech(
 
   const baseUrl = modelRow.channel_base_url.replace(/\/+$/, '');
   const apiKey = modelRow.channel_api_key;
-  const modelName = modelRow.real_model_id || modelRow.model_id;
-  const voice = req.voice || globalTTSVoice || 'Chloe';
+  let modelName = modelRow.real_model_id || modelRow.model_id;
+  const isMimoTTS = modelName.toLowerCase().includes('mimo') || modelRow.channel_base_url.toLowerCase().includes('xiaomi');
 
-  const isMimoTTS = modelName.toLowerCase().includes('mimo');
+  if (isMimoTTS && !modelName.includes('tts')) {
+    modelName = 'mimo-v2.5-tts';
+  }
+
+  const voice = req.voice || globalTTSVoice || (isMimoTTS ? 'Chloe' : 'alloy');
 
   if (isMimoTTS) {
     // --- Xiaomi MiMo Speech Synthesis v2.5 Low-Latency Streaming ---
