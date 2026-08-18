@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Message, MessageAttachment } from '../../types/index.js';
 import { MarkdownRenderer } from './MarkdownRenderer.js';
 import { FollowUpChips } from './FollowUpChips.js';
@@ -111,9 +111,20 @@ const AssistantCard: React.FC<{
   const [copied, setCopied] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isLoadingTTS, setIsLoadingTTS] = useState(false);
-  const [showReasoning, setShowReasoning] = useState(true);
+  // Expand reasoning during live generation/streaming, auto collapse once completed
+  const [showReasoning, setShowReasoning] = useState<boolean>(() => !!message.isStreaming && !message.content);
   const [showSearch, setShowSearch] = useState(false);
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
+
+  // Auto collapse reasoning when streaming completes and main content arrives
+  const prevStreamingRef = React.useRef(message.isStreaming);
+  useEffect(() => {
+    if (prevStreamingRef.current && !message.isStreaming) {
+      // Completed streaming -> collapse reasoning
+      setShowReasoning(false);
+    }
+    prevStreamingRef.current = message.isStreaming;
+  }, [message.isStreaming]);
 
   const handleCopy = () => {
     if (!message.content) return;
@@ -423,9 +434,16 @@ const AssistantCard: React.FC<{
             >
               <div className="flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                <span>思考过程 (Reasoning Process)</span>
+                <span>
+                  {message.isStreaming && !message.content ? '深度思考中...' : '思考过程 (已折叠)'}
+                </span>
               </div>
-              {showReasoning ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+              <div className="flex items-center gap-1.5 text-amber-700/80 dark:text-amber-400/80">
+                <span className="text-[11px] font-normal">
+                  {showReasoning ? '收起' : '展开'}
+                </span>
+                {showReasoning ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+              </div>
             </button>
             {showReasoning && (
               <div className="mt-2.5 pt-2.5 border-t border-amber-200/50 dark:border-amber-900/40 text-slate-700 dark:text-slate-300 text-[13px] leading-relaxed">
