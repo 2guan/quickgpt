@@ -2442,15 +2442,6 @@ export const SlideDeckViewer: React.FC<SlideDeckProps> = ({ rawCode }) => {
                 <Download className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">{isExporting ? '生成中...' : '下载 PPTX'}</span>
               </button>
-
-              {/* Fullscreen Mode */}
-              <button
-                onClick={() => setIsFullscreen(!isFullscreen)}
-                className="p-1.5 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-slate-200/60 dark:hover:bg-slate-700 rounded-lg transition-colors"
-                title={isFullscreen ? '退出全屏 (ESC)' : '全屏放映演示'}
-              >
-                {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-              </button>
             </>
           )}
 
