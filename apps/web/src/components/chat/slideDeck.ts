@@ -33,6 +33,7 @@ export interface SlideItem {
   title?: string;
   description?: string;
   bullets?: string[];
+  children?: SlideItem[];
 }
 
 export interface SlideData {
@@ -113,9 +114,16 @@ export function getDeckStyle(raw = ''): DeckStyle {
 
 /** During streaming, only pages terminated by a Markdown divider are safe to render. */
 export function completedPptMarkdown(raw = ''): string {
-  let lastDivider = -1;
-  for (const match of raw.matchAll(/\n\s*---\s*(?=\n|$)/g)) lastDivider = match.index ?? -1;
-  return lastDivider >= 0 ? raw.slice(0, lastDivider) : '';
+  const lines = raw.replace(/^\s*---\s*\n/, '').split('\n');
+  const completed: string[] = [];
+  let current: string[] = [];
+  lines.forEach((line, index) => {
+    if (line.trim() === '---' && isSlideBreak(lines, index)) {
+      if (current.join('\n').trim()) completed.push(current.join('\n').trim());
+      current = [];
+    } else current.push(line);
+  });
+  return completed.join('\n\n---\n\n');
 }
 
 const LAYOUTS = new Set<SlideLayout>([
@@ -167,10 +175,32 @@ function itemFromBullet(text: string): SlideItem {
   return { description: text, bullets: [] };
 }
 
+function isSlideBreak(lines: string[], index: number): boolean {
+  const next = lines.slice(index + 1).find((line) => line.trim());
+  return !!next && /^(?:<!--\s*(?:layout|theme|color-mode):|#{1,2}\s+)/i.test(next.trim());
+}
+
+/** Models occasionally add horizontal rules inside a page. Treat a rule as a page break only when a new page follows it. */
+function splitSlideSections(raw: string): string[] {
+  const lines = raw.replace(/^\s*---\s*\n/, '').split('\n');
+  const sections: string[] = [];
+  let current: string[] = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    if (lines[index].trim() !== '---') { current.push(lines[index]); continue; }
+    if (isSlideBreak(lines, index)) {
+      if (current.join('\n').trim()) sections.push(current.join('\n').trim());
+      current = [];
+    }
+    // A non-page horizontal rule has no presentation meaning, so omit it.
+  }
+  if (current.join('\n').trim()) sections.push(current.join('\n').trim());
+  return sections;
+}
+
 /** Parse the documented PPT markdown protocol without throwing away mixed content. */
 export function parseMarkdownSlides(raw: string): SlideData[] {
   if (!raw.trim()) return [];
-  return raw.replace(/^\s*---\s*\n/, '').split(/\n\s*---\s*\n/).map((section) => section.trim()).filter(Boolean).flatMap((section, slideIndex) => {
+  return splitSlideSections(raw).flatMap((section, slideIndex) => {
     const lines = section.split('\n');
     const h3Indexes = lines.map((line, index) => line.trim().startsWith('### ') ? index : -1).filter((index) => index >= 0);
     let layout: SlideLayout | undefined;
@@ -187,6 +217,7 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
     const items: SlideItem[] = [];
     const tableLines: string[] = [];
     let activeItem: SlideItem | undefined;
+    let activeChild: SlideItem | undefined;
 
     lines.forEach((rawLine, index) => {
       const line = rawLine.trim();
@@ -250,15 +281,34 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
         }
         activeItem = { title: text, bullets: [] };
         items.push(activeItem);
+        activeChild = undefined;
+        return;
+      }
+      if (/^####\s+/.test(line)) {
+        const text = line.replace(/^####\s+/, '').trim();
+        if (!activeItem) {
+          activeItem = { title: subtitle || text, bullets: [], children: [] };
+          items.push(activeItem);
+        }
+        activeItem.children ||= [];
+        activeChild = { title: text, bullets: [] };
+        activeItem.children.push(activeChild);
         return;
       }
       const listMatch = rawLine.match(/^\s*[-*+]\s+(.*)$/) || rawLine.match(/^\s*\d+[\.、]\s+(.*)$/);
       if (listMatch) {
         const text = listMatch[1].trim();
+        const itemHeading = text.match(/^###\s+(.+)$/);
+        if (itemHeading) {
+          activeItem = { title: itemHeading[1].trim(), bullets: [] };
+          items.push(activeItem);
+          return;
+        }
         const isIndented = /^\s{2,}|^\t/.test(rawLine);
-        if (activeItem && (isIndented || h3Indexes.length > 1)) {
-          activeItem.bullets ||= [];
-          activeItem.bullets.push(text);
+        const target = activeChild || activeItem;
+        if (target && (activeChild || isIndented || h3Indexes.length > 1)) {
+          target.bullets ||= [];
+          target.bullets.push(text);
         } else {
           bullets.push(text);
           const item = itemFromBullet(text);
@@ -270,6 +320,9 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
       if (!title) title = line;
       else if (!subtitle) subtitle = line;
       else if (layout === 'quote' && !activeItem && /^\*\*[^*]+\*\*$/.test(line)) quoteText = line;
+      else if (activeChild) {
+        activeChild.description = [activeChild.description, line].filter(Boolean).join('\n');
+      }
       else if (activeItem) {
         if (/^(?:\*\*[^*]+\*\*|【[^】]+】)[：:]/.test(line)) {
           const item = itemFromBullet(line);
@@ -284,6 +337,7 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
         if (!item.title && !items.length && subtitle) item.title = subtitle;
         items.push(item);
         activeItem = item;
+        activeChild = undefined;
       }
     });
 
@@ -322,7 +376,7 @@ function countPlan(count: number): Pick<SlidePlan, 'columns' | 'rows' | 'variant
   if (count <= 2) return { columns: 2, rows: 1, variant: 'contrast' };
   if (count === 3) return { columns: 3, rows: 1, variant: 'pillars' };
   if (count === 4) return { columns: 2, rows: 2, variant: 'matrix' };
-  if (count === 5) return { columns: 2, rows: 3, variant: 'masonry' };
+  if (count === 5) return { columns: 3, rows: 2, variant: 'matrix' };
   if (count === 6) return { columns: 2, rows: 3, variant: 'rail' };
   if (count === 7 || count === 8) return { columns: 2, rows: 4, variant: 'rail' };
   return { columns: 3, rows: 3, variant: 'matrix' };
@@ -356,7 +410,6 @@ export function getSlidePlan(slide: SlideData): SlidePlan {
   const title = `${slide.title} ${slide.subtitle || ''}`.toLowerCase();
   const process = /路线|阶段|流程|步骤|历程|里程碑|演进|实施|calendar|roadmap|timeline|step/.test(title);
   const metric = /指标|数据|成效|优势|统计|kpi|metric|stats/.test(title);
-  const framework = /体系|框架|模块|策略|挑战|支柱|维度|方案|架构/.test(title);
   const detail = items.reduce((total, item) => total + itemText(item).length + (item.title?.length || 0), 0);
   const countLayout = countPlan(count);
   const selectedVariant = variantPlan(count, slide.layoutVariant);
@@ -373,8 +426,8 @@ export function getSlidePlan(slide: SlideData): SlidePlan {
   if (slide.layout === 'stats' || (metric && count >= 2 && count <= 6)) {
     return { kind: 'stats', ...countPlan(Math.min(count, 6)) };
   }
-  if (framework && count === 5) {
-    return { kind: 'cards', columns: 3, rows: 2, variant: 'bento' };
+  if (count === 5 && detail > 300) {
+    return { kind: 'cards', columns: 2, rows: 3, variant: 'rail' };
   }
   if (count === 3 && detail > 300) {
     return { kind: 'cards', columns: 1, rows: 3, variant: 'stacked' };
@@ -389,11 +442,44 @@ function chunk<T>(values: T[], size: number): T[][] {
   return Array.from({ length: Math.ceil(values.length / size) }, (_, index) => values.slice(index * size, (index + 1) * size));
 }
 
+const MAX_CARD_BULLETS = 5;
+const MAX_CARD_DESCRIPTION = 360;
+
+function splitDescription(text = ''): string[] {
+  if (text.length <= MAX_CARD_DESCRIPTION) return [text];
+  const sentences = text.split(/(?<=[。！？；.!?;])\s*/).filter(Boolean);
+  const parts: string[] = [];
+  let current = '';
+  for (const sentence of sentences) {
+    if (sentence.length > MAX_CARD_DESCRIPTION) {
+      if (current) { parts.push(current); current = ''; }
+      for (let index = 0; index < sentence.length; index += MAX_CARD_DESCRIPTION) parts.push(sentence.slice(index, index + MAX_CARD_DESCRIPTION));
+    } else if (`${current}${sentence}`.length > MAX_CARD_DESCRIPTION && current) {
+      parts.push(current); current = sentence;
+    } else current += sentence;
+  }
+  return current ? [...parts, current] : parts;
+}
+
+/** Keep dense user/model content readable by turning it into continuation cards instead of clipping it. */
+function splitDenseItem(item: SlideItem): SlideItem[] {
+  const descriptions = splitDescription(item.description || '');
+  const bulletGroups = chunk(item.bullets || [], MAX_CARD_BULLETS);
+  const count = Math.max(descriptions.length, bulletGroups.length, 1);
+  if (count === 1) return [item];
+  return Array.from({ length: count }, (_, index) => ({
+    ...item,
+    title: index ? `${item.title || '要点'}（续）` : item.title,
+    description: descriptions[index] || '',
+    bullets: bulletGroups[index] || [],
+  }));
+}
+
 /**
  * Preserve every item and table row. Dense slides become continuation slides instead of clipping.
  */
 export function expandSlides(slides: SlideData[]): SlideData[] {
-  return slides.flatMap((slide) => {
+  return slides.flatMap<SlideData>((slide): SlideData[] => {
     if (slide.table && !slide.chart && slide.table.rows.length > 6) {
       return chunk(slide.table.rows, 6).map((rows, index) => ({
         ...slide,
@@ -403,19 +489,32 @@ export function expandSlides(slides: SlideData[]): SlideData[] {
         continuation: index > 0,
       }));
     }
-    const items = slideItems(slide);
-    if (slide.layout === 'quote' && items.length > 3) {
+    const items = slideItems(slide).flatMap(splitDenseItem);
+    const normalizedSlide: SlideData = { ...slide, items, bullets: [] };
+    // Chart views can render at most four text insights beside the graphic.
+    // Repeat the chart on continuation pages rather than silently discarding insights.
+    if (normalizedSlide.chart && items.length > 4) {
+      return chunk(items, 4).map((pageItems, index) => ({
+        ...normalizedSlide,
+        title: index ? `${slide.title}（续）` : slide.title,
+        items: pageItems,
+        quoteText: index === 0 ? slide.quoteText : '',
+        notes: index === 0 ? slide.notes : '',
+        continuation: index > 0,
+      }));
+    }
+    if (normalizedSlide.layout === 'quote' && items.length > 3) {
       return chunk(items, 3).map((pageItems, index) => ({
-        ...slide,
+        ...normalizedSlide,
         title: index ? `${slide.title}（续）` : slide.title,
         items: pageItems,
         notes: index === 0 ? slide.notes : '',
         continuation: index > 0,
       }));
     }
-    if (items.length <= 9 || slide.layout === 'cover') return [slide];
+    if (items.length <= 9 || normalizedSlide.layout === 'cover') return [normalizedSlide];
     return chunk(items, 9).map((pageItems, index) => ({
-      ...slide,
+      ...normalizedSlide,
       title: index ? `${slide.title}（续）` : slide.title,
       items: pageItems,
       bullets: [],
@@ -430,5 +529,9 @@ export function buildSlideDeck(raw: string): SlideData[] {
 }
 
 export function itemText(item: SlideItem): string {
-  return [item.description, ...(item.bullets || []).map((bullet) => `• ${bullet}`)].filter(Boolean).join('\n');
+  return [
+    item.description,
+    ...(item.bullets || []).map((bullet) => `• ${bullet}`),
+    ...(item.children || []).flatMap((child) => [child.title, itemText(child)]),
+  ].filter(Boolean).join('\n');
 }

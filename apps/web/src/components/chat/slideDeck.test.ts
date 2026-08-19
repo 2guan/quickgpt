@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { buildSlideDeck, COLOR_THEMES, completedPptMarkdown, DEFAULT_DECK_STYLE, getDeckStyle, getSlidePlan, getThemePalette, slideItems } from './slideDeck.js';
+import { buildSlideDeck, COLOR_THEMES, completedPptMarkdown, DEFAULT_DECK_STYLE, getDeckStyle, getSlidePlan, getThemePalette, itemText, slideItems } from './slideDeck.js';
 
 assert.equal(COLOR_THEMES.length, 10);
 assert.notDeepEqual(getThemePalette(COLOR_THEMES[0], true), getThemePalette(COLOR_THEMES[1], true));
@@ -10,6 +10,24 @@ const styledCover = buildSlideDeck('<!-- theme: emerald -->\n<!-- color-mode: co
 assert.equal(styledCover[0]?.title, '苹果营养素深度解析');
 assert.equal(completedPptMarkdown('## 第一页\n---\n## 未完成第二页'), '## 第一页');
 assert.equal(completedPptMarkdown('## 尚未结束'), '');
+
+const inlineRules = buildSlideDeck(`<!-- layout: spotlight -->
+## 三个阶段
+### 演进路径
+---
+### 阶段一
+- 起点
+### 阶段二
+- 发展
+### 阶段三
+- 交付
+---
+<!-- layout: grid2 -->
+## 下一页
+- **A**：内容
+- **B**：内容`);
+assert.equal(inlineRules.length, 2);
+assert.deepEqual(inlineRules[0]?.items.map((item) => item.title), ['阶段一', '阶段二', '阶段三']);
 
 const mismatchedGrid = `<!-- layout: grid2 -->
 ## 四大挑战
@@ -54,11 +72,11 @@ assert.deepEqual(getSlidePlan(nineSlide), { kind: 'cards', columns: 3, rows: 3, 
 
 const fiveCards = `## 五个观察
 ${Array.from({ length: 5 }, (_, index) => `- **观察${index + 1}**：内容${index + 1}`).join('\n')}`;
-assert.deepEqual(getSlidePlan(buildSlideDeck(fiveCards)[0]), { kind: 'cards', columns: 2, rows: 3, variant: 'masonry' });
+assert.deepEqual(getSlidePlan(buildSlideDeck(fiveCards)[0]), { kind: 'cards', columns: 3, rows: 2, variant: 'matrix' });
 
 const denseFiveCards = `## 五大海滩一览
 ${Array.from({ length: 5 }, (_, index) => `- **海滩${index + 1}**：海滩特色与度假体验说明，月均客流量${index + 1}万\n  - 水质评分 8.0 / 10\n  - 日落评分 9.0 / 10\n  - 冲浪指数 7.0 / 10`).join('\n')}`;
-assert.deepEqual(getSlidePlan(buildSlideDeck(denseFiveCards)[0]), { kind: 'cards', columns: 2, rows: 3, variant: 'masonry' });
+assert.deepEqual(getSlidePlan(buildSlideDeck(denseFiveCards)[0]), { kind: 'cards', columns: 2, rows: 3, variant: 'rail' });
 
 const explicitFiveUp = `<!-- layout: grid5 -->
 ## 五大海滩一览
@@ -90,6 +108,21 @@ const valueParagraph = buildSlideDeck(`<!-- layout: grid2 -->
 ### 关键能力
 - 在线执行`)[0];
 assert.equal(valueParagraph.items[0]?.title, '核心价值');
+
+const nestedCards = buildSlideDeck(`<!-- layout: grid2 -->
+## 上下文工程
+### 核心理念
+将想法转为结构化需求
+### 四大核心要素
+#### 明确角色矩阵
+定义用户角色与权限
+#### 细化业务场景
+绘制状态流转
+#### 锁定审计规则
+规定日志存储`)[0];
+assert.equal(nestedCards.items[1]?.children?.length, 3);
+assert.deepEqual(nestedCards.items[1]?.children?.map((item) => item.title), ['明确角色矩阵', '细化业务场景', '锁定审计规则']);
+assert.match(itemText(nestedCards.items[1]!), /定义用户角色与权限/);
 
 const quoteWithChallenge = buildSlideDeck(`<!-- layout: quote -->
 ## 行动结语
@@ -136,6 +169,28 @@ assert.equal(partialTimelineSlide.subtitle, '四步上手指南，逐步建立 A
 assert.deepEqual(partialTimelineSlide.items.map((item) => item.title), ['第一步：选好一个真实痛点']);
 assert.equal(getSlidePlan(partialTimelineSlide).kind, 'timeline');
 
+const numberedTimeline = buildSlideDeck(`<!-- layout: timeline -->
+## 多 AI 协同矩阵与敏捷闭环工作流
+### 5步打造虚拟开发团队
+1. ### 意图表达
+   - 使用 DeepSeek 作为首席业务架构师
+2. ### 架构扩充
+   - 使用 Google Stitch 作为 UI 原型师
+3. ### 代码生成
+   - 使用 Codex/Claude 作为主力全栈工程师
+4. ### 本地调试
+   - 本地运行并测试功能
+5. ### 定向补充
+   - 使用 OpenClaw 作为重构专家`)[0];
+assert.deepEqual(numberedTimeline.items.map((item) => item.title), ['意图表达', '架构扩充', '代码生成', '本地调试', '定向补充']);
+assert.deepEqual(numberedTimeline.items.map((item) => item.bullets?.[0]), [
+  '使用 DeepSeek 作为首席业务架构师',
+  '使用 Google Stitch 作为 UI 原型师',
+  '使用 Codex/Claude 作为主力全栈工程师',
+  '本地运行并测试功能',
+  '使用 OpenClaw 作为重构专家',
+]);
+
 const chartSlide = buildSlideDeck(`<!-- layout: chart-right -->
 <!-- chart: area -->
 <!-- chart-title: 用户增长趋势 -->
@@ -165,6 +220,28 @@ const fourInsightChart = buildSlideDeck(`<!-- layout: chart-right -->
 | A | 8 |
 | B | 9 |`)[0];
 assert.equal(slideItems(fourInsightChart).length, 4);
+
+const denseCard = buildSlideDeck(`## 高密度卡片
+- **完整性**：说明
+  - 要点 1
+  - 要点 2
+  - 要点 3
+  - 要点 4
+  - 要点 5
+  - 要点 6`);
+assert.equal(denseCard[0]?.items.length, 2);
+assert.deepEqual(denseCard[0]?.items.flatMap((item) => item.bullets || []), ['要点 1', '要点 2', '要点 3', '要点 4', '要点 5', '要点 6']);
+
+const chartWithFiveInsights = buildSlideDeck(`<!-- layout: chart-right -->
+<!-- chart: column -->
+## 五项图表洞察
+${Array.from({ length: 5 }, (_, index) => `- **洞察 ${index + 1}**：完整保留`).join('\n')}
+| 月份 | 数值 |
+| --- | ---: |
+| 1 月 | 10 |
+| 2 月 | 20 |`);
+assert.equal(chartWithFiveInsights.length, 2);
+assert.equal(chartWithFiveInsights.reduce((total, slide) => total + slideItems(slide).length, 0), 5);
 
 assert.equal(getSlidePlan(buildSlideDeck(`<!-- layout: spotlight -->
 ## 技术栈拆解

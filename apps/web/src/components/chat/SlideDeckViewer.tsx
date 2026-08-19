@@ -49,6 +49,11 @@ const pptColors = (isDark: boolean) => isDark
   : { background: 'F8FAFC', card: 'FFFFFF', border: 'E2E8F0', title: '0F172A', body: '475569', muted: '64748B', stripe: 'CBD5E1' };
 const PPT_CARD_GAP = 0.2;
 const PPT_CALLOUT_GAP = 0.18;
+function useRelaxedCardArea(items: SlideItem[], plan: ReturnType<typeof getSlidePlan>) {
+  if (plan.kind !== 'cards' || plan.rows > 2 || plan.variant === 'bento' || plan.variant === 'masonry') return false;
+  const density = items.reduce((total, item) => total + itemDensity(item), 0);
+  return density <= (plan.rows === 1 ? 440 : 620);
+}
 
 const SlideHeader: React.FC<{ slide: SlideData; theme: SlideTheme }> = ({ slide, theme }) => (
   <header className="mb-5 shrink-0">
@@ -61,16 +66,20 @@ const SlideHeader: React.FC<{ slide: SlideData; theme: SlideTheme }> = ({ slide,
 );
 
 const ItemCard: React.FC<{ item: SlideItem; index: number; theme: SlideTheme; compact: boolean; timeline?: boolean; colorful?: boolean }> = ({ item, index, theme, compact, timeline, colorful = false }) => {
-  const text = itemText(item);
+  const text = [item.description, ...(item.bullets || []).map((bullet) => `• ${bullet}`)].filter(Boolean).join('\n');
+  const children = item.children || [];
   const dense = itemDensity(item) > (compact ? 150 : 230);
-  const sparse = !item.bullets?.length && text.length > 0 && text.length < (compact ? 82 : 110);
+  const sparse = !children.length && !item.bullets?.length && text.length > 0 && text.length < (compact ? 82 : 110);
   const palette = getThemePalette(theme, colorful);
   const accent = colorful ? palette[index % palette.length] : theme.accent;
-  return <article className={`relative flex h-full min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white p-3.5 shadow-sm dark:border-slate-700 dark:bg-slate-800 ${sparse ? 'justify-center' : ''}`} style={{ borderTopColor: timeline || colorful ? accent : undefined, borderTopWidth: timeline || colorful ? 3 : undefined }}>
+  return <article className="relative flex h-full min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white p-3.5 shadow-sm dark:border-slate-700 dark:bg-slate-800" style={{ borderTopColor: timeline || colorful ? accent : undefined, borderTopWidth: timeline || colorful ? 3 : undefined }}>
     <div className="mb-2 flex min-w-0 items-start gap-2 border-b border-slate-100 pb-2 dark:border-slate-700"><span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white" style={{ backgroundColor: accent }}>{index + 1}</span>
       <h3 className={`min-w-0 flex-1 break-words font-bold leading-tight text-slate-900 dark:text-slate-50 ${dense ? (compact ? 'text-[12px]' : 'text-[14px]') : (sparse ? 'text-[19px]' : (compact ? 'text-[14px]' : 'text-[17px]'))}`}>{renderFormattedText(item.title || `要点 ${index + 1}`)}</h3>
     </div>
-    {text && <div className={`whitespace-pre-line break-words leading-relaxed text-slate-600 dark:text-slate-300 ${dense ? 'text-[10px]' : (sparse ? 'text-[15px]' : (compact ? 'text-[12px]' : 'text-[14px]'))}`}>{renderFormattedText(text)}</div>}
+    <div className="flex min-h-0 flex-1 flex-col justify-center gap-2">
+      {text && <div className={`whitespace-pre-line break-words leading-relaxed text-slate-600 dark:text-slate-300 ${dense ? 'text-[10px]' : (sparse ? 'text-[15px]' : (compact ? 'text-[12px]' : 'text-[14px]'))}`}>{renderFormattedText(text)}</div>}
+      {children.length > 0 && <div className={`grid gap-2 ${children.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>{children.slice(0, 4).map((child, childIndex) => <section key={childIndex} className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 dark:border-slate-700 dark:bg-slate-900/70"><h4 className="break-words text-[11px] font-bold leading-snug text-slate-800 dark:text-slate-100">{renderFormattedText(child.title || `分类 ${childIndex + 1}`)}</h4>{itemText(child) && <div className="mt-1 whitespace-pre-line break-words text-[10px] leading-relaxed text-slate-600 dark:text-slate-300">{renderFormattedText(itemText(child))}</div>}</section>)}</div>}
+    </div>
   </article>;
 };
 
@@ -112,8 +121,8 @@ const SlideBody: React.FC<{ slide: SlideData; theme: SlideTheme; colorful: boole
   if (plan.kind === 'table') return <div className="flex flex-1 flex-col justify-center gap-3"><TableView slide={slide} theme={theme} />{slide.quoteText && <LayeredCallout text={slide.quoteText} theme={theme} bold />}{slide.notes && <LayeredCallout text={`💡 ${slide.notes}`} theme={theme} />}</div>;
   if (plan.kind === 'spotlight') { const topCount = items.length > 3 ? 3 : items.length; const highlights = items.slice(0, topCount); const details = items.slice(topCount); return <div className="flex flex-1 flex-col gap-4"><div className="rounded-2xl border-l-4 bg-slate-50 p-3 dark:bg-slate-800" style={{ borderColor: theme.accent }}><div className={`grid gap-3 ${highlights.length === 1 ? 'grid-cols-1' : highlights.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>{highlights.map((item, index) => <ItemCard key={index} item={item} index={index} theme={theme} compact colorful={colorful} />)}</div></div>{details.length > 0 && <div className={`grid min-h-0 flex-1 gap-4 ${details.length === 1 ? 'grid-cols-1' : details.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>{details.map((item, index) => <ItemCard key={index} item={item} index={index + topCount} theme={theme} compact={false} colorful={colorful} />)}</div>}</div>; }
   if (plan.kind === 'chart' && slide.chart) { const chartFirst = slide.layout === 'chart-left'; const insights = items.slice(0, 4); const insightGrid = insights.length > 2 ? 'grid-cols-2 grid-rows-2' : 'grid-cols-1 grid-rows-2'; return <div className="flex flex-1 flex-col justify-center gap-3"><div className="grid min-h-0 flex-1 grid-cols-2 gap-4">{chartFirst && <ChartView chart={slide.chart} theme={theme} colorful={colorful} />}<div className="grid min-h-0 grid-rows-[auto_1fr] gap-3"><div><p className="text-[17px] font-bold text-slate-800 dark:text-slate-100">{slide.chart.title || '关键洞察'}</p>{slide.subtitle && <p className="mt-1 text-[12px] leading-relaxed text-slate-500 dark:text-slate-400">{slide.subtitle}</p>}</div><div className={`grid min-h-0 gap-3 ${insightGrid}`}>{insights.map((item, index) => <ItemCard key={index} item={item} index={index} theme={theme} compact colorful={colorful} />)}</div></div>{!chartFirst && <ChartView chart={slide.chart} theme={theme} colorful={colorful} />}</div>{slide.quoteText && <LayeredCallout text={slide.quoteText} theme={theme} bold />}</div>; }
-  const compact = plan.rows > 1 || plan.columns >= 4 || plan.kind === 'stats';
-  return <div className="flex min-h-0 flex-1 flex-col justify-center gap-3"><div className={`relative grid min-h-0 flex-1 gap-3 ${plan.kind === 'timeline' ? 'pt-5' : ''}`} style={{ gridTemplateColumns: `repeat(${plan.columns}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${plan.rows}, minmax(0, 1fr))` }}>{plan.kind === 'timeline' && <div className="absolute left-8 right-8 top-[20px] h-px bg-slate-200 dark:bg-slate-700" />}{items.map((item, index) => <div key={index} className="min-h-0" style={webCardPlacement(plan, index)}><ItemCard item={item} index={index} theme={theme} compact={compact} timeline={plan.kind === 'timeline'} colorful={colorful} /></div>)}</div>{slide.quoteText && <LayeredCallout text={slide.quoteText} theme={theme} bold />}{slide.notes && <LayeredCallout text={`💡 ${slide.notes}`} theme={theme} />}</div>;
+  const compact = plan.rows > 1 || plan.columns >= 4 || plan.kind === 'stats'; const relaxed = useRelaxedCardArea(items, plan); const rowHeight = plan.rows === 1 ? 190 : 130;
+  return <div className="flex min-h-0 flex-1 flex-col justify-center gap-3"><div className={`relative grid gap-3 ${relaxed ? 'flex-none' : 'min-h-0 flex-1'} ${plan.kind === 'timeline' ? 'pt-5' : ''}`} style={{ gridTemplateColumns: `repeat(${plan.columns}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${plan.rows}, ${relaxed ? `${rowHeight}px` : 'minmax(0, 1fr)'})` }}>{plan.kind === 'timeline' && <div className="absolute left-8 right-8 top-[20px] h-px bg-slate-200 dark:bg-slate-700" />}{items.map((item, index) => <div key={index} className="min-h-0" style={webCardPlacement(plan, index)}><ItemCard item={item} index={index} theme={theme} compact={compact} timeline={plan.kind === 'timeline'} colorful={colorful} /></div>)}</div>{slide.quoteText && <LayeredCallout text={slide.quoteText} theme={theme} bold />}{slide.notes && <LayeredCallout text={`💡 ${slide.notes}`} theme={theme} />}</div>;
 };
 
 function pptText(fontSize: number, color: string, bold = false) { return { fontFace: 'Microsoft YaHei', fontSize, color, bold, breakLine: true, fit: 'shrink' as const, margin: 0.04, valign: 'top' as const }; }
@@ -135,18 +144,31 @@ function addPptCard(slide: any, deck: any, item: SlideItem, index: number, x: nu
   const colors = pptColors(isDark);
   const palette = getThemePalette(theme, colorful);
   const accent = hex(colorful ? palette[index % palette.length] : theme.accent);
-  const body = cleanMarkdownText(itemText(item)); const dense = body.length > 180 || h < 1.5;
-  const sparse = !item.bullets?.length && body.length > 0 && body.length < 110 && h >= 1.5;
-  const titleY = sparse ? y + h * 0.34 : y + 0.1;
-  const bodyY = sparse ? titleY + 0.42 : y + 0.48;
+  const body = cleanMarkdownText([item.description, ...(item.bullets || []).map((bullet) => `• ${bullet}`)].filter(Boolean).join('\n'));
+  const children = item.children || [];
+  const dense = body.length + children.reduce((total, child) => total + itemText(child).length, 0) > 180 || h < 1.5;
+  const childCount = Math.min(children.length, 4);
+  const childColumns = childCount <= 1 ? 1 : 2;
+  const childRows = Math.ceil(childCount / childColumns);
+  const childY = y + (body ? Math.min(h * 0.46, 0.98) : 0.52);
   // The accent is a complete card behind the content card, offset upward by a
   // few pixels. The foreground card naturally reveals only the rounded top.
   if (timeline || colorful) slide.addShape(deck.ShapeType.roundRect, { x, y: y - 0.07, w, h, rectRadius: 0.2, fill: { color: accent }, line: { color: accent, width: 0.7 } });
   slide.addShape(deck.ShapeType.roundRect, { x, y, w, h, rectRadius: 0.2, fill: { color: colors.card }, line: { color: colors.border, width: 0.7 } });
   slide.addShape(deck.ShapeType.ellipse, { x: x + 0.13, y: y + 0.13, w: 0.24, h: 0.24, fill: { color: accent }, line: { color: accent } });
   slide.addText(String(index + 1), { x: x + 0.13, y: y + 0.125, w: 0.24, h: 0.24, fontFace: 'Microsoft YaHei', fontSize: 7.5, bold: true, color: 'FFFFFF', align: 'center', valign: 'middle' });
-  slide.addText(cleanMarkdownText(item.title || `要点 ${index + 1}`), { x: x + 0.43, y: titleY, w: w - 0.56, h: 0.3, ...pptText(h < 1.5 ? 8 : sparse ? 13 : body.length < 60 ? 12 : 10, colors.title, true), valign: 'middle' });
-  if (body) slide.addText(body, { x: x + 0.15, y: bodyY, w: w - 0.3, h: h - (bodyY - y) - 0.15, ...pptText(dense ? 6.7 : sparse ? 10.8 : body.length < 60 ? 10.5 : body.length < 120 ? 9.2 : 8.3, colors.body) });
+  slide.addText(cleanMarkdownText(item.title || `要点 ${index + 1}`), { x: x + 0.43, y: y + 0.1, w: w - 0.56, h: 0.3, ...pptText(h < 1.5 ? 8 : body.length < 60 ? 12 : 10, colors.title, true), valign: 'middle' });
+  if (body) slide.addText(body, { x: x + 0.15, y: y + 0.48, w: w - 0.3, h: (children.length ? childY - y - 0.56 : h - 0.62), ...pptText(dense ? 6.7 : body.length < 60 ? 10.5 : body.length < 120 ? 9.2 : 8.3, colors.body), valign: children.length ? 'top' : 'middle' });
+  if (childCount) {
+    const gap = 0.1; const childW = (w - 0.3 - gap * (childColumns - 1)) / childColumns; const childH = (y + h - 0.14 - childY - gap * (childRows - 1)) / childRows;
+    children.slice(0, childCount).forEach((child, childIndex) => {
+      const childX = x + 0.15 + (childIndex % childColumns) * (childW + gap); const childCardY = childY + Math.floor(childIndex / childColumns) * (childH + gap);
+      slide.addShape(deck.ShapeType.roundRect, { x: childX, y: childCardY, w: childW, h: childH, rectRadius: 0.08, fill: { color: isDark ? '0F172A' : hex(theme.cardBg) }, line: { color: colors.border, width: 0.45 } });
+      slide.addText(cleanMarkdownText(child.title || `分类 ${childIndex + 1}`), { x: childX + 0.08, y: childCardY + 0.07, w: childW - 0.16, h: 0.2, ...pptText(childH < 0.5 ? 6.5 : 7.5, colors.title, true) });
+      const childBody = cleanMarkdownText(itemText(child));
+      if (childBody) slide.addText(childBody, { x: childX + 0.08, y: childCardY + 0.29, w: childW - 0.16, h: childH - 0.35, ...pptText(childH < 0.5 ? 5.5 : 6.5, colors.body), valign: 'middle' });
+    });
+  }
 }
 function pptCardBox(plan: ReturnType<typeof getSlidePlan>, index: number, x: number, y: number, cardW: number, cardH: number, gap: number) {
   if (plan.variant === 'bento') {
@@ -192,7 +214,7 @@ async function exportPptx(slides: SlideData[], theme: SlideTheme, isDark: boolea
     else if (plan.kind === 'spotlight') { const items = slideItems(data); const topCount = items.length > 3 ? 3 : items.length; const gap = PPT_CARD_GAP; const topW = (8.8 - gap * Math.max(0, topCount - 1)) / Math.max(1, topCount); items.slice(0, topCount).forEach((item, index) => addPptCard(slide, deck, item, index, 0.6 + index * (topW + gap), contentY, topW, 1.1, theme, false, isDark, colorful)); const details = items.slice(topCount); const detailW = (8.8 - gap * Math.max(0, details.length - 1)) / Math.max(1, details.length); details.forEach((item, index) => addPptCard(slide, deck, item, index + topCount, 0.6 + index * (detailW + gap), contentY + 1.1 + gap, detailW, contentH - 1.1 - gap, theme, false, isDark, colorful)); }
     else if (plan.kind === 'chart' && data.chart) { const chartLeft = data.layout === 'chart-left'; const chartX = chartLeft ? 0.6 : 5.15; const insightX = chartLeft ? 5.15 : 0.6; const insights = slideItems(data).slice(0, 4); const insightColumns = insights.length > 2 ? 2 : 1; const insightRows = Math.ceil(Math.max(1, insights.length) / insightColumns); const insightGap = 0.12; const insightW = (4.25 - insightGap * (insightColumns - 1)) / insightColumns; const insightH = (contentH - insightGap * (insightRows - 1)) / insightRows; addPptChart(slide, deck, data.chart, theme, isDark, colorful, chartX, contentY, 4.25, contentH); insights.forEach((item, index) => addPptCard(slide, deck, item, index, insightX + (index % insightColumns) * (insightW + insightGap), contentY + Math.floor(index / insightColumns) * (insightH + insightGap), insightW, insightH, theme, false, isDark, colorful)); }
     else if (plan.kind === 'quote') { const quoteItems = slideItems(data); const quoteBlocks = data.quoteBlocks || []; const gap = PPT_CARD_GAP; if (quoteBlocks.length > 1) { const rules = quoteBlocks.slice(0, 3).map(quoteBlockItem); const footer = quoteBlocks.slice(3).join('\n'); const ruleW = (8.8 - gap * Math.max(0, rules.length - 1)) / Math.max(1, rules.length); rules.forEach((item, index) => addPptCard(slide, deck, item, index, 0.6 + index * (ruleW + gap), contentY, ruleW, 1.15, theme, false, isDark, colorful)); const footerH = footer ? 0.38 : 0; const footerY = contentY + contentH - footerH; const actionY = contentY + 1.15 + gap; const actionH = footerY - actionY - (footer ? PPT_CALLOUT_GAP : 0); const actionW = (8.8 - gap * Math.max(0, quoteItems.length - 1)) / Math.max(1, quoteItems.length); quoteItems.forEach((item, index) => addPptCard(slide, deck, item, index + rules.length, 0.6 + index * (actionW + gap), actionY, actionW, actionH, theme, false, isDark, colorful)); if (footer) addPptLayeredCallout(slide, deck, footer, theme, isDark, footerY, footerH); } else { const quoteY = quoteItems.length ? 1.4 : 2.0; const quoteH = quoteItems.length ? 1.15 : 1.45; slide.addShape(deck.ShapeType.roundRect, { x: 0.85, y: quoteY, w: 8.3, h: quoteH, rectRadius: 0.12, fill: { color: isDark ? colors.card : hex(theme.cardBg) }, line: { color: hex(theme.accent), width: 1 } }); slide.addText(cleanMarkdownText(data.quoteText || data.title), { x: 1.1, y: quoteY + 0.12, w: 7.8, h: quoteH - 0.24, fontFace: 'Microsoft YaHei', fontSize: quoteItems.length ? 12.5 : 15, bold: true, color: isDark ? colors.title : hex(theme.textColor), align: 'center', valign: 'middle', fit: 'shrink' as const, margin: 0.04 }); quoteItems.forEach((item, index) => addPptCard(slide, deck, item, index, 0.6 + index * ((8.8 - (quoteItems.length - 1) * gap) / quoteItems.length + gap), 2.85, (8.8 - (quoteItems.length - 1) * gap) / quoteItems.length, 1.35, theme, false, isDark, colorful)); } }
-    else { const items = slideItems(data); const gap = PPT_CARD_GAP; const cardW = (8.8 - gap * (plan.columns - 1)) / plan.columns; const cardH = (contentH - gap * (plan.rows - 1)) / plan.rows; if (plan.kind === 'timeline') slide.addShape(deck.ShapeType.rect, { x: 0.9, y: contentY + 0.23, w: 8.2, h: 0.02, fill: { color: colors.stripe }, line: { color: colors.stripe } }); items.forEach((item, index) => { const box = pptCardBox(plan, index, 0.6, contentY, cardW, cardH, gap); addPptCard(slide, deck, item, index, box.x, box.y, box.w, box.h, theme, plan.kind === 'timeline', isDark, colorful); }); }
+    else { const items = slideItems(data); const gap = PPT_CARD_GAP; const relaxed = useRelaxedCardArea(items, plan); const cardAreaH = relaxed ? Math.min(contentH, plan.rows === 1 ? 1.85 : 2.85) : contentH; const cardY = contentY + (contentH - cardAreaH) / 2; const cardW = (8.8 - gap * (plan.columns - 1)) / plan.columns; const cardH = (cardAreaH - gap * (plan.rows - 1)) / plan.rows; if (plan.kind === 'timeline') slide.addShape(deck.ShapeType.rect, { x: 0.9, y: cardY + 0.23, w: 8.2, h: 0.02, fill: { color: colors.stripe }, line: { color: colors.stripe } }); items.forEach((item, index) => { const box = pptCardBox(plan, index, 0.6, cardY, cardW, cardH, gap); addPptCard(slide, deck, item, index, box.x, box.y, box.w, box.h, theme, plan.kind === 'timeline', isDark, colorful); }); }
     const quoteY = contentY + contentH + PPT_CALLOUT_GAP;
     if (data.quoteText && plan.kind !== 'quote') addPptLayeredCallout(slide, deck, data.quoteText, theme, isDark, quoteY, 0.34, true);
     if (data.notes) { addPptLayeredCallout(slide, deck, `💡 ${data.notes}`, theme, isDark, data.quoteText ? quoteY + 0.34 + PPT_CALLOUT_GAP : quoteY, 0.34); slide.addNotes(cleanMarkdownText(data.notes)); }
