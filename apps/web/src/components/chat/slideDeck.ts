@@ -19,6 +19,7 @@ export type SlideLayout =
   | 'content';
 
 export type ChartType = 'bar' | 'column' | 'line' | 'area' | 'mountain' | 'pie';
+export type SlideLayoutVariant = 'horizontal' | 'balanced' | 'two-column' | 'vertical' | 'masonry' | 'focus';
 
 export interface SlideChart {
   type: ChartType;
@@ -44,6 +45,7 @@ export interface SlideData {
   quoteText?: string;
   notes?: string;
   layout: SlideLayout;
+  layoutVariant?: SlideLayoutVariant;
   continuation?: boolean;
 }
 
@@ -108,10 +110,18 @@ export function getDeckStyle(raw = ''): DeckStyle {
   };
 }
 
+/** During streaming, only pages terminated by a Markdown divider are safe to render. */
+export function completedPptMarkdown(raw = ''): string {
+  let lastDivider = -1;
+  for (const match of raw.matchAll(/\n\s*---\s*(?=\n|$)/g)) lastDivider = match.index ?? -1;
+  return lastDivider >= 0 ? raw.slice(0, lastDivider) : '';
+}
+
 const LAYOUTS = new Set<SlideLayout>([
   'cover', 'grid2', 'grid3', 'grid4', 'grid5', 'grid6', 'grid7', 'grid8', 'grid9',
   'timeline', 'stats', 'quote', 'table', 'chart', 'chart-left', 'chart-right', 'spotlight', 'content',
 ]);
+const LAYOUT_VARIANTS = new Set<SlideLayoutVariant>(['horizontal', 'balanced', 'two-column', 'vertical', 'masonry', 'focus']);
 
 export function cleanMarkdownText(text = ''): string {
   return text
@@ -163,6 +173,7 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
     const lines = section.split('\n');
     const h3Indexes = lines.map((line, index) => line.trim().startsWith('### ') ? index : -1).filter((index) => index >= 0);
     let layout: SlideLayout | undefined;
+    let layoutVariant: SlideLayoutVariant | undefined;
     let title = '';
     let subtitle = '';
     let quoteText = '';
@@ -181,6 +192,12 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
       if (layoutMatch) {
         const candidate = layoutMatch[1].toLowerCase() as SlideLayout;
         if (LAYOUTS.has(candidate)) layout = candidate;
+        return;
+      }
+      const variantMatch = line.match(/^<!--\s*layout-variant:\s*([\w-]+)\s*-->$/i);
+      if (variantMatch) {
+        const candidate = variantMatch[1].toLowerCase() as SlideLayoutVariant;
+        if (LAYOUT_VARIANTS.has(candidate)) layoutVariant = candidate;
         return;
       }
       const chartMatch = line.match(/^<!--\s*chart:\s*(bar|column|line|area|mountain|pie)\s*-->$/i);
@@ -268,6 +285,7 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
       quoteText,
       notes,
       layout: layout || (table ? 'table' : isCover ? 'cover' : 'content'),
+      layoutVariant,
     }];
   });
 }
@@ -293,6 +311,22 @@ function countPlan(count: number): Pick<SlidePlan, 'columns' | 'rows' | 'variant
   return { columns: 3, rows: 3, variant: 'matrix' };
 }
 
+function variantPlan(count: number, variant?: SlideLayoutVariant): Pick<SlidePlan, 'columns' | 'rows' | 'variant'> | undefined {
+  if (!variant) return undefined;
+  if (variant === 'horizontal' && count >= 2 && count <= 5) return { columns: count, rows: 1, variant: 'pillars' };
+  if (variant === 'vertical' && count >= 2 && count <= 3) return { columns: 1, rows: count, variant: 'stacked' };
+  if (variant === 'masonry' && count === 5) return { columns: 2, rows: 3, variant: 'masonry' };
+  if (variant === 'focus' && count === 5) return { columns: 3, rows: 2, variant: 'bento' };
+  if (variant === 'two-column') return { columns: 2, rows: Math.ceil(count / 2), variant: count === 2 ? 'contrast' : 'rail' };
+  if (variant === 'balanced') {
+    if (count <= 3) return { columns: count, rows: 1, variant: count === 2 ? 'contrast' : 'pillars' };
+    if (count === 5 || count === 6) return { columns: 3, rows: 2, variant: 'matrix' };
+    if (count === 7 || count === 8) return { columns: 4, rows: 2, variant: 'matrix' };
+    return { columns: 3, rows: 3, variant: 'matrix' };
+  }
+  return undefined;
+}
+
 /** One layout decision feeds both the browser canvas and the PPTX exporter. */
 export function getSlidePlan(slide: SlideData): SlidePlan {
   if (slide.layout === 'cover') return { kind: 'cover', columns: 1, rows: 1, variant: 'pillars' };
@@ -308,6 +342,13 @@ export function getSlidePlan(slide: SlideData): SlidePlan {
   const framework = /体系|框架|模块|策略|挑战|支柱|维度|方案|架构/.test(title);
   const detail = items.reduce((total, item) => total + itemText(item).length + (item.title?.length || 0), 0);
   const countLayout = countPlan(count);
+  const selectedVariant = variantPlan(count, slide.layoutVariant);
+  if (selectedVariant) return { kind: 'cards', ...selectedVariant };
+  // An explicit grid5 declaration is a deliberate five-up comparison layout.
+  // Do not let content heuristics turn it into short, clipped rows.
+  if (slide.layout === 'grid5' && count === 5) {
+    return { kind: 'cards', columns: 5, rows: 1, variant: 'pillars' };
+  }
   if ((slide.layout === 'timeline' || (process && count >= 2 && count <= 5)) && count <= 5) {
     return { kind: 'timeline', columns: count, rows: 1, variant: 'pillars' };
   }

@@ -11,6 +11,7 @@ import { SlideDeckViewer } from './SlideDeckViewer.js';
 interface MarkdownRendererProps {
   content: string;
   isStreaming?: boolean;
+  enablePptPreview?: boolean;
 }
 
 /**
@@ -56,7 +57,7 @@ function normalizeMarkdownContent(content: string): string {
   return processed;
 }
 
-export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, isStreaming = false }) => {
+export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, isStreaming = false, enablePptPreview = true }) => {
   const normalizedContent = useMemo(() => normalizeMarkdownContent(content), [content]);
 
   const markdownComponents = useMemo<any>(() => ({
@@ -70,7 +71,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, isS
             const codeString = String(children).replace(/\n$/, '');
 
             // Detect PPT / Presentation Slide Deck format
-            if (!inline && ['ppt', 'pptx', 'slide', 'slides', 'presentation', 'marp'].includes(language)) {
+            if (enablePptPreview && !inline && ['ppt', 'pptx', 'slide', 'slides', 'presentation', 'marp'].includes(language)) {
               return <SlideDeckViewer rawCode={codeString} isStreaming={isStreaming} />;
             }
 
@@ -146,7 +147,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, isS
               />
             );
           },
-  }), [isStreaming]);
+  }), [enablePptPreview, isStreaming]);
 
   return (
     <div className="prose prose-slate dark:prose-invert max-w-none text-slate-800 dark:text-slate-100 text-[14.5px] leading-relaxed break-words">

@@ -447,7 +447,7 @@ const AssistantCard: React.FC<{
             </button>
             {showReasoning && (
               <div className="mt-2.5 pt-2.5 border-t border-amber-200/50 dark:border-amber-900/40 text-slate-700 dark:text-slate-300 text-[13px] leading-relaxed">
-                <MarkdownRenderer content={message.reasoning_content} />
+                <MarkdownRenderer content={message.reasoning_content} enablePptPreview={false} />
               </div>
             )}
           </div>
