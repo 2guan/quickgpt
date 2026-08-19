@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
@@ -10,6 +10,7 @@ import { SlideDeckViewer } from './SlideDeckViewer.js';
 
 interface MarkdownRendererProps {
   content: string;
+  isStreaming?: boolean;
 }
 
 /**
@@ -55,19 +56,10 @@ function normalizeMarkdownContent(content: string): string {
   return processed;
 }
 
-export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) => {
+export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, isStreaming = false }) => {
   const normalizedContent = useMemo(() => normalizeMarkdownContent(content), [content]);
 
-  return (
-    <div className="prose prose-slate dark:prose-invert max-w-none text-slate-800 dark:text-slate-100 text-[14.5px] leading-relaxed break-words">
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[
-          rehypeRaw,
-          [rehypeKatex, { output: 'html', throwOnError: false }],
-          rehypeHighlight,
-        ]}
-        components={{
+  const markdownComponents = useMemo<any>(() => ({
           pre({ node, children, ...props }: any) {
             // If the pre contains a SlideDeckViewer, don't wrap it in a prose <pre>
             return <div className="my-3 not-prose w-full overflow-visible">{children}</div>;
@@ -79,7 +71,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) =
 
             // Detect PPT / Presentation Slide Deck format
             if (!inline && ['ppt', 'pptx', 'slide', 'slides', 'presentation', 'marp'].includes(language)) {
-              return <SlideDeckViewer rawCode={codeString} />;
+              return <SlideDeckViewer rawCode={codeString} isStreaming={isStreaming} />;
             }
 
             if (!inline && (match || codeString.includes('\n'))) {
@@ -95,7 +87,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) =
               </code>
             );
           },
-          img({ node, ...props }) {
+          img({ node, ...props }: any) {
             return (
               <img
                 className="rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-md max-h-96 my-3 object-contain"
@@ -104,7 +96,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) =
               />
             );
           },
-          table({ node, ...props }) {
+          table({ node, ...props }: any) {
             return (
               <div className="my-4 overflow-x-auto rounded-xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
                 <table
@@ -114,7 +106,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) =
               </div>
             );
           },
-          thead({ node, ...props }) {
+          thead({ node, ...props }: any) {
             return (
               <thead
                 className="bg-slate-50/90 dark:bg-slate-800/90 text-slate-700 dark:text-slate-200 font-semibold border-b border-slate-200 dark:border-slate-800"
@@ -122,7 +114,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) =
               />
             );
           },
-          tbody({ node, ...props }) {
+          tbody({ node, ...props }: any) {
             return (
               <tbody
                 className="divide-y divide-slate-100 dark:divide-slate-800/80 bg-white dark:bg-slate-900"
@@ -130,7 +122,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) =
               />
             );
           },
-          tr({ node, ...props }) {
+          tr({ node, ...props }: any) {
             return (
               <tr
                 className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors"
@@ -138,7 +130,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) =
               />
             );
           },
-          th({ node, ...props }) {
+          th({ node, ...props }: any) {
             return (
               <th
                 className="px-4 py-3 text-xs font-semibold tracking-wider text-slate-700 dark:text-slate-200 whitespace-nowrap"
@@ -146,7 +138,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) =
               />
             );
           },
-          td({ node, ...props }) {
+          td({ node, ...props }: any) {
             return (
               <td
                 className="px-4 py-3 text-xs sm:text-sm text-slate-700 dark:text-slate-300 leading-relaxed"
@@ -154,7 +146,18 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) =
               />
             );
           },
-        }}
+  }), [isStreaming]);
+
+  return (
+    <div className="prose prose-slate dark:prose-invert max-w-none text-slate-800 dark:text-slate-100 text-[14.5px] leading-relaxed break-words">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[
+          rehypeRaw,
+          [rehypeKatex, { output: 'html', throwOnError: false }],
+          rehypeHighlight,
+        ]}
+        components={markdownComponents}
       >
         {normalizedContent}
       </ReactMarkdown>

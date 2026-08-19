@@ -456,7 +456,7 @@ const AssistantCard: React.FC<{
         {/* Main Answer Markdown Content */}
         {message.content ? (
           <div className="text-slate-800 dark:text-slate-100">
-            <MarkdownRenderer content={message.content} />
+            <MarkdownRenderer content={message.content} isStreaming={!!message.isStreaming} />
           </div>
         ) : message.isStreaming ? (
           <div className="flex items-center gap-2 py-4 text-slate-400 dark:text-slate-500 text-xs">

@@ -195,7 +195,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({ onSend }) => {
       )}
 
       {/* 3. Refined Modern Input Box Container */}
-      <div className="relative flex items-end gap-1.5 sm:gap-2 bg-[#f4f4f6] dark:bg-[#1e1e22] hover:bg-[#ededf0] dark:hover:bg-[#232328] focus-within:bg-white dark:focus-within:bg-[#1c1c20] focus-within:border-emerald-500/40 dark:focus-within:border-emerald-500/40 focus-within:shadow-[0_2px_14px_rgba(16,185,129,0.06)] border border-slate-200/70 dark:border-slate-800/80 rounded-[26px] p-2 sm:p-2.5 transition-all duration-200 shadow-[0_2px_8px_rgba(0,0,0,0.02)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.18)]">
+      <div className="relative mt-9 flex items-end gap-1 sm:mt-0 sm:gap-1.5 bg-[#f4f4f6] dark:bg-[#1e1e22] hover:bg-[#ededf0] dark:hover:bg-[#232328] focus-within:bg-white dark:focus-within:bg-[#1c1c20] focus-within:border-emerald-500/40 dark:focus-within:border-emerald-500/40 focus-within:shadow-[0_2px_14px_rgba(16,185,129,0.06)] border border-slate-200/70 dark:border-slate-800/80 rounded-[26px] p-2 sm:p-2.5 transition-all duration-200 shadow-[0_2px_8px_rgba(0,0,0,0.02)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.18)]">
         {/* Hidden File Input */}
         <input
           type="file"
@@ -205,45 +205,50 @@ export const MessageInput: React.FC<MessageInputProps> = ({ onSend }) => {
           accept=".pdf,.docx,.doc,.txt,.md,.csv,.xlsx,.xls,image/*"
         />
 
+        <div className="absolute -top-8 left-2 flex items-center gap-1 sm:static">
         {/* Paperclip Button */}
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={isUploading}
-          className="p-2 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 rounded-full transition-all shrink-0 mb-0.5 active:scale-95 disabled:opacity-50"
-          title="上传文件或图片 (限20MB内)"
+          className="group relative border border-transparent p-1.5 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 rounded-full transition-all shrink-0 mb-0.5 active:scale-95 disabled:opacity-50"
+          aria-label="上传附件"
         >
           {isUploading ? (
             <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
           ) : (
             <Paperclip className="w-4 h-4" />
           )}
+          <span role="tooltip" className="pointer-events-none absolute left-1/2 top-full z-30 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-800 px-2 py-1 text-[11px] font-medium text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 dark:bg-slate-100 dark:text-slate-900">上传附件</span>
         </button>
 
         {/* Web Search Icon Button beside attachment button */}
         <button
           onClick={() => setEnableSearch(!enableSearch)}
-          className={`p-2 rounded-full transition-all shrink-0 mb-0.5 active:scale-95 ${
+          className={`group relative border border-transparent p-1.5 rounded-full transition-all shrink-0 mb-0.5 active:scale-95 ${
             enableSearch
-              ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/80'
+              ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/80'
               : 'text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
           }`}
-          title={enableSearch ? '联网搜索已开启（点击关闭）' : '点击开启联网搜索'}
+          aria-label="联网搜索"
         >
           <Globe className={`w-4 h-4 ${enableSearch ? 'animate-pulse' : ''}`} />
+          <span role="tooltip" className="pointer-events-none absolute left-1/2 top-full z-30 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-800 px-2 py-1 text-[11px] font-medium text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 dark:bg-slate-100 dark:text-slate-900">联网搜索</span>
         </button>
 
         {/* PPT Generation Background Toggle Button */}
         <button
           onClick={() => setEnablePPT(!enablePPT)}
-          className={`p-2 rounded-full transition-all shrink-0 mb-0.5 active:scale-95 ${
+          className={`group relative border border-transparent p-1.5 rounded-full transition-all shrink-0 mb-0.5 active:scale-95 ${
             enablePPT
-              ? 'bg-orange-50 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800/80'
+              ? 'bg-orange-50 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400 border-orange-200 dark:border-orange-800/80'
               : 'text-slate-400 dark:text-slate-500 hover:text-orange-600 dark:hover:text-orange-400 hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
           }`}
-          title={enablePPT ? 'PPT 幻灯片生成模式已开启（点击关闭）' : '点击开启 PPT 幻灯片生成模式（后台自动附加 PPT 制作规范）'}
+          aria-label="制作PPT"
         >
           <Presentation className={`w-4 h-4 ${enablePPT ? 'animate-pulse text-orange-600 dark:text-orange-400' : ''}`} />
+          <span role="tooltip" className="pointer-events-none absolute left-1/2 top-full z-30 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-800 px-2 py-1 text-[11px] font-medium text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 dark:bg-slate-100 dark:text-slate-900">制作PPT</span>
         </button>
+        </div>
 
         {/* Auto-resizing Textarea */}
         <textarea
@@ -254,7 +259,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({ onSend }) => {
           onKeyDown={handleKeyDown}
           placeholder="今天聊点什么？"
           style={{ outline: 'none', border: 'none', boxShadow: 'none' }}
-          className="w-full bg-transparent border-0 outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 shadow-none resize-none max-h-48 py-1.5 px-0 text-[14px] text-slate-800 dark:text-slate-100 placeholder:text-slate-400/80 dark:placeholder:text-slate-500/80 leading-relaxed"
+          className="min-w-0 flex-1 bg-transparent border-0 outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 shadow-none resize-none max-h-48 py-1.5 pl-1.5 pr-0 text-[14px] text-slate-800 dark:text-slate-100 placeholder:text-slate-400/80 dark:placeholder:text-slate-500/80 leading-relaxed sm:px-0"
         />
 
         {/* Right side buttons: Mic & Send / Stop */}
