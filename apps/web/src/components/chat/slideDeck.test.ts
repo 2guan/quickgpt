@@ -243,6 +243,51 @@ ${Array.from({ length: 5 }, (_, index) => `- **洞察 ${index + 1}**：完整保
 assert.equal(chartWithFiveInsights.length, 2);
 assert.equal(chartWithFiveInsights.reduce((total, slide) => total + slideItems(slide).length, 0), 5);
 
+const hubSlide = buildSlideDeck(`<!-- layout: hub -->
+## 企业级测试方法
+### 流程化标准化
+- **统一标准**：明确分析设计口径
+- **专业共享**：沉淀可复用资产
+- **有序协同**：建立协同机制
+- **快速有效**：形成分析闭环`)[0];
+assert.equal(getSlidePlan(hubSlide).kind, 'hub');
+
+const challengeSlide = buildSlideDeck(`<!-- layout: challenge-solution -->
+## 难点与方案
+### 认知差距
+#### 难点
+标准与习惯存在断层
+#### 解决方案
+逐项对比并组织答疑
+### 职责边界
+#### 难点
+多方职责交叉
+#### 解决方案
+建立角色矩阵`)[0];
+assert.equal(getSlidePlan(challengeSlide).kind, 'challenge');
+assert.deepEqual(challengeSlide.items[0]?.children?.map((item) => item.title), ['难点', '解决方案']);
+
+const chartGridSlide = buildSlideDeck(`<!-- layout: chart-grid -->
+<!-- chart: column -->
+## 四维质量分析
+| 周期 | 缺陷密度 | 执行效率 | 修复效率 | 重现率 |
+| --- | ---: | ---: | ---: | ---: |
+| 一期 | 15.1 | 958 | 81 | 15.8 |
+| 二期 | 6.9 | 1495 | 66 | 17 |`)[0];
+assert.equal(getSlidePlan(chartGridSlide).kind, 'chartGrid');
+assert.equal(chartGridSlide.chart?.series.length, 4);
+
+const dashboardSlide = buildSlideDeck(`<!-- layout: dashboard -->
+<!-- chart: bar -->
+## 问题经营总览
+- **问题总数**：182
+- **已解决**：155
+| 类型 | 金科问题 | 农信问题 |
+| --- | ---: | ---: |
+| 应用配置 | 57 | 37 |
+| 程序代码 | 14 | 13 |`)[0];
+assert.equal(getSlidePlan(dashboardSlide).kind, 'dashboard');
+
 assert.equal(getSlidePlan(buildSlideDeck(`<!-- layout: spotlight -->
 ## 技术栈拆解
 - **总览一**：说明

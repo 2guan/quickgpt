@@ -15,6 +15,10 @@ export type SlideLayout =
   | 'chart'
   | 'chart-left'
   | 'chart-right'
+  | 'chart-grid'
+  | 'dashboard'
+  | 'hub'
+  | 'challenge-solution'
   | 'spotlight'
   | 'content';
 
@@ -128,7 +132,7 @@ export function completedPptMarkdown(raw = ''): string {
 
 const LAYOUTS = new Set<SlideLayout>([
   'cover', 'grid2', 'grid3', 'grid4', 'grid5', 'grid6', 'grid7', 'grid8', 'grid9',
-  'timeline', 'stats', 'quote', 'table', 'chart', 'chart-left', 'chart-right', 'spotlight', 'content',
+  'timeline', 'stats', 'quote', 'table', 'chart', 'chart-left', 'chart-right', 'chart-grid', 'dashboard', 'hub', 'challenge-solution', 'spotlight', 'content',
 ]);
 const LAYOUT_VARIANTS = new Set<SlideLayoutVariant>(['horizontal', 'balanced', 'two-column', 'vertical', 'masonry', 'focus']);
 
@@ -366,7 +370,7 @@ export function slideItems(slide: SlideData): SlideItem[] {
 }
 
 export interface SlidePlan {
-  kind: 'cover' | 'table' | 'quote' | 'timeline' | 'stats' | 'chart' | 'spotlight' | 'cards';
+  kind: 'cover' | 'table' | 'quote' | 'timeline' | 'stats' | 'chart' | 'chartGrid' | 'dashboard' | 'hub' | 'challenge' | 'spotlight' | 'cards';
   columns: number;
   rows: number;
   variant: 'contrast' | 'pillars' | 'matrix' | 'masonry' | 'bento' | 'stacked' | 'rail' | 'checklist';
@@ -402,6 +406,10 @@ function variantPlan(count: number, variant?: SlideLayoutVariant): Pick<SlidePla
 /** One layout decision feeds both the browser canvas and the PPTX exporter. */
 export function getSlidePlan(slide: SlideData): SlidePlan {
   if (slide.layout === 'cover') return { kind: 'cover', columns: 1, rows: 1, variant: 'pillars' };
+  if (slide.layout === 'hub') return { kind: 'hub', columns: 3, rows: 3, variant: 'bento' };
+  if (slide.layout === 'challenge-solution') return { kind: 'challenge', columns: 3, rows: Math.max(1, Math.min(4, slideItems(slide).length)), variant: 'rail' };
+  if (slide.layout === 'chart-grid' && slide.chart) return { kind: 'chartGrid', columns: Math.min(4, Math.max(2, slide.chart.series.length)), rows: 1, variant: 'pillars' };
+  if (slide.layout === 'dashboard' && slide.chart) return { kind: 'dashboard', columns: 2, rows: 2, variant: 'matrix' };
   if (slide.chart) return { kind: 'chart', columns: 2, rows: 1, variant: slide.layout === 'chart-left' ? 'contrast' : 'pillars' };
   if (slide.table) return { kind: 'table', columns: 1, rows: 1, variant: 'checklist' };
   if (slide.layout === 'quote') return { kind: 'quote', columns: 1, rows: 1, variant: 'pillars' };
