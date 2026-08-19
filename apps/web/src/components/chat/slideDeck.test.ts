@@ -91,6 +91,18 @@ const quoteSlide = buildSlideDeck(quoteWithScenes)[0];
 assert.equal(quoteSlide.quoteText, '**核心原则**：选择无糖配方，控制食用频率。');
 assert.deepEqual(quoteSlide.items.map((item) => item.title), ['推荐场景', '避免场景']);
 
+const groupedQuotes = buildSlideDeck(`<!-- layout: quote -->
+## 旅行建议
+> **家庭度假**
+> 选择平缓浅滩
+
+> **冲浪爱好者**
+> 选择世界级浪点
+
+> **最佳季节**
+> 4 月至 10 月`)[0];
+assert.deepEqual(groupedQuotes.quoteBlocks, ['**家庭度假**\n选择平缓浅滩', '**冲浪爱好者**\n选择世界级浪点', '**最佳季节**\n4 月至 10 月']);
+
 const partialTimeline = `---
 <!-- layout: timeline -->
 ## 附录：从零开始的 Vibe Coding 实践路径

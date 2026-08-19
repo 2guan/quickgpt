@@ -43,6 +43,7 @@ export interface SlideData {
   table?: { headers: string[]; rows: string[][] };
   chart?: SlideChart;
   quoteText?: string;
+  quoteBlocks?: string[];
   notes?: string;
   layout: SlideLayout;
   layoutVariant?: SlideLayoutVariant;
@@ -177,6 +178,8 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
     let title = '';
     let subtitle = '';
     let quoteText = '';
+    const quoteBlocks: string[] = [];
+    let quoteBlockIndex = -1;
     let notes = '';
     let chartType: ChartType | undefined;
     let chartTitle = '';
@@ -187,7 +190,8 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
 
     lines.forEach((rawLine, index) => {
       const line = rawLine.trim();
-      if (!line) return;
+      if (!line) { quoteBlockIndex = -1; return; }
+      if (!line.startsWith('>')) quoteBlockIndex = -1;
       const layoutMatch = line.match(/^<!--\s*layout:\s*([\w-]+)\s*-->$/i);
       if (layoutMatch) {
         const candidate = layoutMatch[1].toLowerCase() as SlideLayout;
@@ -216,6 +220,10 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
           notes = text.replace(/^(?:💡|📌|⭐|✨)?\s*(?:\*\*)?(?:演讲备注|备注|notes?)[：:]?\s*(?:\*\*)?/i, '').trim();
         } else {
           quoteText = [quoteText, text].filter(Boolean).join('\n');
+          if (quoteBlockIndex < 0) {
+            quoteBlocks.push(text);
+            quoteBlockIndex = quoteBlocks.length - 1;
+          } else quoteBlocks[quoteBlockIndex] = `${quoteBlocks[quoteBlockIndex]}\n${text}`;
         }
         return;
       }
@@ -283,6 +291,7 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
       table,
       chart,
       quoteText,
+      quoteBlocks,
       notes,
       layout: layout || (table ? 'table' : isCover ? 'cover' : 'content'),
       layoutVariant,

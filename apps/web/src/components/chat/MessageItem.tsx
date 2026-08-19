@@ -70,7 +70,7 @@ const UserMessageBubble: React.FC<{ message: Message }> = ({ message }) => {
 
   return (
     <div className="flex justify-end gap-3 px-2 sm:px-4">
-      <div className="flex flex-col items-end max-w-[85%] sm:max-w-[75%] space-y-2">
+      <div className="flex min-w-0 flex-col items-end max-w-[85%] sm:max-w-[75%] space-y-2">
         {/* Attached files preview */}
         {attachments.length > 0 && (
           <div className="flex flex-wrap gap-1.5 justify-end">
@@ -92,7 +92,7 @@ const UserMessageBubble: React.FC<{ message: Message }> = ({ message }) => {
         )}
 
         {/* Text bubble */}
-        <div className="bg-[#f4f4f5] dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-2xl rounded-tr-sm px-4 py-2.5 shadow-2xs text-[14.5px] leading-relaxed break-words whitespace-pre-wrap">
+        <div className="min-w-0 max-w-full [overflow-wrap:anywhere] bg-[#f4f4f5] dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-2xl rounded-tr-sm px-4 py-2.5 shadow-2xs text-[14.5px] leading-relaxed break-words whitespace-pre-wrap">
           {message.content}
         </div>
       </div>
