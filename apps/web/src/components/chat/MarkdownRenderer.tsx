@@ -1,11 +1,11 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
 import rehypeHighlight from 'rehype-highlight';
-import { Copy, Check } from 'lucide-react';
+import { Copy, Check, X } from 'lucide-react';
 import { SlideDeckViewer } from './SlideDeckViewer.js';
 
 interface MarkdownRendererProps {
@@ -88,14 +88,14 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, isS
               </code>
             );
           },
-          img({ node, ...props }: any) {
-            return (
-              <img
-                className="rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-md max-h-96 my-3 object-contain"
-                loading="lazy"
-                {...props}
-              />
-            );
+          img: MarkdownImage,
+          p({ node, children, ...props }: any) {
+            const items = React.Children.toArray(children);
+            const imagesOnly = items.filter((child) => React.isValidElement(child) && child.type === MarkdownImage);
+            if (imagesOnly.length && imagesOnly.length === items.filter((child) => typeof child !== 'string' || child.trim()).length) {
+              return <div className={`my-3 grid gap-2 ${imagesOnly.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>{children}</div>;
+            }
+            return <p {...props}>{children}</p>;
           },
           table({ node, ...props }: any) {
             return (
@@ -163,6 +163,52 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, isS
         {normalizedContent}
       </ReactMarkdown>
     </div>
+  );
+};
+
+const MarkdownImage: React.FC<{ src?: string; alt?: string }> = ({ src, alt = '图片预览' }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    if (isOpen) dialog.showModal();
+    else dialog.close();
+  }, [isOpen]);
+
+  if (!src) return null;
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setIsOpen(true)}
+        className="group aspect-square min-w-0 overflow-hidden rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 shadow-md touch-manipulation focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500"
+        aria-label={`放大查看：${alt}`}
+      >
+        <img src={src} alt={alt} loading="lazy" className="h-full max-h-80 w-full object-contain transition-transform duration-200 motion-reduce:transition-none group-hover:scale-[1.02]" />
+      </button>
+      <dialog
+        ref={dialogRef}
+        onClose={() => setIsOpen(false)}
+        onClick={(event) => { if (event.target === event.currentTarget) setIsOpen(false); }}
+        aria-label={alt}
+        className="m-auto max-h-[90vh] max-w-[94vw] overflow-visible bg-transparent p-0 backdrop:bg-black/75"
+      >
+        <div className="relative">
+          <img src={src} alt={alt} className="max-h-[85vh] max-w-[90vw] rounded-xl object-contain shadow-2xl" />
+          <button
+            type="button"
+            onClick={() => setIsOpen(false)}
+            className="absolute right-2 top-2 flex h-11 w-11 items-center justify-center rounded-full bg-black/65 text-white hover:bg-black/85 touch-manipulation focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            aria-label="关闭图片预览"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+      </dialog>
+    </>
   );
 };
 

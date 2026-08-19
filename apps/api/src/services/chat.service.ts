@@ -12,6 +12,7 @@ import { ENV } from '../config/env.js';
 import crypto from 'node:crypto';
 import path from 'node:path';
 import fs from 'node:fs';
+import { getGeneratedImageResults } from './image-generation.js';
 
 export interface ConversationEntity {
   id: string;
@@ -291,67 +292,62 @@ export async function handleStreamChat({
             break;
           }
 
-          const imgJson = (await response.json()) as any;
-          const rawUrl = imgJson.data?.[0]?.url;
-          const b64Json = imgJson.data?.[0]?.b64_json;
-          const revisedPrompt = imgJson.data?.[0]?.revised_prompt || prompt;
+          const generatedImages = getGeneratedImageResults(await response.json(), prompt);
+          if (generatedImages.length === 0) throw new Error('渠道未返回有效图片');
 
-          let finalImageUrl = '';
+          const finalImageUrls: string[] = [];
+          for (const { url: rawUrl, b64Json, revisedPrompt } of generatedImages) {
+            let finalImageUrl = '';
 
-          if (b64Json) {
-            const buffer = Buffer.from(b64Json, 'base64');
-            const filename = `gen_${Date.now()}_${crypto.randomBytes(4).toString('hex')}.png`;
-            const filePath = path.join(ENV.UPLOADS_DIR, filename);
-            fs.writeFileSync(filePath, buffer);
-            finalImageUrl = `/uploads/${filename}`;
+            if (b64Json) {
+              const buffer = Buffer.from(b64Json, 'base64');
+              const filename = `gen_${Date.now()}_${crypto.randomBytes(4).toString('hex')}.png`;
+              fs.writeFileSync(path.join(ENV.UPLOADS_DIR, filename), buffer);
+              finalImageUrl = `/uploads/${filename}`;
 
-            // Record in uploads
-            const uploadId = `up_${crypto.randomBytes(6).toString('hex')}`;
-            const now = new Date().toISOString();
-            db.prepare(`
-              INSERT INTO uploads (id, user_id, file_name, file_path, file_size, mime_type, is_generated_image, extracted_text, created_at)
-              VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
-            `).run(uploadId, user.id, filename, filename, buffer.length, 'image/png', revisedPrompt, now);
-          } else if (rawUrl) {
-            let fullRemoteUrl = rawUrl;
-            if (rawUrl.startsWith('/')) {
-              try {
-                const origin = new URL(candidate.channel_base_url).origin;
-                fullRemoteUrl = `${origin}${rawUrl}`;
-              } catch {
-                fullRemoteUrl = rawUrl;
+              db.prepare(`
+                INSERT INTO uploads (id, user_id, file_name, file_path, file_size, mime_type, is_generated_image, extracted_text, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
+              `).run(`up_${crypto.randomBytes(6).toString('hex')}`, user.id, filename, filename, buffer.length, 'image/png', revisedPrompt, new Date().toISOString());
+            } else if (rawUrl) {
+              let fullRemoteUrl = rawUrl;
+              if (rawUrl.startsWith('/')) {
+                try {
+                  fullRemoteUrl = `${new URL(candidate.channel_base_url).origin}${rawUrl}`;
+                } catch {
+                  // Use the original URL if the channel URL is invalid.
+                }
               }
-            }
 
-            try {
-              const dlRes = await fetch(fullRemoteUrl, {
-                headers: { Authorization: `Bearer ${candidate.channel_api_key}` },
-                signal: AbortSignal.timeout(10000),
-              });
-              if (dlRes.ok) {
-                const ab = await dlRes.arrayBuffer();
-                const buffer = Buffer.from(ab);
-                const ext = path.extname(rawUrl) || '.png';
-                const filename = `gen_${Date.now()}_${crypto.randomBytes(4).toString('hex')}${ext}`;
-                const filePath = path.join(ENV.UPLOADS_DIR, filename);
-                fs.writeFileSync(filePath, buffer);
-                finalImageUrl = `/uploads/${filename}`;
+              try {
+                const dlRes = await fetch(fullRemoteUrl, {
+                  headers: { Authorization: `Bearer ${candidate.channel_api_key}` },
+                  signal: AbortSignal.timeout(10000),
+                });
+                if (dlRes.ok) {
+                  const buffer = Buffer.from(await dlRes.arrayBuffer());
+                  const filename = `gen_${Date.now()}_${crypto.randomBytes(4).toString('hex')}${path.extname(rawUrl) || '.png'}`;
+                  fs.writeFileSync(path.join(ENV.UPLOADS_DIR, filename), buffer);
+                  finalImageUrl = `/uploads/${filename}`;
 
-                const uploadId = `up_${crypto.randomBytes(6).toString('hex')}`;
-                const now = new Date().toISOString();
-                db.prepare(`
-                  INSERT INTO uploads (id, user_id, file_name, file_path, file_size, mime_type, is_generated_image, extracted_text, created_at)
-                  VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
-                `).run(uploadId, user.id, filename, filename, buffer.length, 'image/png', revisedPrompt, now);
-              } else {
+                  db.prepare(`
+                    INSERT INTO uploads (id, user_id, file_name, file_path, file_size, mime_type, is_generated_image, extracted_text, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
+                  `).run(`up_${crypto.randomBytes(6).toString('hex')}`, user.id, filename, filename, buffer.length, 'image/png', revisedPrompt, new Date().toISOString());
+                } else {
+                  finalImageUrl = fullRemoteUrl;
+                }
+              } catch {
                 finalImageUrl = fullRemoteUrl;
               }
-            } catch {
-              finalImageUrl = fullRemoteUrl;
             }
+
+            if (finalImageUrl) finalImageUrls.push(finalImageUrl);
           }
 
-          const markdownOutput = `![${revisedPrompt}](${finalImageUrl})\n\n*生成提示词*: ${revisedPrompt}`;
+          if (finalImageUrls.length === 0) throw new Error('渠道未返回可用图片');
+          const revisedPrompt = generatedImages[0].revisedPrompt;
+          const markdownOutput = `${finalImageUrls.map((url, index) => `![生成图片 ${index + 1}](${url})`).join('\n')}\n\n*生成提示词*: ${revisedPrompt}`;
 
           reply.raw.write(`data: ${JSON.stringify({ delta: markdownOutput, modelId })}\n\n`);
           reply.raw.write(`data: ${JSON.stringify({ done: true, modelId })}\n\n`);
