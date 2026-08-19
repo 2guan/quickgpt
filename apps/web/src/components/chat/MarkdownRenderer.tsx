@@ -57,7 +57,7 @@ function normalizeMarkdownContent(content: string): string {
   return processed;
 }
 
-export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, isStreaming = false, enablePptPreview = true }) => {
+export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, isStreaming = false, enablePptPreview = false }) => {
   const normalizedContent = useMemo(() => normalizeMarkdownContent(content), [content]);
 
   const markdownComponents = useMemo<any>(() => ({

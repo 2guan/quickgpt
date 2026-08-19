@@ -24,6 +24,11 @@ interface MessageGroupProps {
   onFollowUpSelect: (text: string) => void;
 }
 
+function hasPresentationEnabled(message: Message): boolean {
+  if (message.presentation_enabled !== undefined) return message.presentation_enabled;
+  try { return JSON.parse(message.image_params_json || '{}').presentation === true; } catch { return false; }
+}
+
 export const MessageItem: React.FC<MessageGroupProps> = ({
   userMessage,
   assistantMessages,
@@ -456,7 +461,7 @@ const AssistantCard: React.FC<{
         {/* Main Answer Markdown Content */}
         {message.content ? (
           <div className="text-slate-800 dark:text-slate-100">
-            <MarkdownRenderer content={message.content} isStreaming={!!message.isStreaming} />
+            <MarkdownRenderer content={message.content} isStreaming={!!message.isStreaming} enablePptPreview={hasPresentationEnabled(message)} />
           </div>
         ) : message.isStreaming ? (
           <div className="flex items-center gap-2 py-4 text-slate-400 dark:text-slate-500 text-xs">

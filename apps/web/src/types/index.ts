@@ -71,6 +71,7 @@ export interface Message {
   attachments_json?: string;
   token_count?: number;
   created_at: string;
+  presentation_enabled?: boolean;
   // UI states
   isStreaming?: boolean;
 }

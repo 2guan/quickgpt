@@ -6,6 +6,10 @@ import { useSettingsStore } from '../stores/settingsStore.js';
 import { MarkdownRenderer } from '../components/chat/MarkdownRenderer.js';
 import { Bot, User, Share2, Loader2, Sun, Moon, Sparkles, ChevronDown, ChevronRight } from 'lucide-react';
 
+function hasPresentationEnabled(message: Message): boolean {
+  try { return JSON.parse(message.image_params_json || '{}').presentation === true; } catch { return false; }
+}
+
 export const SharePage: React.FC<{ shareCode: string; onBackToHome: () => void }> = ({
   shareCode,
   onBackToHome,
@@ -180,7 +184,7 @@ export const SharePage: React.FC<{ shareCode: string; onBackToHome: () => void }
                     {/* Main content */}
                     {m.content && (
                       <div className="text-slate-800 dark:text-slate-100">
-                        <MarkdownRenderer content={m.content} />
+                        <MarkdownRenderer content={m.content} enablePptPreview={hasPresentationEnabled(m)} />
                       </div>
                     )}
                   </div>

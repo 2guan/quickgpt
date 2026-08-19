@@ -258,6 +258,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       reasoning_content: '',
       search_results_json: '[]',
       followup_suggestions_json: '[]',
+      presentation_enabled: enablePPT,
       created_at: new Date().toISOString(),
       isStreaming: true,
     }));

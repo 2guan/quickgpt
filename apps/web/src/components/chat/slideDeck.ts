@@ -219,6 +219,12 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
         if (/^(?:💡|📌|⭐|✨)?\s*(?:\*\*)?(?:演讲备注|备注|notes?)\b/i.test(text)) {
           notes = text.replace(/^(?:💡|📌|⭐|✨)?\s*(?:\*\*)?(?:演讲备注|备注|notes?)[：:]?\s*(?:\*\*)?/i, '').trim();
         } else {
+          // A trailing action prompt belongs in the slide footer, not in the
+          // main quotation. This preserves the visual hierarchy in quote pages.
+          if (layout === 'quote' && quoteText && /^(?:[📌💡🗓️🎯]\s*)?(?:课后挑战|行动挑战|下一步|温馨提示|提示)/.test(text)) {
+            notes = text;
+            return;
+          }
           quoteText = [quoteText, text].filter(Boolean).join('\n');
           if (quoteBlockIndex < 0) {
             quoteBlocks.push(text);
@@ -263,6 +269,7 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
       }
       if (!title) title = line;
       else if (!subtitle) subtitle = line;
+      else if (layout === 'quote' && !activeItem && /^\*\*[^*]+\*\*$/.test(line)) quoteText = line;
       else if (activeItem) {
         if (/^(?:\*\*[^*]+\*\*|【[^】]+】)[：:]/.test(line)) {
           const item = itemFromBullet(line);
@@ -274,6 +281,7 @@ export function parseMarkdownSlides(raw: string): SlideData[] {
       } else {
         // Quote pages often add compact, bold "推荐场景：..." cards after the quote.
         const item = itemFromBullet(line);
+        if (!item.title && !items.length && subtitle) item.title = subtitle;
         items.push(item);
         activeItem = item;
       }
@@ -329,6 +337,7 @@ function variantPlan(count: number, variant?: SlideLayoutVariant): Pick<SlidePla
   if (variant === 'two-column') return { columns: 2, rows: Math.ceil(count / 2), variant: count === 2 ? 'contrast' : 'rail' };
   if (variant === 'balanced') {
     if (count <= 3) return { columns: count, rows: 1, variant: count === 2 ? 'contrast' : 'pillars' };
+    if (count === 4) return { columns: 2, rows: 2, variant: 'matrix' };
     if (count === 5 || count === 6) return { columns: 3, rows: 2, variant: 'matrix' };
     if (count === 7 || count === 8) return { columns: 4, rows: 2, variant: 'matrix' };
     return { columns: 3, rows: 3, variant: 'matrix' };
@@ -339,7 +348,6 @@ function variantPlan(count: number, variant?: SlideLayoutVariant): Pick<SlidePla
 /** One layout decision feeds both the browser canvas and the PPTX exporter. */
 export function getSlidePlan(slide: SlideData): SlidePlan {
   if (slide.layout === 'cover') return { kind: 'cover', columns: 1, rows: 1, variant: 'pillars' };
-  if (slide.layout === 'spotlight') return { kind: 'spotlight', columns: 3, rows: 2, variant: 'bento' };
   if (slide.chart) return { kind: 'chart', columns: 2, rows: 1, variant: slide.layout === 'chart-left' ? 'contrast' : 'pillars' };
   if (slide.table) return { kind: 'table', columns: 1, rows: 1, variant: 'checklist' };
   if (slide.layout === 'quote') return { kind: 'quote', columns: 1, rows: 1, variant: 'pillars' };
@@ -353,6 +361,7 @@ export function getSlidePlan(slide: SlideData): SlidePlan {
   const countLayout = countPlan(count);
   const selectedVariant = variantPlan(count, slide.layoutVariant);
   if (selectedVariant) return { kind: 'cards', ...selectedVariant };
+  if (slide.layout === 'spotlight') return { kind: 'spotlight', columns: 3, rows: 2, variant: 'bento' };
   // An explicit grid5 declaration is a deliberate five-up comparison layout.
   // Do not let content heuristics turn it into short, clipped rows.
   if (slide.layout === 'grid5' && count === 5) {

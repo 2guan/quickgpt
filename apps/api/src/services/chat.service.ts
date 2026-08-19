@@ -452,9 +452,8 @@ export async function handleStreamChat({
 
   let combinedSystemPrompt = globalSystemPrompt;
 
-  // Add presentation slide output instruction if PPT mode is enabled or user explicitly asks for PPT
-  const isPPTRequested = enablePPT || /(?:ppt|pptx|演示文稿|幻灯片|slides?)/i.test(userLastMsg);
-  if (isPPTRequested) {
+  // PPT is an explicit mode, never inferred from words in the user's prompt.
+  if (enablePPT) {
     combinedSystemPrompt += `\n\n【PPT 输出协议：必须严格遵守】
 你正在生成可直接渲染和导出的演示文稿。只输出一个 \`\`\`ppt 代码块，不要输出解释、前言或代码块外文本。页面之间只能用单独一行 \`---\` 分隔。
 
@@ -805,6 +804,7 @@ export async function handleStreamChat({
         reasoning_content: fullReasoningContent,
         search_results_json: JSON.stringify(searchResults),
         followup_suggestions_json: JSON.stringify(followUpSuggestions),
+        image_params_json: JSON.stringify({ presentation: Boolean(enablePPT) }),
         token_count: promptTokens + completionTokens,
       });
 

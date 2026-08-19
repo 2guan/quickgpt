@@ -77,6 +77,28 @@ const horizontalFour = `<!-- layout: grid4 -->
 ${Array.from({ length: 4 }, (_, index) => `- **原则${index + 1}**：说明`).join('\n')}`;
 assert.deepEqual(getSlidePlan(buildSlideDeck(horizontalFour)[0]), { kind: 'cards', columns: 4, rows: 1, variant: 'pillars' });
 
+const balancedSpotlight = buildSlideDeck(`<!-- layout: spotlight -->
+<!-- layout-variant: balanced -->
+## 四项上下文约束
+${Array.from({ length: 4 }, (_, index) => `- **约束${index + 1}**：说明`).join('\n')}`)[0];
+assert.deepEqual(getSlidePlan(balancedSpotlight), { kind: 'cards', columns: 2, rows: 2, variant: 'matrix' });
+
+const valueParagraph = buildSlideDeck(`<!-- layout: grid2 -->
+## PAMS
+### 核心价值
+构建问题闭环网络
+### 关键能力
+- 在线执行`)[0];
+assert.equal(valueParagraph.items[0]?.title, '核心价值');
+
+const quoteWithChallenge = buildSlideDeck(`<!-- layout: quote -->
+## 行动结语
+### 核心结语
+**主结论不能被覆盖**
+> 课后挑战：立刻开始实践`)[0];
+assert.equal(quoteWithChallenge.quoteText, '**主结论不能被覆盖**');
+assert.equal(quoteWithChallenge.notes, '课后挑战：立刻开始实践');
+
 const detailedPillars = `## 三项深度能力
 ${Array.from({ length: 3 }, (_, index) => `- **能力${index + 1}**：${'用于描述实施细节与业务边界的完整说明。'.repeat(6)}`).join('\n')}`;
 assert.deepEqual(getSlidePlan(buildSlideDeck(detailedPillars)[0]), { kind: 'cards', columns: 1, rows: 3, variant: 'stacked' });
