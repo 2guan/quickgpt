@@ -1,9 +1,8 @@
 import { db } from '../db/sqlite.js';
 import { FastifyReply } from 'fastify';
 import {
-  generateSearchQueriesWithLLM,
-  executeMultiQueryWebSearch,
   formatSearchResultsForPrompt,
+  performUnifiedWebSearch,
   SearchResultItem,
 } from './search.service.js';
 import { generateFollowUpSuggestions } from './followup.service.js';
@@ -205,6 +204,8 @@ export async function handleStreamChat({
   imageParams,
   reply,
   clientIp,
+  precomputedSearchResults,
+  precomputedSearchContextText,
 }: {
   user: { id: string; username: string };
   conversationId: string;
@@ -216,6 +217,8 @@ export async function handleStreamChat({
   imageParams?: { size?: string; quality?: string; style?: string; aspect_ratio?: string };
   reply: FastifyReply;
   clientIp: string;
+  precomputedSearchResults?: SearchResultItem[];
+  precomputedSearchContextText?: string;
 }) {
   const startTime = Date.now();
   const candidates = getModelCandidates(modelId);
@@ -385,18 +388,21 @@ export async function handleStreamChat({
   }
 
   // 2. Text / Multi-modal Chat Model
-  let searchResults: SearchResultItem[] = [];
-  let searchContextText = '';
+  let searchResults: SearchResultItem[] = precomputedSearchResults || [];
+  let searchContextText = precomputedSearchContextText || '';
 
-  // Only trigger web search when user explicitly turns on the search button in the chat input
-  if (enableSearch) {
-    reply.raw.write(`data: ${JSON.stringify({ status: '正在生成搜索关键词并检索...', modelId })}\n\n`);
-    const searchQueries = await generateSearchQueriesWithLLM(userLastMsg, modelId);
-    searchResults = await executeMultiQueryWebSearch(searchQueries, 3);
-    if (searchResults.length > 0) {
-      searchContextText = formatSearchResultsForPrompt(searchResults);
-      reply.raw.write(`data: ${JSON.stringify({ searchResults, modelId })}\n\n`);
+  // Only trigger web search when user explicitly turns on the search button in the chat input (if not precomputed)
+  if (enableSearch && (!precomputedSearchResults || precomputedSearchResults.length === 0)) {
+    if (!precomputedSearchContextText) {
+      reply.raw.write(`data: ${JSON.stringify({ status: '正在进行全网检索与深度正文提取...', modelId })}\n\n`);
+      const unified = await performUnifiedWebSearch(userLastMsg);
+      searchResults = unified.results;
+      searchContextText = unified.formattedContext;
     }
+  }
+
+  if (searchResults.length > 0) {
+    reply.raw.write(`data: ${JSON.stringify({ searchResults, modelId })}\n\n`);
   }
 
   // Assemble Attachment extracted texts into context
@@ -608,9 +614,6 @@ export async function handleStreamChat({
 
     if (isLastUserMessage) {
       let finalUserContent = m.content || '';
-      if (searchContextText) {
-        finalUserContent += searchContextText;
-      }
       if (attachmentContextText) {
         finalUserContent += attachmentContextText;
       }

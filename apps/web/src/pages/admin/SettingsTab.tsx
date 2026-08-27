@@ -387,23 +387,26 @@ export const SettingsTab: React.FC = () => {
         <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-2xs space-y-4 text-xs w-full">
           <div className="font-bold text-sm text-slate-800 dark:text-slate-100 flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-slate-800">
             <Globe className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-            <span>联网搜索引擎配置 (Search Engine Fallback)</span>
+            <span>联网搜索引擎配置 (Web Search Engine & Deep Reader)</span>
           </div>
 
           <div>
-            <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">搜索引擎提供商</label>
+            <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">搜索引擎提供商 (Search Provider)</label>
             <select
               value={settings.search_provider || 'builtin'}
               onChange={(e) => setSettings({ ...settings, search_provider: e.target.value })}
-              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-xl focus:bg-white dark:focus:bg-slate-800 focus:border-emerald-500 focus:outline-hidden"
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-xl focus:bg-white dark:focus:bg-slate-800 focus:border-emerald-500 focus:outline-hidden font-medium"
             >
-              <option value="builtin">内置免费搜索引擎 (无需任何配置)</option>
-              <option value="searxng">SearXNG 自建搜索实例</option>
-              <option value="tavily">Tavily AI Search API</option>
-              <option value="serpapi">SerpAPI (Google Search)</option>
+              <option value="builtin">内置免费搜索矩阵 (DuckDuckGo + 必应 + 百度，无需任何 Key)</option>
+              <option value="brave">Brave Search API (全球顶尖独立索引，需 API Key)</option>
+              <option value="tavily">Tavily AI Search API (深度 AI 检索，需 API Key)</option>
+              <option value="bocha">Bocha 博查搜索 API (国内顶尖中文 AI 搜索，需 API Key)</option>
+              <option value="searxng">SearXNG 自建元搜索引擎实例</option>
+              <option value="serpapi">SerpAPI (Google 搜索，需 API Key)</option>
             </select>
           </div>
 
+          {/* SearXNG Endpoint & Key */}
           {settings.search_provider === 'searxng' && (
             <div className="p-3.5 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
               <div>
@@ -417,7 +420,7 @@ export const SettingsTab: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">SearXNG API 密钥 (可选)</label>
+                <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">SearXNG API 访问密码 / 密钥 (可选)</label>
                 <input
                   type="password"
                   placeholder="如有配置访问密码请输入"
@@ -429,119 +432,86 @@ export const SettingsTab: React.FC = () => {
             </div>
           )}
 
-          {(settings.search_provider === 'tavily' || settings.search_provider === 'serpapi') && (
-            <div className="p-3.5 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
-              <div>
-                <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">API Key 密钥</label>
-                <input
-                  type="password"
-                  placeholder={settings.search_provider === 'tavily' ? 'tvly-...' : 'SerpAPI key...'}
-                  value={settings.search_api_key || ''}
-                  onChange={(e) => setSettings({ ...settings, search_api_key: e.target.value })}
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-xl focus:border-emerald-500 focus:outline-hidden font-mono"
-                />
-              </div>
+          {/* Brave / Tavily / Bocha / SerpAPI API Key */}
+          {(settings.search_provider === 'brave' || settings.search_provider === 'tavily' || settings.search_provider === 'bocha' || settings.search_provider === 'serpapi') && (
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
+              <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
+                {settings.search_provider === 'brave' ? 'Brave Search Subscription Token (API Key)' :
+                 settings.search_provider === 'tavily' ? 'Tavily API Key (tvly-...)' :
+                 settings.search_provider === 'bocha' ? 'Bocha 博查 API Key' :
+                 'SerpAPI Key'}
+              </label>
+              <input
+                type="password"
+                placeholder={
+                  settings.search_provider === 'brave' ? '输入 Brave Search Token (BSA...)' :
+                  settings.search_provider === 'tavily' ? 'tvly-...' :
+                  settings.search_provider === 'bocha' ? '输入博查 API Key...' :
+                  'SerpAPI key...'
+                }
+                value={settings.search_api_key || ''}
+                onChange={(e) => setSettings({ ...settings, search_api_key: e.target.value })}
+                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-xl focus:border-emerald-500 focus:outline-hidden font-mono"
+              />
+              <span className="text-[11px] text-slate-400 block">
+                {settings.search_provider === 'brave' && '可在 https://brave.com/search/api/ 免费获取每月 2,000 次查询额度的 API Key。'}
+                {settings.search_provider === 'tavily' && '可在 https://tavily.com 获取针对 AI 优化的高质量搜索 API。'}
+                {settings.search_provider === 'bocha' && '可在 https://bochaai.com 获取针对国内场景优化的中文 AI 搜索 API。'}
+              </span>
             </div>
           )}
 
-          <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-4">
-            <div>
-              <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                联网搜索前置关键词提炼模型 (Search Query Model)
-              </label>
-              <select
-                value={settings.search_query_model_id || 'auto'}
-                onChange={(e) => setSettings({ ...settings, search_query_model_id: e.target.value })}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-xl focus:bg-white dark:focus:bg-slate-800 focus:border-emerald-500 focus:outline-hidden"
-              >
-                <option value="auto">自动跟随当前对话模型（或优先使用小米 mimo-v2.5）</option>
-                {models
-                  .filter(
-                    (m: any) =>
-                      m.is_active === 1 &&
-                      !m.model_id.includes('tts') &&
-                      !m.model_id.includes('asr') &&
-                      !m.model_id.includes('image') &&
-                      !m.model_id.includes('video') &&
-                      !m.model_id.includes('i2v') &&
-                      !m.model_id.includes('t2v') &&
-                      !m.model_id.includes('t2i')
-                  )
-                  .map((m: any) => (
-                    <option key={m.id} value={m.model_id}>
-                      {m.name || m.model_id} ({m.model_id})
-                    </option>
-                  ))}
-              </select>
-              <span className="text-[10px] text-slate-400 mt-1 block">
-                联网搜索前，系统自动将用户提问交由此模型（自动关闭思考模式以毫秒级极速返回），提炼生成核心搜索关键句子。
-              </span>
+          {/* Deep Content Reader & Tuning Parameters */}
+          <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-3">
+            <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700">
+              <div>
+                <label className="font-semibold text-slate-800 dark:text-slate-200 block">
+                  开启深度正文抽取 (Deep Web Reader)
+                </label>
+                <span className="text-[11px] text-slate-400 mt-0.5 block">
+                  自动通过 Jina Reader (`r.jina.ai`) 提取排名前列权威网页的真实完整 Markdown 正文，让回答精准度与深度提升 10 倍。
+                </span>
+              </div>
+              <input
+                type="checkbox"
+                checked={settings.search_enable_deep_read !== '0'}
+                onChange={(e) => setSettings({ ...settings, search_enable_deep_read: e.target.checked ? '1' : '0' })}
+                className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
+              />
             </div>
 
-            {/* Detailed Search Tuning Parameters */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700">
               <div>
                 <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  提炼搜索短语数量 (1~5 个)
+                  检索参考网页数量 (2~10 篇)
                 </label>
                 <input
                   type="number"
-                  min={1}
-                  max={5}
-                  value={settings.search_query_count || '3'}
-                  placeholder="默认: 3"
-                  onChange={(e) => setSettings({ ...settings, search_query_count: e.target.value })}
-                  className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-xl focus:border-emerald-500 focus:outline-hidden"
-                />
-                <span className="text-[10px] text-slate-400 mt-0.5 block">每次提问生成的并发检索短语数</span>
-              </div>
-
-              <div>
-                <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  搜索词最大字符长度 (10~100 字)
-                </label>
-                <input
-                  type="number"
-                  min={10}
-                  max={100}
-                  value={settings.search_query_max_length || '30'}
-                  placeholder="默认: 30"
-                  onChange={(e) => setSettings({ ...settings, search_query_max_length: e.target.value })}
-                  className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-xl focus:border-emerald-500 focus:outline-hidden"
-                />
-                <span className="text-[10px] text-slate-400 mt-0.5 block">限制单条提炼搜索词的最大字数</span>
-              </div>
-
-              <div>
-                <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  单词检索返回条数 (1~10 条)
-                </label>
-                <input
-                  type="number"
-                  min={1}
+                  min={2}
                   max={10}
-                  value={settings.search_results_per_query || '3'}
-                  placeholder="默认: 3"
-                  onChange={(e) => setSettings({ ...settings, search_results_per_query: e.target.value })}
+                  value={settings.search_max_results || '4'}
+                  placeholder="默认: 4"
+                  onChange={(e) => setSettings({ ...settings, search_max_results: e.target.value })}
                   className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-xl focus:border-emerald-500 focus:outline-hidden"
                 />
-                <span className="text-[10px] text-slate-400 mt-0.5 block">每个搜索词向搜索引擎抓取的网页数</span>
+                <span className="text-[10px] text-slate-400 mt-0.5 block">注入大模型上下文供参考的权威网页总数</span>
               </div>
 
               <div>
                 <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  最大注入结果总数 (3~20 条)
+                  单篇网页正文最大截取长度 (500~4000 字)
                 </label>
                 <input
                   type="number"
-                  min={3}
-                  max={20}
-                  value={settings.search_max_total_results || '9'}
-                  placeholder="默认: 9"
-                  onChange={(e) => setSettings({ ...settings, search_max_total_results: e.target.value })}
+                  min={500}
+                  max={4000}
+                  step={100}
+                  value={settings.search_deep_read_length || '2000'}
+                  placeholder="默认: 2000"
+                  onChange={(e) => setSettings({ ...settings, search_deep_read_length: e.target.value })}
                   className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-xl focus:border-emerald-500 focus:outline-hidden"
                 />
-                <span className="text-[10px] text-slate-400 mt-0.5 block">去重后最终注入上下文的网页上限</span>
+                <span className="text-[10px] text-slate-400 mt-0.5 block">单篇抓取文章保留的 Markdown 正文字符上限</span>
               </div>
             </div>
           </div>

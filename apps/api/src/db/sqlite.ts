@@ -203,10 +203,26 @@ function seedInitialData() {
     registration_mode: 'OPEN', // OPEN | INVITE | CLOSED
     default_models: '["gpt-4o"]',
     global_system_prompt: 'You are a helpful, brilliant AI assistant.',
-    search_provider: 'builtin', // builtin | searxng | bing
+    search_provider: 'builtin', // builtin | brave | tavily | searxng | bocha | serpapi
     search_api_key: '',
     search_endpoint: '',
+    search_max_results: '4',
+    search_enable_deep_read: '1',
+    search_deep_read_length: '2000',
   };
+
+  // Clean up legacy search settings keys if present
+  try {
+    db.exec(`
+      DELETE FROM system_settings WHERE key IN (
+        'search_query_model_id',
+        'search_query_count',
+        'search_query_max_length',
+        'search_results_per_query',
+        'search_max_total_results'
+      );
+    `);
+  } catch {}
 
   const getSettingStmt = db.prepare('SELECT value FROM system_settings WHERE key = ?');
   const setSettingStmt = db.prepare('INSERT OR REPLACE INTO system_settings (key, value) VALUES (?, ?)');

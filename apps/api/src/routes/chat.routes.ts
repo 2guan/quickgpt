@@ -11,6 +11,7 @@ import {
   saveMessage,
   handleStreamChat,
 } from '../services/chat.service.js';
+import { performUnifiedWebSearch, SearchResultItem } from '../services/search.service.js';
 import { findUserById } from '../services/auth.service.js';
 
 export async function chatRoutes(fastify: FastifyInstance) {
@@ -178,7 +179,22 @@ export async function chatRoutes(fastify: FastifyInstance) {
 
     const clientIp = request.ip || '127.0.0.1';
 
-    // 2. Launch Stream tasks concurrently for all selected models (1 ~ 4 models)
+    // 2. Perform Unified Web Search once if search is enabled, and share across models
+    let sharedSearchResults: SearchResultItem[] = [];
+    let sharedSearchContextText = '';
+
+    if (enableSearch) {
+      reply.raw.write(`data: ${JSON.stringify({ status: '正在进行全网检索与深度正文提取...' })}\n\n`);
+      try {
+        const unified = await performUnifiedWebSearch(content);
+        sharedSearchResults = unified.results;
+        sharedSearchContextText = unified.formattedContext;
+      } catch (err: any) {
+        console.warn(`[Search] Unified search error: ${err.message}`);
+      }
+    }
+
+    // 3. Launch Stream tasks concurrently for all selected models (1 ~ 4 models)
     try {
       const tasks = modelIds.map(async (mId) => {
         try {
@@ -193,6 +209,8 @@ export async function chatRoutes(fastify: FastifyInstance) {
             imageParams,
             reply,
             clientIp,
+            precomputedSearchResults: sharedSearchResults,
+            precomputedSearchContextText: sharedSearchContextText,
           });
         } catch (err: any) {
           reply.raw.write(`data: ${JSON.stringify({ error: err.message, modelId: mId })}\n\n`);

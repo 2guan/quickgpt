@@ -1,328 +1,85 @@
 import { db } from '../db/sqlite.js';
+import {
+  SearchResultItem,
+  braveSearch,
+  duckduckgoSearch,
+  bingSearch,
+  baiduSearch,
+  tavilySearch,
+  searxngSearch,
+  bochaSearch,
+  serpApiSearch,
+  builtinFreeSearch,
+} from './search/engines.js';
+import { fetchPageMarkdown } from './search/deep-reader.js';
 
-export interface SearchResultItem {
-  title: string;
-  url: string;
-  snippet: string;
-}
+export { SearchResultItem };
 
 /**
- * Uses a fast LLM call (e.g. MiMo 2.5 without thinking) to generate 1~N targeted search queries
- * respecting configured query count and maximum query length.
- * The model output is strictly parsed and used directly as search engine queries.
+ * Checks if the prompt is a simple greeting or trivial conversational phrase that doesn't need search.
  */
-export async function generateSearchQueriesWithLLM(
-  userPrompt: string,
-  preferredModelId?: string
-): Promise<string[]> {
-  try {
-    const { getModelCandidates, getChatUrlCandidates } = await import('./chat.service.js');
-    
-    // Read system settings
-    const queryModelRow = db.prepare("SELECT value FROM system_settings WHERE key = 'search_query_model_id'").get() as { value: string } | undefined;
-    const queryCountRow = db.prepare("SELECT value FROM system_settings WHERE key = 'search_query_count'").get() as { value: string } | undefined;
-    const maxLenRow = db.prepare("SELECT value FROM system_settings WHERE key = 'search_query_max_length'").get() as { value: string } | undefined;
-
-    const customQueryModelStr = queryModelRow?.value?.trim() || '';
-    const queryCount = Math.max(1, Math.min(5, parseInt(queryCountRow?.value || '3', 10) || 3));
-    const queryMaxLen = Math.max(10, Math.min(100, parseInt(maxLenRow?.value || '30', 10) || 30));
-
-    // Support comma-separated priority models
-    const configuredModelIds = customQueryModelStr && customQueryModelStr !== 'auto'
-      ? customQueryModelStr.split(',').map((s) => s.trim()).filter(Boolean)
-      : [];
-
-    let candidateList: any[] = [];
-    for (const mid of configuredModelIds) {
-      const cands = getModelCandidates(mid);
-      if (cands.length > 0) {
-        candidateList = cands;
-        break;
-      }
-    }
-
-    if (candidateList.length === 0 && preferredModelId) {
-      candidateList = getModelCandidates(preferredModelId);
-    }
-    if (candidateList.length === 0) {
-      candidateList = getModelCandidates('mimo-v2.5');
-    }
-    if (candidateList.length === 0) {
-      const anyModel = db.prepare("SELECT model_id FROM models WHERE is_active = 1 AND model_id NOT LIKE '%tts%' AND model_id NOT LIKE '%image%' ORDER BY order_index ASC LIMIT 1").get() as { model_id: string } | undefined;
-      if (anyModel) {
-        candidateList = getModelCandidates(anyModel.model_id);
-      }
-    }
-
-    if (candidateList.length > 0) {
-      const cand = candidateList[0];
-      const chatUrls = getChatUrlCandidates(cand.channel_base_url);
-      const url = chatUrls[0];
-
-      const systemPrompt = `你是一个专业的搜索引擎查询优化器。请根据用户的提问，提炼出 1 到 ${queryCount} 个最适合用于搜索引擎检索的核心关键词短语（每个短语长度在 ${queryMaxLen} 字以内）。
-【要求】：
-1. 提炼出真正具有高信息量的主题词与实体名词短语。
-2. 只返回纯 JSON 字符串数组，例如：["短语1", "短语2", "短语3"]。绝对不要输出任何思考过程或解释。`;
-
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${cand.channel_api_key}`,
-          'api-key': cand.channel_api_key,
-        },
-        body: JSON.stringify({
-          model: cand.model_id,
-          messages: [
-            {
-              role: 'system',
-              content: systemPrompt,
-            },
-            {
-              role: 'user',
-              content: userPrompt,
-            },
-          ],
-          temperature: 0.1,
-          max_tokens: 180,
-          thinking: { type: 'disabled' },
-          stream: false,
-        }),
-        signal: AbortSignal.timeout(4000),
-      });
-
-      if (res.ok) {
-        const json = (await res.json()) as any;
-        let content = (json.choices?.[0]?.message?.content || '').replace(/<think[\s\S]*?<\/think>/gi, '').trim();
-        const jsonMatch = content.match(/\[[\s\S]*?\]/);
-        if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[0]);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            const finalQueries = parsed
-              .slice(0, queryCount)
-              .map((q: any) => String(q).trim().slice(0, queryMaxLen))
-              .filter(Boolean);
-            if (finalQueries.length > 0) {
-              return finalQueries;
-            }
-          }
-        }
-      }
-    }
-  } catch (err: any) {
-    console.warn(`[Search] LLM query generation notice: ${err.message}`);
+export function isTrivialGreeting(text: string): boolean {
+  const clean = (text || '').trim();
+  if (!clean) return true;
+  if (clean.length <= 8) {
+    const greetingPattern = /^(?:早上好|早安|晚上好|晚安|中午好|你好|您好|hi|hello|hey|嗨|哈喽|在吗|在么|谢谢|感谢|多谢|再见|拜拜|ok|好的|收到|测试|test)$/i;
+    if (greetingPattern.test(clean)) return true;
   }
-
-  // Pure fallback: return the original prompt
-  return [userPrompt.trim().slice(0, 50)];
+  return false;
 }
 
+// Backward compatibility alias
+export const isSimpleGreetingOrShortQuery = isTrivialGreeting;
+
 /**
- * Executes a single web search using multi-engine fallbacks (Custom APIs -> Mobile Web Search -> Bing Web Search).
+ * Executes a single web search using configured engine provider.
+ * All queries are 100% raw user prompt without any stripping or keyword alteration.
  */
-export async function performWebSearch(query: string, maxResults = 3): Promise<SearchResultItem[]> {
-  const cleanQuery = query.trim();
+export async function performWebSearch(query: string, maxResults = 4): Promise<SearchResultItem[]> {
+  const cleanQuery = (query || '').trim();
   if (!cleanQuery) return [];
 
   try {
-    // 1. Check system settings for custom search engine
     const providerStmt = db.prepare("SELECT value FROM system_settings WHERE key = 'search_provider'");
     const endpointStmt = db.prepare("SELECT value FROM system_settings WHERE key = 'search_endpoint'");
     const keyStmt = db.prepare("SELECT value FROM system_settings WHERE key = 'search_api_key'");
-    
+
     const provider = (providerStmt.get() as { value: string } | undefined)?.value || 'builtin';
     const endpoint = (endpointStmt.get() as { value: string } | undefined)?.value || '';
     const apiKey = (keyStmt.get() as { value: string } | undefined)?.value || '';
 
-    // Tavily AI Search Provider
+    // 1. Brave Search API
+    if (provider === 'brave' && apiKey) {
+      const results = await braveSearch(cleanQuery, apiKey, maxResults);
+      if (results.length > 0) return results;
+    }
+
+    // 2. Tavily AI Search
     if (provider === 'tavily' && apiKey) {
-      try {
-        const res = await fetch('https://api.tavily.com/search', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            api_key: apiKey,
-            query: cleanQuery,
-            search_depth: 'basic',
-            max_results: maxResults,
-          }),
-          signal: AbortSignal.timeout(5000),
-        });
-        if (res.ok) {
-          const data = (await res.json()) as any;
-          if (Array.isArray(data.results)) {
-            return data.results.slice(0, maxResults).map((r: any) => ({
-              title: r.title || '网页结果',
-              url: r.url || '',
-              snippet: r.content || r.snippet || '',
-            }));
-          }
-        }
-      } catch (err: any) {
-        console.warn(`[Search] Tavily search error: ${err.message}`);
-      }
+      const results = await tavilySearch(cleanQuery, apiKey, maxResults);
+      if (results.length > 0) return results;
     }
 
-    // SerpAPI Google Search Provider
-    if (provider === 'serpapi' && apiKey) {
-      try {
-        const serpUrl = `https://serpapi.com/search.json?q=${encodeURIComponent(cleanQuery)}&api_key=${encodeURIComponent(apiKey)}&hl=zh-cn&gl=cn&num=${maxResults}`;
-        const res = await fetch(serpUrl, { signal: AbortSignal.timeout(5000) });
-        if (res.ok) {
-          const data = (await res.json()) as any;
-          if (Array.isArray(data.organic_results)) {
-            return data.organic_results.slice(0, maxResults).map((r: any) => ({
-              title: r.title || '网页结果',
-              url: r.link || '',
-              snippet: r.snippet || '',
-            }));
-          }
-        }
-      } catch (err: any) {
-        console.warn(`[Search] SerpAPI search error: ${err.message}`);
-      }
+    // 3. Bocha (博查) AI Search
+    if (provider === 'bocha' && apiKey) {
+      const results = await bochaSearch(cleanQuery, apiKey, maxResults);
+      if (results.length > 0) return results;
     }
 
-    // SearXNG / Custom JSON Search API Provider
+    // 4. SearXNG
     if (provider === 'searxng' && endpoint) {
-      try {
-        const url = new URL(endpoint);
-        url.searchParams.set('q', cleanQuery);
-        url.searchParams.set('format', 'json');
-        url.searchParams.set('language', 'zh-CN');
-        
-        const res = await fetch(url.toString(), {
-          headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
-          signal: AbortSignal.timeout(5000),
-        });
-        if (res.ok) {
-          const data = (await res.json()) as any;
-          if (Array.isArray(data.results)) {
-            return data.results.slice(0, maxResults).map((r: any) => ({
-              title: r.title || '网页结果',
-              url: r.url || '',
-              snippet: r.content || r.snippet || '',
-            }));
-          }
-        }
-      } catch (err: any) {
-        console.warn(`[Search] SearXNG search error: ${err.message}`);
-      }
+      const results = await searxngSearch(cleanQuery, endpoint, apiKey, maxResults);
+      if (results.length > 0) return results;
     }
 
-    // 2. High-precision Mobile Chinese Web Search Engine
-    try {
-      const sogouMobileUrl = `https://m.sogou.com/web/searchList.jsp?keyword=${encodeURIComponent(cleanQuery)}`;
-      const response = await fetch(sogouMobileUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'Accept-Language': 'zh-CN,zh;q=0.9',
-        },
-        signal: AbortSignal.timeout(4500),
-      });
-
-      if (response.ok) {
-        const html = await response.text();
-        const results: SearchResultItem[] = [];
-        const h3Matches = [...html.matchAll(/<h3[^>]*>([\s\S]*?)<\/h3>([\s\S]*?)(?=<h3|$)/gi)];
-
-        for (const m of h3Matches) {
-          if (results.length >= maxResults) break;
-          const rawTitle = m[1].replace(/<[^>]+>/g, '').replace(/&quot;/g, '"').trim();
-          const rest = m[2];
-          const urlMatch =
-            rest.match(/href=[\x27\x22](https?:\/\/[^\x27\x22]+)[\x27\x22]/i) ||
-            m[1].match(/href=[\x27\x22](https?:\/\/[^\x27\x22]+)[\x27\x22]/i);
-          const rawUrl = urlMatch ? urlMatch[1] : `https://m.sogou.com/web/searchList.jsp?keyword=${encodeURIComponent(cleanQuery)}`;
-          const snippet = rest
-            .replace(/<script[\s\S]*?<\/script>/gi, '')
-            .replace(/<style[\s\S]*?<\/style>/gi, '')
-            .replace(/<[^>]+>/g, ' ')
-            .replace(/&quot;/g, '"')
-            .replace(/&nbsp;/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim();
-
-          const isGarbage =
-            rawTitle.includes('大家还在搜') ||
-            rawTitle.includes('相关搜索') ||
-            rawTitle.includes('为你推荐') ||
-            rawTitle.includes('问过的人') ||
-            rawTitle.length <= 3;
-
-          if (rawTitle && !isGarbage) {
-            results.push({
-              title: rawTitle,
-              url: rawUrl,
-              snippet: snippet.slice(0, 180),
-            });
-          }
-        }
-
-        if (results.length > 0) {
-          return results;
-        }
-      }
-    } catch (err: any) {
-      console.warn(`[Search] Mobile Web search notice: ${err.message}`);
+    // 5. SerpAPI
+    if (provider === 'serpapi' && apiKey) {
+      const results = await serpApiSearch(cleanQuery, apiKey, maxResults);
+      if (results.length > 0) return results;
     }
 
-    // 3. Fallback: High-precision Standard Bing Web Search Engine
-    try {
-      const bingWebUrl = `https://www.bing.com/search?q=${encodeURIComponent(cleanQuery)}`;
-      const response = await fetch(bingWebUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
-        },
-        signal: AbortSignal.timeout(5000),
-      });
-
-      if (response.ok) {
-        const html = await response.text();
-        const results: SearchResultItem[] = [];
-        const liMatches = [...html.matchAll(/<li[^>]*class=[\x27\x22]b_algo[\x27\x22][^>]*>([\s\S]*?)<\/li>/g)];
-
-        for (const match of liMatches) {
-          if (results.length >= maxResults) break;
-          const block = match[1];
-          const h2Match = block.match(/<h2[^>]*><a\s+[^>]*href=[\x27\x22](https?:\/\/[^\x27\x22]+)[\x27\x22][^>]*>([\s\S]*?)<\/a><\/h2>/i);
-          const pMatch = block.match(/<div class=[\x27\x22]b_caption[\x27\x22]>[\s\S]*?<p[^>]*>([\s\S]*?)<\/p>/i) || block.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
-
-          if (h2Match) {
-            const itemUrl = h2Match[1];
-            const itemTitle = h2Match[2].replace(/<[^>]+>/g, '').trim();
-            const itemSnippet = pMatch
-              ? pMatch[1].replace(/<[^>]+>/g, '').replace(/&ensp;|&nbsp;|&#0183;|&#176;/g, ' ').replace(/\s+/g, ' ').trim()
-              : '';
-
-            // Filter out dictionary noise if searching multi-character terms
-            const isSingleCharDict =
-              cleanQuery.replace(/\s+/g, '').length >= 2 &&
-              (/^(?:[\u4e00-\u9fa5]（|[\u4e00-\u9fa5]的意思|[\u4e00-\u9fa5]的解释|[\u4e00-\u9fa5] bā)/i.test(itemTitle) ||
-                /汉语文字|汉语国学|汉字|压强的非法定计量单位|压强单位|《漢典》|康熙字典|新华字典/.test(itemTitle));
-
-            if (itemTitle && itemUrl.startsWith('http') && !isSingleCharDict) {
-              results.push({
-                title: itemTitle,
-                url: itemUrl,
-                snippet: itemSnippet,
-              });
-            }
-          }
-        }
-
-        if (results.length > 0) {
-          return results;
-        }
-      }
-    } catch (err: any) {
-      console.warn(`[Search] Bing Web fallback notice: ${err.message}`);
-    }
-
-    return [];
+    // 6. Builtin Free Search (Baidu + Bing + DuckDuckGo with relevance scoring)
+    return await builtinFreeSearch(cleanQuery, maxResults);
   } catch (err: any) {
     console.error(`[Search] Error performing web search for "${query}":`, err.message);
     return [];
@@ -330,54 +87,86 @@ export async function performWebSearch(query: string, maxResults = 3): Promise<S
 }
 
 /**
- * Concurrently executes web searches for multiple queries, applies per-query and total limits,
- * and returns deduplicated results.
+ * Formats search results with deep Markdown article content into structured context for LLMs.
  */
-export async function executeMultiQueryWebSearch(
-  queries: string[],
-  overrideResultsPerQuery?: number,
-  overrideMaxTotalResults?: number
-): Promise<SearchResultItem[]> {
-  if (!queries || queries.length === 0) return [];
-
-  // Read system settings if not overridden
-  const resultsPerQueryRow = db.prepare("SELECT value FROM system_settings WHERE key = 'search_results_per_query'").get() as { value: string } | undefined;
-  const maxTotalRow = db.prepare("SELECT value FROM system_settings WHERE key = 'search_max_total_results'").get() as { value: string } | undefined;
-
-  const resultsPerQuery = overrideResultsPerQuery || Math.max(1, Math.min(10, parseInt(resultsPerQueryRow?.value || '3', 10) || 3));
-  const maxTotalResults = overrideMaxTotalResults || Math.max(3, Math.min(20, parseInt(maxTotalRow?.value || '9', 10) || 9));
-
-  const searchPromises = queries.map((q) => performWebSearch(q, resultsPerQuery));
-  const resultsArrays = await Promise.all(searchPromises);
-
-  const seenUrls = new Set<string>();
-  const mergedResults: SearchResultItem[] = [];
-
-  for (const arr of resultsArrays) {
-    for (const item of arr) {
-      if (item.title && !seenUrls.has(item.url || item.title)) {
-        seenUrls.add(item.url || item.title);
-        mergedResults.push(item);
-        if (mergedResults.length >= maxTotalResults) {
-          break;
-        }
-      }
-    }
-    if (mergedResults.length >= maxTotalResults) {
-      break;
-    }
-  }
-
-  return mergedResults;
-}
-
 export function formatSearchResultsForPrompt(results: SearchResultItem[]): string {
   if (!results || results.length === 0) return '';
-  
-  let formatted = '\n\n【最新实时联网检索结果参考】\n';
+
+  let formatted = '\n\n【最新实时联网参考资料（真实网页深度正文）】\n';
   results.forEach((item, index) => {
-    formatted += `[${index + 1}] 标题: ${item.title}\n    链接: ${item.url}\n    摘要: ${item.snippet}\n\n`;
+    formatted += `[${index + 1}] 标题: ${item.title}\n    网址: ${item.url}\n`;
+    if (item.source) {
+      formatted += `    来源: ${item.source}\n`;
+    }
+    if (item.content) {
+      formatted += `    正文摘录:\n${item.content.split('\n').map(l => `    > ${l}`).join('\n')}\n\n`;
+    } else if (item.snippet) {
+      formatted += `    摘要: ${item.snippet}\n\n`;
+    } else {
+      formatted += '\n';
+    }
   });
-  formatted += '【要求】：请严格结合上述最新检索结果中的实时信息回答用户的问题。在正文中引用具体信息时，请在对应句子后使用 [序号] 标注来源。\n';
+
+  formatted += '【回答要求】：请严格结合上述最新参考资料中的事实与数据回答用户的问题。在正文中引用具体信息时，请在对应句子后使用 [1]、[2] 等序号标注来源。\n';
   return formatted;
+}
+
+/**
+ * Performs a complete unified web search for a user prompt:
+ * 1. Checks if the query is a trivial greeting (0ms fast bypass)
+ * 2. 100% natural query direct pass to modern multi-engine search matrix (no regex stripping, no cleaning)
+ * 3. Concurrently fetches deep Markdown content (Jina Reader + local DOM extractor) for top pages
+ * 4. Assembles rich, high-density structured Markdown prompt context
+ */
+export async function performUnifiedWebSearch(
+  userPrompt: string
+): Promise<{ results: SearchResultItem[]; formattedContext: string; queries: string[] }> {
+  const targetQuery = (userPrompt || '').trim();
+  if (!targetQuery) {
+    return { results: [], formattedContext: '', queries: [] };
+  }
+
+  // Trivial greeting: 0ms fast bypass without network overhead
+  if (isTrivialGreeting(targetQuery)) {
+    return { results: [], formattedContext: '', queries: [targetQuery] };
+  }
+
+  // Read system settings for search parameters
+  const maxResultsRow = db.prepare("SELECT value FROM system_settings WHERE key = 'search_max_results'").get() as { value: string } | undefined;
+  const enableDeepReadRow = db.prepare("SELECT value FROM system_settings WHERE key = 'search_enable_deep_read'").get() as { value: string } | undefined;
+  const deepReadLenRow = db.prepare("SELECT value FROM system_settings WHERE key = 'search_deep_read_length'").get() as { value: string } | undefined;
+
+  const maxResults = Math.max(2, Math.min(10, parseInt(maxResultsRow?.value || '4', 10) || 4));
+  const enableDeepRead = enableDeepReadRow?.value !== '0'; // default true (1)
+  const maxContentLength = Math.max(500, Math.min(4000, parseInt(deepReadLenRow?.value || '2000', 10) || 2000));
+
+  // 1. Execute Web Search via Provider Matrix (100% raw user prompt)
+  const rawResults = await performWebSearch(targetQuery, maxResults);
+  if (!rawResults || rawResults.length === 0) {
+    return { results: [], formattedContext: '', queries: [targetQuery] };
+  }
+
+  // 2. Deep Web Content Reading for top 2~3 results
+  if (enableDeepRead) {
+    const topCandidates = rawResults.slice(0, 3);
+    const deepReadPromises = topCandidates.map(async (item) => {
+      // If engine already provided rich content (e.g. Tavily), use it
+      if (item.content && item.content.length > 200) {
+        return;
+      }
+      try {
+        const { content, success } = await fetchPageMarkdown(item.url, maxContentLength);
+        if (success && content) {
+          item.content = content;
+        }
+      } catch {
+        // deep read failed, fall back to snippet
+      }
+    });
+
+    await Promise.allSettled(deepReadPromises);
+  }
+
+  const formattedContext = formatSearchResultsForPrompt(rawResults);
+  return { results: rawResults, formattedContext, queries: [targetQuery] };
 }
