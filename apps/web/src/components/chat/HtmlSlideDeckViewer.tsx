@@ -243,7 +243,7 @@ function extractContainerFillAndBorder(el: HTMLElement, isLightSlide: boolean): 
   let borderTopHex: string | undefined = undefined;
   let borderLeftHex: string | undefined = undefined;
 
-  // 1. Direct hex in class name
+  // 1. Direct hex in class name (e.g. bg-[#131530])
   const bgHexMatch = cls.match(/bg-\[#?([0-9a-fA-F]{6})\]/);
   if (bgHexMatch) {
     fillHex = bgHexMatch[1].toUpperCase();
@@ -261,71 +261,83 @@ function extractContainerFillAndBorder(el: HTMLElement, isLightSlide: boolean): 
     else if (stripCls.includes('from-blue') || stripCls.includes('bg-blue')) topAccentColor = '3B82F6';
   }
 
-  // 2. Gradients and themed fills (Pure vector fills)
+  // 2. Gradients, translucent badge/tag tints & container backgrounds
   if (!fillHex) {
-    if (cls.includes('from-cyan-900') || cls.includes('from-cyan-950') || cls.includes('to-indigo-900')) {
-      fillHex = '0D1530';
+    // A. Dark Tint Containers (e.g. key insight blocks)
+    if (cls.includes('from-cyan-900') || cls.includes('from-cyan-950') || cls.includes('to-indigo-900') || cls.includes('to-indigo-950')) {
+      fillHex = isLightSlide ? 'ECFEFF' : '0D1530';
     } else if (cls.includes('from-indigo-900') || cls.includes('from-indigo-950')) {
-      fillHex = '0E112E';
+      fillHex = isLightSlide ? 'EEF2FF' : '0E112E';
     } else if (cls.includes('from-emerald-900') || cls.includes('from-emerald-950')) {
-      fillHex = '062419';
+      fillHex = isLightSlide ? 'ECFDF5' : '062419';
     } else if (cls.includes('from-amber-900') || cls.includes('from-amber-950')) {
-      fillHex = '261505';
-    } else if (cls.includes('from-indigo-600') || cls.includes('from-indigo-500')) {
+      fillHex = isLightSlide ? 'FFFBEB' : '261505';
+    }
+    // B. Vibrant Button / Pill Solid Fills
+    else if (cls.includes('from-indigo-600') || cls.includes('from-indigo-500') || cls.includes('bg-indigo-600') || cls.includes('bg-indigo-500')) {
       fillHex = '4F46E5';
-    } else if (cls.includes('from-cyan-500') || cls.includes('from-cyan-600')) {
+    } else if (cls.includes('from-cyan-500') || cls.includes('from-cyan-600') || cls.includes('bg-cyan-500') || cls.includes('bg-cyan-600')) {
       fillHex = '06B6D4';
-    } else if (cls.includes('from-emerald-500') || cls.includes('from-emerald-600')) {
+    } else if (cls.includes('from-emerald-500') || cls.includes('from-emerald-600') || cls.includes('bg-emerald-500') || cls.includes('bg-emerald-600')) {
       fillHex = '059669';
-    } else if (cls.includes('from-amber-500') || cls.includes('from-amber-600')) {
+    } else if (cls.includes('from-amber-500') || cls.includes('from-amber-600') || cls.includes('bg-amber-500') || cls.includes('bg-amber-600')) {
       fillHex = 'D97706';
-    } else if (cls.includes('from-purple-500') || cls.includes('from-purple-600')) {
+    } else if (cls.includes('from-purple-500') || cls.includes('from-purple-600') || cls.includes('bg-purple-500') || cls.includes('bg-purple-600')) {
       fillHex = '7C3AED';
-    } else if (cls.includes('from-blue-500') || cls.includes('from-blue-600')) {
+    } else if (cls.includes('from-blue-500') || cls.includes('from-blue-600') || cls.includes('bg-blue-500') || cls.includes('bg-blue-600')) {
       fillHex = '2563EB';
-    } else if (cls.includes('from-rose-500') || cls.includes('from-rose-600')) {
+    } else if (cls.includes('from-rose-500') || cls.includes('from-rose-600') || cls.includes('bg-rose-500') || cls.includes('bg-rose-600')) {
       fillHex = 'E11D48';
-    } else if (cls.includes('bg-cyan-950')) {
-      fillHex = '083344';
-    } else if (cls.includes('bg-indigo-950')) {
-      fillHex = '1E1B4B';
-    } else if (cls.includes('bg-emerald-950')) {
-      fillHex = '064E3B';
+    }
+    // C. Translucent Badges & Tags (Subtle Tint & Shading)
+    else if (cls.includes('bg-indigo-500/') || cls.includes('bg-indigo-400/') || cls.includes('bg-indigo-50') || cls.includes('bg-indigo-100') || cls.includes('bg-indigo-950')) {
+      fillHex = isLightSlide ? 'EEF2FF' : '181C3F';
+    } else if (cls.includes('bg-cyan-500/') || cls.includes('bg-cyan-400/') || cls.includes('bg-cyan-50') || cls.includes('bg-cyan-100') || cls.includes('bg-cyan-950')) {
+      fillHex = isLightSlide ? 'ECFEFF' : '0B2233';
+    } else if (cls.includes('bg-emerald-500/') || cls.includes('bg-emerald-400/') || cls.includes('bg-emerald-50') || cls.includes('bg-emerald-100') || cls.includes('bg-emerald-950') || cls.includes('bg-teal-500/') || cls.includes('bg-teal-50')) {
+      fillHex = isLightSlide ? 'ECFDF5' : '09261C';
+    } else if (cls.includes('bg-amber-500/') || cls.includes('bg-amber-400/') || cls.includes('bg-amber-50') || cls.includes('bg-amber-100') || cls.includes('bg-amber-950') || cls.includes('bg-orange-500/') || cls.includes('bg-orange-50')) {
+      fillHex = isLightSlide ? 'FFFBEB' : '271A08';
+    } else if (cls.includes('bg-purple-500/') || cls.includes('bg-purple-400/') || cls.includes('bg-purple-50') || cls.includes('bg-purple-100') || cls.includes('bg-purple-950') || cls.includes('bg-violet-500/') || cls.includes('bg-violet-50')) {
+      fillHex = isLightSlide ? 'FAF5FF' : '221136';
+    } else if (cls.includes('bg-rose-500/') || cls.includes('bg-rose-400/') || cls.includes('bg-rose-50') || cls.includes('bg-rose-100') || cls.includes('bg-pink-500/') || cls.includes('bg-pink-50')) {
+      fillHex = isLightSlide ? 'FFF1F2' : '2B0E19';
+    } else if (cls.includes('bg-blue-500/') || cls.includes('bg-blue-400/') || cls.includes('bg-blue-50') || cls.includes('bg-blue-100')) {
+      fillHex = isLightSlide ? 'EFF6FF' : '0F1D3B';
+    }
+    // D. Slate & Translucent White Fills
+    else if (cls.includes('bg-white/10') || cls.includes('bg-white/15') || cls.includes('bg-white/20') || cls.includes('bg-white/25') || cls.includes('bg-white/5')) {
+      fillHex = isLightSlide ? 'F1F5F9' : '1A2234';
+    } else if (cls.includes('bg-white')) {
+      fillHex = isLightSlide ? 'FFFFFF' : '1E293B';
     } else if (cls.includes('bg-[#151633]') || cls.includes('bg-[#131530]') || cls.includes('bg-[#11132A]') || cls.includes('bg-[#0F1230]') || cls.includes('bg-[#12152C]') || cls.includes('bg-[#151838]')) {
       fillHex = '131530';
-    } else if (cls.includes('bg-white/15') || cls.includes('bg-white/20') || cls.includes('bg-white/10') || cls.includes('bg-white/25')) {
-      fillHex = 'FFFFFF';
-    } else if (cls.includes('bg-white')) {
-      fillHex = 'FFFFFF';
-    } else if (cls.includes('bg-teal-50')) fillHex = 'F0FDFA';
-    else if (cls.includes('bg-amber-50')) fillHex = 'FFFBEB';
-    else if (cls.includes('bg-emerald-50')) fillHex = 'ECFDF5';
-    else if (cls.includes('bg-blue-50')) fillHex = 'EFF6FF';
-    else if (cls.includes('bg-orange-50')) fillHex = 'FFF7ED';
-    else if (cls.includes('bg-rose-50')) fillHex = 'FFF1F2';
-    else if (cls.includes('bg-cyan-50')) fillHex = 'ECFEFF';
-    else if (cls.includes('bg-slate-900') || cls.includes('bg-slate-950')) fillHex = '0F172A';
-    else if (cls.includes('bg-slate-800')) fillHex = '1E293B';
-    else if (cls.includes('bg-slate-700')) fillHex = '334155';
-    else if (cls.includes('bg-slate-100') || cls.includes('bg-slate-50')) fillHex = 'F8FAFC';
-    else if (cls.includes('bg-neutral-50')) fillHex = 'FAFAFA';
-    else if (bgRgba && bgRgba.a > 0.05) {
+    } else if (cls.includes('bg-slate-900') || cls.includes('bg-slate-950')) {
+      fillHex = '0F172A';
+    } else if (cls.includes('bg-slate-800')) {
+      fillHex = isLightSlide ? 'E2E8F0' : '1E293B';
+    } else if (cls.includes('bg-slate-700')) {
+      fillHex = '334155';
+    } else if (cls.includes('bg-slate-100') || cls.includes('bg-slate-50') || cls.includes('bg-neutral-50')) {
+      fillHex = 'F8FAFC';
+    } else if (bgRgba && bgRgba.a > 0.15) {
       fillHex = bgRgba.hex;
     }
   }
 
   // Border Resolution:
   let resolvedColor = '3B82F6';
-  if (cls.includes('border-white/30') || cls.includes('border-white/20') || cls.includes('border-white/25') || cls.includes('border-white')) resolvedColor = 'FFFFFF';
-  else if (cls.includes('border-indigo-500') || cls.includes('border-indigo-800')) resolvedColor = '6366F1';
+  if (cls.includes('border-white/30') || cls.includes('border-white/20') || cls.includes('border-white/25') || cls.includes('border-white')) resolvedColor = isLightSlide ? 'CBD5E1' : '384258';
+  else if (cls.includes('border-indigo-500') || cls.includes('border-indigo-400') || cls.includes('border-indigo-800') || cls.includes('border-indigo')) resolvedColor = '6366F1';
+  else if (cls.includes('border-cyan-500') || cls.includes('border-cyan-400') || cls.includes('border-cyan-800') || cls.includes('border-cyan')) resolvedColor = '06B6D4';
+  else if (cls.includes('border-emerald-500') || cls.includes('border-emerald-400') || cls.includes('border-emerald-800') || cls.includes('border-emerald') || cls.includes('border-teal')) resolvedColor = '10B981';
+  else if (cls.includes('border-amber-500') || cls.includes('border-amber-400') || cls.includes('border-amber-800') || cls.includes('border-amber') || cls.includes('border-orange')) resolvedColor = 'F59E0B';
+  else if (cls.includes('border-purple-500') || cls.includes('border-purple-400') || cls.includes('border-purple-800') || cls.includes('border-purple') || cls.includes('border-violet')) resolvedColor = 'A855F7';
+  else if (cls.includes('border-rose-500') || cls.includes('border-rose-400') || cls.includes('border-rose') || cls.includes('border-pink')) resolvedColor = 'F43F5E';
+  else if (cls.includes('border-blue-500') || cls.includes('border-blue-400') || cls.includes('border-blue-800') || cls.includes('border-blue')) resolvedColor = '3B82F6';
   else if (cls.includes('border-teal-100') || cls.includes('border-teal-200')) resolvedColor = 'CCFBF1';
   else if (cls.includes('border-neutral-200') || cls.includes('border-stone-200')) resolvedColor = 'E5E5E5';
   else if (cls.includes('border-slate-800') || cls.includes('border-slate-700') || cls.includes('border-slate-600')) resolvedColor = '334155';
-  else if (cls.includes('border-emerald-500') || cls.includes('border-emerald-800')) resolvedColor = '10B981';
-  else if (cls.includes('border-amber-500') || cls.includes('border-amber-800')) resolvedColor = 'F59E0B';
-  else if (cls.includes('border-blue-500') || cls.includes('border-blue-800')) resolvedColor = '3B82F6';
-  else if (cls.includes('border-cyan-500') || cls.includes('border-cyan-800')) resolvedColor = '06B6D4';
-  else if (cls.includes('border-purple-500')) resolvedColor = 'A855F7';
   else if (borderRgba && borderRgba.a > 0.15) {
     resolvedColor = borderRgba.hex;
   }
@@ -354,7 +366,7 @@ function getEffectiveTextColor(el: HTMLElement, isLightSlide: boolean): string {
   const cls = el.className && typeof el.className === 'string' ? el.className : '';
   const style = window.getComputedStyle(el);
 
-  // Check for text gradient classes (Return luminous vector highlight color)
+  // 1. Check for text gradient classes (Return luminous vector highlight color)
   if (cls.includes('bg-clip-text') || cls.includes('text-transparent')) {
     if (cls.includes('from-white') || cls.includes('to-cyan-200') || cls.includes('via-indigo-100')) {
       return isLightSlide ? '0F172A' : 'E0F2FE';
@@ -369,6 +381,19 @@ function getEffectiveTextColor(el: HTMLElement, isLightSlide: boolean): string {
     }
   }
 
+  // 2. Direct theme colors in class names
+  if (cls.includes('text-indigo-300') || cls.includes('text-indigo-400')) return isLightSlide ? '4338CA' : 'A5B4FC';
+  if (cls.includes('text-cyan-300') || cls.includes('text-cyan-400')) return isLightSlide ? '0E7490' : '67E8F9';
+  if (cls.includes('text-emerald-300') || cls.includes('text-emerald-400') || cls.includes('text-teal-300')) return isLightSlide ? '047857' : '6EE7B7';
+  if (cls.includes('text-amber-300') || cls.includes('text-amber-400') || cls.includes('text-yellow-300')) return isLightSlide ? 'B45309' : 'FCD34D';
+  if (cls.includes('text-purple-300') || cls.includes('text-purple-400') || cls.includes('text-violet-300')) return isLightSlide ? '7E22CE' : 'D8B4FE';
+  if (cls.includes('text-rose-300') || cls.includes('text-rose-400') || cls.includes('text-pink-300')) return isLightSlide ? 'BE123C' : 'FDA4AF';
+  if (cls.includes('text-blue-300') || cls.includes('text-blue-400') || cls.includes('text-sky-300')) return isLightSlide ? '1D4ED8' : '93C5FD';
+  if (cls.includes('text-indigo-200')) return isLightSlide ? '3730A3' : 'C7D2FE';
+  if (cls.includes('text-cyan-200')) return isLightSlide ? '155E75' : 'A5F3FC';
+  if (cls.includes('text-emerald-200')) return isLightSlide ? '065F46' : 'A7F3D0';
+  if (cls.includes('text-amber-200')) return isLightSlide ? '92400E' : 'FDE68A';
+
   const parsed = parseRgba(style.color);
   let hex = parsed ? parsed.hex : isLightSlide ? '1E293B' : 'FFFFFF';
 
@@ -377,9 +402,6 @@ function getEffectiveTextColor(el: HTMLElement, isLightSlide: boolean): string {
     cls.includes('text-white') ||
     cls.includes('text-slate-100') ||
     cls.includes('text-slate-200') ||
-    cls.includes('text-amber-300') ||
-    cls.includes('text-cyan-300') ||
-    cls.includes('text-emerald-300') ||
     el.closest('.bg-gradient-to-r, .bg-gradient-to-br, [class*="from-"], [class*="bg-slate-900"], [class*="bg-[#0"], [class*="bg-blue-600"], [class*="bg-teal-600"]') !== null;
 
   if (isExplicitWhite) {
@@ -452,7 +474,7 @@ async function exportEditablePptx(slides: string[]) {
       // =========================================================================
       const containerCandidates = Array.from(
         slideEl.querySelectorAll(
-          'div, section, article, blockquote, .rounded-xl, .rounded-2xl, .rounded-lg, .rounded-md, .rounded-full, .border'
+          'div, section, article, blockquote, span, button, .rounded-xl, .rounded-2xl, .rounded-lg, .rounded-md, .rounded-full, .border'
         )
       ).filter((el) => {
         if (el === slideEl) return false;
@@ -602,28 +624,82 @@ async function exportEditablePptx(slides: string[]) {
       // =========================================================================
       const progressFills = Array.from(slideEl.querySelectorAll('[style*="width:"]')).filter((el) => {
         const style = el.getAttribute('style') || '';
-        return style.includes('width:') && style.includes('%') && el.tagName === 'DIV';
+        return style.includes('width:') && style.includes('%') && (el.tagName === 'DIV' || el.tagName === 'SPAN');
       });
 
       progressFills.forEach((fillEl) => {
         const rect = fillEl.getBoundingClientRect();
         const cls = fillEl.className && typeof fillEl.className === 'string' ? fillEl.className : '';
-        let colorHex = 'F59E0B';
+        const style = window.getComputedStyle(fillEl);
 
-        if (cls.includes('from-amber') || cls.includes('bg-amber')) colorHex = 'F59E0B';
-        else if (cls.includes('from-blue') || cls.includes('bg-blue')) colorHex = '3B82F6';
-        else if (cls.includes('from-red') || cls.includes('bg-red')) colorHex = 'EF4444';
-        else if (cls.includes('from-rose') || cls.includes('bg-rose')) colorHex = 'F43F5E';
-        else if (cls.includes('from-emerald') || cls.includes('bg-emerald')) colorHex = '10B981';
-        else if (cls.includes('from-yellow') || cls.includes('bg-yellow')) colorHex = 'FACC15';
-        else if (cls.includes('from-orange') || cls.includes('bg-orange')) colorHex = 'F97316';
-        else if (cls.includes('from-cyan') || cls.includes('bg-cyan')) colorHex = '06B6D4';
-        else if (cls.includes('from-purple') || cls.includes('bg-purple')) colorHex = 'A855F7';
+        let colorHex = '06B6D4';
+
+        // 1. Direct hex in class name (e.g. from-[#06B6D4] or bg-[#06B6D4])
+        const fromHexMatch = cls.match(/(?:from|bg|to)-\[#?([0-9a-fA-F]{6})\]/);
+        if (fromHexMatch) {
+          colorHex = fromHexMatch[1].toUpperCase();
+        } else if (cls.includes('from-cyan') || cls.includes('bg-cyan') || cls.includes('to-cyan')) {
+          colorHex = '06B6D4';
+        } else if (cls.includes('from-indigo') || cls.includes('bg-indigo') || cls.includes('to-indigo')) {
+          colorHex = '6366F1';
+        } else if (cls.includes('from-emerald') || cls.includes('bg-emerald') || cls.includes('to-emerald')) {
+          colorHex = '10B981';
+        } else if (cls.includes('from-teal') || cls.includes('bg-teal') || cls.includes('to-teal')) {
+          colorHex = '14B8A6';
+        } else if (cls.includes('from-blue') || cls.includes('bg-blue') || cls.includes('to-blue')) {
+          colorHex = '3B82F6';
+        } else if (cls.includes('from-sky') || cls.includes('bg-sky') || cls.includes('to-sky')) {
+          colorHex = '0EA5E9';
+        } else if (cls.includes('from-amber') || cls.includes('bg-amber') || cls.includes('to-amber')) {
+          colorHex = 'F59E0B';
+        } else if (cls.includes('from-orange') || cls.includes('bg-orange') || cls.includes('to-orange')) {
+          colorHex = 'F97316';
+        } else if (cls.includes('from-yellow') || cls.includes('bg-yellow') || cls.includes('to-yellow')) {
+          colorHex = 'FACC15';
+        } else if (cls.includes('from-purple') || cls.includes('bg-purple') || cls.includes('to-purple')) {
+          colorHex = 'A855F7';
+        } else if (cls.includes('from-violet') || cls.includes('bg-violet') || cls.includes('to-violet')) {
+          colorHex = '8B5CF6';
+        } else if (cls.includes('from-pink') || cls.includes('bg-pink') || cls.includes('to-pink')) {
+          colorHex = 'EC4899';
+        } else if (cls.includes('from-rose') || cls.includes('bg-rose') || cls.includes('to-rose')) {
+          colorHex = 'F43F5E';
+        } else if (cls.includes('from-red') || cls.includes('bg-red') || cls.includes('to-red')) {
+          colorHex = 'EF4444';
+        } else if (cls.includes('from-lime') || cls.includes('bg-lime') || cls.includes('to-lime')) {
+          colorHex = '84CC16';
+        } else {
+          // Fallback to computed style if valid
+          const bgParsed = parseRgba(style.backgroundColor);
+          if (bgParsed && bgParsed.a > 0.3 && bgParsed.hex !== '000000' && bgParsed.hex !== 'FFFFFF') {
+            colorHex = bgParsed.hex;
+          }
+        }
 
         const sx = toPptX(rect.left);
         const sy = toPptY(rect.top);
         const sw = toPptW(rect.width);
         const sh = Math.max(0.04, toPptH(rect.height));
+
+        // Draw track groove behind the progress bar if parent exists
+        const parentEl = fillEl.parentElement;
+        if (parentEl && parentEl !== slideEl) {
+          const pRect = parentEl.getBoundingClientRect();
+          const psx = toPptX(pRect.left);
+          const psy = toPptY(pRect.top);
+          const psw = toPptW(pRect.width);
+          const psh = Math.max(0.04, toPptH(pRect.height));
+          if (psw > sw + 0.05) {
+            slide.addShape(pptx.ShapeType.roundRect, {
+              x: psx,
+              y: psy,
+              w: psw,
+              h: psh,
+              rectRadius: 0.04,
+              fill: { color: isLightSlide ? 'E2E8F0' : '1E2538' },
+            });
+          }
+        }
 
         if (sw > 0.04 && sh > 0.02) {
           slide.addShape(pptx.ShapeType.roundRect, {
