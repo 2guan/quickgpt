@@ -289,25 +289,25 @@ function extractContainerFillAndBorder(el: HTMLElement, isLightSlide: boolean): 
     } else if (cls.includes('from-rose-500') || cls.includes('from-rose-600') || cls.includes('bg-rose-500') || cls.includes('bg-rose-600')) {
       fillHex = 'E11D48';
     }
-    // C. Translucent Badges & Tags (Subtle Tint & Shading)
+    // C. Translucent Badges & Tags (Deep, High-End Luxury Dark Shading)
     else if (cls.includes('bg-indigo-500/') || cls.includes('bg-indigo-400/') || cls.includes('bg-indigo-50') || cls.includes('bg-indigo-100') || cls.includes('bg-indigo-950')) {
-      fillHex = isLightSlide ? 'EEF2FF' : '181C3F';
+      fillHex = isLightSlide ? 'EEF2FF' : '0B0D22';
     } else if (cls.includes('bg-cyan-500/') || cls.includes('bg-cyan-400/') || cls.includes('bg-cyan-50') || cls.includes('bg-cyan-100') || cls.includes('bg-cyan-950')) {
-      fillHex = isLightSlide ? 'ECFEFF' : '0B2233';
+      fillHex = isLightSlide ? 'ECFEFF' : '03111A';
     } else if (cls.includes('bg-emerald-500/') || cls.includes('bg-emerald-400/') || cls.includes('bg-emerald-50') || cls.includes('bg-emerald-100') || cls.includes('bg-emerald-950') || cls.includes('bg-teal-500/') || cls.includes('bg-teal-50')) {
-      fillHex = isLightSlide ? 'ECFDF5' : '09261C';
+      fillHex = isLightSlide ? 'ECFDF5' : '02140D';
     } else if (cls.includes('bg-amber-500/') || cls.includes('bg-amber-400/') || cls.includes('bg-amber-50') || cls.includes('bg-amber-100') || cls.includes('bg-amber-950') || cls.includes('bg-orange-500/') || cls.includes('bg-orange-50')) {
-      fillHex = isLightSlide ? 'FFFBEB' : '271A08';
+      fillHex = isLightSlide ? 'FFFBEB' : '140C03';
     } else if (cls.includes('bg-purple-500/') || cls.includes('bg-purple-400/') || cls.includes('bg-purple-50') || cls.includes('bg-purple-100') || cls.includes('bg-purple-950') || cls.includes('bg-violet-500/') || cls.includes('bg-violet-50')) {
-      fillHex = isLightSlide ? 'FAF5FF' : '221136';
+      fillHex = isLightSlide ? 'FAF5FF' : '10061C';
     } else if (cls.includes('bg-rose-500/') || cls.includes('bg-rose-400/') || cls.includes('bg-rose-50') || cls.includes('bg-rose-100') || cls.includes('bg-pink-500/') || cls.includes('bg-pink-50')) {
-      fillHex = isLightSlide ? 'FFF1F2' : '2B0E19';
+      fillHex = isLightSlide ? 'FFF1F2' : '14040A';
     } else if (cls.includes('bg-blue-500/') || cls.includes('bg-blue-400/') || cls.includes('bg-blue-50') || cls.includes('bg-blue-100')) {
-      fillHex = isLightSlide ? 'EFF6FF' : '0F1D3B';
+      fillHex = isLightSlide ? 'EFF6FF' : '050D1C';
     }
     // D. Slate & Translucent White Fills
     else if (cls.includes('bg-white/10') || cls.includes('bg-white/15') || cls.includes('bg-white/20') || cls.includes('bg-white/25') || cls.includes('bg-white/5')) {
-      fillHex = isLightSlide ? 'F1F5F9' : '1A2234';
+      fillHex = isLightSlide ? 'F1F5F9' : '0B0F1A';
     } else if (cls.includes('bg-white')) {
       fillHex = isLightSlide ? 'FFFFFF' : '1E293B';
     } else if (cls.includes('bg-[#151633]') || cls.includes('bg-[#131530]') || cls.includes('bg-[#11132A]') || cls.includes('bg-[#0F1230]') || cls.includes('bg-[#12152C]') || cls.includes('bg-[#151838]')) {
@@ -315,12 +315,12 @@ function extractContainerFillAndBorder(el: HTMLElement, isLightSlide: boolean): 
     } else if (cls.includes('bg-slate-900') || cls.includes('bg-slate-950')) {
       fillHex = '0F172A';
     } else if (cls.includes('bg-slate-800')) {
-      fillHex = isLightSlide ? 'E2E8F0' : '1E293B';
+      fillHex = isLightSlide ? 'E2E8F0' : '121826';
     } else if (cls.includes('bg-slate-700')) {
-      fillHex = '334155';
+      fillHex = isLightSlide ? 'CBD5E1' : '1E293B';
     } else if (cls.includes('bg-slate-100') || cls.includes('bg-slate-50') || cls.includes('bg-neutral-50')) {
       fillHex = 'F8FAFC';
-    } else if (bgRgba && bgRgba.a > 0.15) {
+    } else if (bgRgba && bgRgba.a > 0.6) {
       fillHex = bgRgba.hex;
     }
   }
@@ -620,86 +620,201 @@ async function exportEditablePptx(slides: string[]) {
       });
 
       // =========================================================================
-      // LAYER 2: PROGRESS BARS (Filled meter bars with % widths)
+      // LAYER 2: PROGRESS BARS (Comprehensive Track & Multi-Segment Meter Bars)
       // =========================================================================
-      const progressFills = Array.from(slideEl.querySelectorAll('[style*="width:"]')).filter((el) => {
-        const style = el.getAttribute('style') || '';
-        return style.includes('width:') && style.includes('%') && (el.tagName === 'DIV' || el.tagName === 'SPAN');
+      const progressTracks = Array.from(
+        slideEl.querySelectorAll(
+          'div.rounded-full, div[class*="h-1"], div[class*="h-1.5"], div[class*="h-2"], div[class*="h-2.5"], div[class*="h-3"], div[class*="h-4"], div[class*="overflow-hidden"]'
+        )
+      ).filter((trackEl) => {
+        if (trackEl === slideEl) return false;
+        const rect = trackEl.getBoundingClientRect();
+        // A progress track typically has a small height (<= 24px) and noticeable width (>= 30px)
+        const isTrackHeight = rect.height <= 24 && rect.height >= 2 && rect.width >= 30;
+        const hasProgressChild = Array.from(trackEl.children).some((c) => {
+          const cCls = c.className && typeof c.className === 'string' ? c.className : '';
+          const cStyle = c.getAttribute('style') || '';
+          return (
+            cStyle.includes('width:') ||
+            cCls.includes('w-[') ||
+            cCls.includes('w-1/') ||
+            cCls.includes('w-2/') ||
+            cCls.includes('w-3/') ||
+            cCls.includes('w-4/') ||
+            cCls.includes('w-5/') ||
+            cCls.includes('w-6/') ||
+            cCls.includes('w-7/') ||
+            cCls.includes('w-8/') ||
+            cCls.includes('w-9/') ||
+            cCls.includes('w-10/') ||
+            cCls.includes('w-11/') ||
+            cCls.includes('w-12/') ||
+            cCls.includes('w-full') ||
+            cCls.includes('bg-') ||
+            cCls.includes('from-')
+          );
+        });
+        return isTrackHeight && hasProgressChild;
       });
 
-      progressFills.forEach((fillEl) => {
+      // Also collect any standalone progress fills that might not have matched the track query
+      const standaloneFills = Array.from(
+        slideEl.querySelectorAll('[style*="width:"], [class*="w-["]')
+      ).filter((el) => {
+        const cls = el.className && typeof el.className === 'string' ? el.className : '';
+        const style = el.getAttribute('style') || '';
+        const isPct = style.includes('%') || cls.includes('w-[');
+        return isPct && !progressTracks.some((t) => t.contains(el));
+      });
+
+      progressTracks.forEach((trackEl) => {
+        visitedElements.add(trackEl);
+        trackEl.querySelectorAll('*').forEach((c) => visitedElements.add(c));
+
+        const tRect = trackEl.getBoundingClientRect();
+        const tx = toPptX(tRect.left);
+        const ty = toPptY(tRect.top);
+        const tw = toPptW(tRect.width);
+        const th = Math.max(0.04, toPptH(tRect.height));
+
+        const trackCls = trackEl.className && typeof trackEl.className === 'string' ? trackEl.className : '';
+        let trackColor = isLightSlide ? 'E2E8F0' : '1E2538';
+        if (trackCls.includes('bg-slate-900') || trackCls.includes('bg-slate-950')) trackColor = '0F172A';
+        else if (trackCls.includes('bg-slate-800')) trackColor = '1E293B';
+        else if (trackCls.includes('bg-slate-700')) trackColor = '334155';
+
+        // 1. Draw the track background groove
+        slide.addShape(pptx.ShapeType.roundRect, {
+          x: tx,
+          y: ty,
+          w: tw,
+          h: th,
+          rectRadius: 0.04,
+          fill: { color: trackColor },
+        });
+
+        // 2. Draw each child segment inside the track
+        const children = Array.from(trackEl.children) as HTMLElement[];
+        children.forEach((childEl) => {
+          const cCls = childEl.className && typeof childEl.className === 'string' ? childEl.className : '';
+          const cStyle = childEl.getAttribute('style') || '';
+
+          // A. Calculate width percentage
+          let widthPct = 0;
+          const styleW = cStyle.match(/width:\s*([\d.]+)%/);
+          if (styleW) {
+            widthPct = parseFloat(styleW[1]);
+          } else {
+            const clsW = cCls.match(/w-\[([\d.]+)%\]/);
+            if (clsW) {
+              widthPct = parseFloat(clsW[1]);
+            } else if (cCls.includes('w-3/4')) widthPct = 75;
+            else if (cCls.includes('w-1/2')) widthPct = 50;
+            else if (cCls.includes('w-2/3')) widthPct = 66.67;
+            else if (cCls.includes('w-4/5')) widthPct = 80;
+            else if (cCls.includes('w-1/4')) widthPct = 25;
+            else if (cCls.includes('w-1/3')) widthPct = 33.33;
+            else if (cCls.includes('w-3/5')) widthPct = 60;
+            else if (cCls.includes('w-2/5')) widthPct = 40;
+            else if (cCls.includes('w-9/10')) widthPct = 90;
+            else if (cCls.includes('w-full')) widthPct = 100;
+            else {
+              const cRect = childEl.getBoundingClientRect();
+              if (cRect.width > 0 && tRect.width > 0) {
+                widthPct = (cRect.width / tRect.width) * 100;
+              }
+            }
+          }
+
+          // B. Calculate left offset percentage
+          let leftPct = 0;
+          const styleL = cStyle.match(/left:\s*([\d.]+)%/);
+          if (styleL) {
+            leftPct = parseFloat(styleL[1]);
+          } else {
+            const clsL = cCls.match(/left-\[([\d.]+)%\]/);
+            if (clsL) {
+              leftPct = parseFloat(clsL[1]);
+            } else if (cCls.includes('left-0')) {
+              leftPct = 0;
+            } else {
+              const cRect = childEl.getBoundingClientRect();
+              if (cRect.left > tRect.left && tRect.width > 0) {
+                leftPct = ((cRect.left - tRect.left) / tRect.width) * 100;
+              }
+            }
+          }
+
+          if (widthPct <= 0) return;
+
+          // C. Calculate color
+          let colorHex = '06B6D4';
+          const fromHexMatch = cCls.match(/(?:from|bg|to)-\[#?([0-9a-fA-F]{6})\]/);
+          if (fromHexMatch) {
+            colorHex = fromHexMatch[1].toUpperCase();
+          } else if (cCls.includes('bg-slate-600') || cCls.includes('bg-slate-500') || cCls.includes('bg-slate-700')) {
+            colorHex = '64748B'; // Slate gray for baseline
+          } else if (cCls.includes('from-indigo') || cCls.includes('bg-indigo') || cCls.includes('to-indigo')) {
+            colorHex = '6366F1';
+          } else if (cCls.includes('from-cyan') || cCls.includes('bg-cyan') || cCls.includes('to-cyan')) {
+            colorHex = '06B6D4';
+          } else if (cCls.includes('from-emerald') || cCls.includes('bg-emerald') || cCls.includes('to-emerald') || cCls.includes('from-green') || cCls.includes('bg-green')) {
+            colorHex = '10B981';
+          } else if (cCls.includes('from-teal') || cCls.includes('bg-teal') || cCls.includes('to-teal')) {
+            colorHex = '14B8A6';
+          } else if (cCls.includes('from-amber') || cCls.includes('bg-amber') || cCls.includes('to-amber') || cCls.includes('from-orange') || cCls.includes('bg-orange')) {
+            colorHex = 'F59E0B';
+          } else if (cCls.includes('from-yellow') || cCls.includes('bg-yellow') || cCls.includes('to-yellow')) {
+            colorHex = 'FACC15';
+          } else if (cCls.includes('from-purple') || cCls.includes('bg-purple') || cCls.includes('to-purple') || cCls.includes('from-violet') || cCls.includes('bg-violet')) {
+            colorHex = 'A855F7';
+          } else if (cCls.includes('from-pink') || cCls.includes('bg-pink') || cCls.includes('to-pink')) {
+            colorHex = 'EC4899';
+          } else if (cCls.includes('from-rose') || cCls.includes('bg-rose') || cCls.includes('to-rose')) {
+            colorHex = 'F43F5E';
+          } else if (cCls.includes('from-blue') || cCls.includes('bg-blue') || cCls.includes('to-blue') || cCls.includes('from-sky') || cCls.includes('bg-sky')) {
+            colorHex = '3B82F6';
+          } else if (cCls.includes('from-red') || cCls.includes('bg-red') || cCls.includes('to-red')) {
+            colorHex = 'EF4444';
+          }
+
+          const segX = tx + tw * (leftPct / 100);
+          const segW = tw * (widthPct / 100);
+
+          if (segW > 0.02) {
+            slide.addShape(pptx.ShapeType.roundRect, {
+              x: segX,
+              y: ty,
+              w: segW,
+              h: th,
+              rectRadius: 0.04,
+              fill: { color: colorHex },
+            });
+          }
+        });
+      });
+
+      standaloneFills.forEach((fillEl) => {
+        visitedElements.add(fillEl);
         const rect = fillEl.getBoundingClientRect();
         const cls = fillEl.className && typeof fillEl.className === 'string' ? fillEl.className : '';
-        const style = window.getComputedStyle(fillEl);
-
         let colorHex = '06B6D4';
 
-        // 1. Direct hex in class name (e.g. from-[#06B6D4] or bg-[#06B6D4])
         const fromHexMatch = cls.match(/(?:from|bg|to)-\[#?([0-9a-fA-F]{6})\]/);
         if (fromHexMatch) {
           colorHex = fromHexMatch[1].toUpperCase();
-        } else if (cls.includes('from-cyan') || cls.includes('bg-cyan') || cls.includes('to-cyan')) {
-          colorHex = '06B6D4';
-        } else if (cls.includes('from-indigo') || cls.includes('bg-indigo') || cls.includes('to-indigo')) {
-          colorHex = '6366F1';
-        } else if (cls.includes('from-emerald') || cls.includes('bg-emerald') || cls.includes('to-emerald')) {
-          colorHex = '10B981';
-        } else if (cls.includes('from-teal') || cls.includes('bg-teal') || cls.includes('to-teal')) {
-          colorHex = '14B8A6';
-        } else if (cls.includes('from-blue') || cls.includes('bg-blue') || cls.includes('to-blue')) {
-          colorHex = '3B82F6';
-        } else if (cls.includes('from-sky') || cls.includes('bg-sky') || cls.includes('to-sky')) {
-          colorHex = '0EA5E9';
-        } else if (cls.includes('from-amber') || cls.includes('bg-amber') || cls.includes('to-amber')) {
-          colorHex = 'F59E0B';
-        } else if (cls.includes('from-orange') || cls.includes('bg-orange') || cls.includes('to-orange')) {
-          colorHex = 'F97316';
-        } else if (cls.includes('from-yellow') || cls.includes('bg-yellow') || cls.includes('to-yellow')) {
-          colorHex = 'FACC15';
-        } else if (cls.includes('from-purple') || cls.includes('bg-purple') || cls.includes('to-purple')) {
-          colorHex = 'A855F7';
-        } else if (cls.includes('from-violet') || cls.includes('bg-violet') || cls.includes('to-violet')) {
-          colorHex = '8B5CF6';
-        } else if (cls.includes('from-pink') || cls.includes('bg-pink') || cls.includes('to-pink')) {
-          colorHex = 'EC4899';
-        } else if (cls.includes('from-rose') || cls.includes('bg-rose') || cls.includes('to-rose')) {
-          colorHex = 'F43F5E';
-        } else if (cls.includes('from-red') || cls.includes('bg-red') || cls.includes('to-red')) {
-          colorHex = 'EF4444';
-        } else if (cls.includes('from-lime') || cls.includes('bg-lime') || cls.includes('to-lime')) {
-          colorHex = '84CC16';
-        } else {
-          // Fallback to computed style if valid
-          const bgParsed = parseRgba(style.backgroundColor);
-          if (bgParsed && bgParsed.a > 0.3 && bgParsed.hex !== '000000' && bgParsed.hex !== 'FFFFFF') {
-            colorHex = bgParsed.hex;
-          }
-        }
+        } else if (cls.includes('from-indigo') || cls.includes('bg-indigo')) colorHex = '6366F1';
+        else if (cls.includes('from-cyan') || cls.includes('bg-cyan')) colorHex = '06B6D4';
+        else if (cls.includes('from-emerald') || cls.includes('bg-emerald')) colorHex = '10B981';
+        else if (cls.includes('from-amber') || cls.includes('bg-amber')) colorHex = 'F59E0B';
+        else if (cls.includes('from-purple') || cls.includes('bg-purple')) colorHex = 'A855F7';
+        else if (cls.includes('from-rose') || cls.includes('bg-rose')) colorHex = 'F43F5E';
+        else if (cls.includes('from-blue') || cls.includes('bg-blue')) colorHex = '3B82F6';
 
         const sx = toPptX(rect.left);
         const sy = toPptY(rect.top);
         const sw = toPptW(rect.width);
         const sh = Math.max(0.04, toPptH(rect.height));
-
-        // Draw track groove behind the progress bar if parent exists
-        const parentEl = fillEl.parentElement;
-        if (parentEl && parentEl !== slideEl) {
-          const pRect = parentEl.getBoundingClientRect();
-          const psx = toPptX(pRect.left);
-          const psy = toPptY(pRect.top);
-          const psw = toPptW(pRect.width);
-          const psh = Math.max(0.04, toPptH(pRect.height));
-          if (psw > sw + 0.05) {
-            slide.addShape(pptx.ShapeType.roundRect, {
-              x: psx,
-              y: psy,
-              w: psw,
-              h: psh,
-              rectRadius: 0.04,
-              fill: { color: isLightSlide ? 'E2E8F0' : '1E2538' },
-            });
-          }
-        }
 
         if (sw > 0.04 && sh > 0.02) {
           slide.addShape(pptx.ShapeType.roundRect, {
