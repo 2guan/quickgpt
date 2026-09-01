@@ -220,6 +220,7 @@ function detectSlideBackground(classes = ''): { dataUrl: string; isLight: boolea
 
 interface ContainerStyle {
   fill?: string;
+  fillTransparency?: number;
   topAccentColor?: string;
   border?: string;
   borderBottom?: string;
@@ -237,13 +238,25 @@ function extractContainerFillAndBorder(el: HTMLElement, isLightSlide: boolean): 
   const borderRgba = parseRgba(style.borderColor);
 
   let fillHex: string | undefined = undefined;
+  let fillTransparency: number | undefined = undefined;
   let topAccentColor: string | undefined = undefined;
   let borderHex: string | undefined = undefined;
   let borderBottomHex: string | undefined = undefined;
   let borderTopHex: string | undefined = undefined;
   let borderLeftHex: string | undefined = undefined;
 
-  // 1. Direct hex in class name (e.g. bg-[#131530])
+  // Detect explicit alpha opacity in Tailwind class, e.g. bg-emerald-500/20, bg-cyan-950/80, bg-[#131530]/60
+  const alphaMatch = cls.match(/bg-[a-zA-Z0-9_#[\]-]+\/(\d+)/);
+  if (alphaMatch) {
+    const alphaPercent = parseInt(alphaMatch[1], 10);
+    if (!isNaN(alphaPercent) && alphaPercent <= 100) {
+      fillTransparency = Math.max(0, 100 - alphaPercent);
+    }
+  } else if (bgRgba && bgRgba.a < 0.95 && bgRgba.a > 0.01) {
+    fillTransparency = Math.round((1 - bgRgba.a) * 100);
+  }
+
+  // 1. Direct hex in class name
   const bgHexMatch = cls.match(/bg-\[#?([0-9a-fA-F]{6})\]/);
   if (bgHexMatch) {
     fillHex = bgHexMatch[1].toUpperCase();
@@ -261,83 +274,73 @@ function extractContainerFillAndBorder(el: HTMLElement, isLightSlide: boolean): 
     else if (stripCls.includes('from-blue') || stripCls.includes('bg-blue')) topAccentColor = '3B82F6';
   }
 
-  // 2. Gradients, translucent badge/tag tints & container backgrounds
+  // 2. Gradients and themed fills (Pure vector fills)
   if (!fillHex) {
-    // A. Dark Tint Containers (e.g. key insight blocks)
-    if (cls.includes('from-cyan-900') || cls.includes('from-cyan-950') || cls.includes('to-indigo-900') || cls.includes('to-indigo-950')) {
-      fillHex = isLightSlide ? 'ECFEFF' : '0D1530';
+    if (cls.includes('from-cyan-900') || cls.includes('from-cyan-950') || cls.includes('to-indigo-900')) {
+      fillHex = '0D1530';
     } else if (cls.includes('from-indigo-900') || cls.includes('from-indigo-950')) {
-      fillHex = isLightSlide ? 'EEF2FF' : '0E112E';
+      fillHex = '0E112E';
     } else if (cls.includes('from-emerald-900') || cls.includes('from-emerald-950')) {
-      fillHex = isLightSlide ? 'ECFDF5' : '062419';
+      fillHex = '062419';
     } else if (cls.includes('from-amber-900') || cls.includes('from-amber-950')) {
-      fillHex = isLightSlide ? 'FFFBEB' : '261505';
-    }
-    // B. Vibrant Button / Pill Solid Fills
-    else if (cls.includes('from-indigo-600') || cls.includes('from-indigo-500') || cls.includes('bg-indigo-600') || cls.includes('bg-indigo-500')) {
-      fillHex = '4F46E5';
+      fillHex = '261505';
+    } else if (cls.includes('from-indigo-600') || cls.includes('from-indigo-500') || cls.includes('bg-indigo-500') || cls.includes('bg-indigo-600')) {
+      fillHex = '6366F1';
     } else if (cls.includes('from-cyan-500') || cls.includes('from-cyan-600') || cls.includes('bg-cyan-500') || cls.includes('bg-cyan-600')) {
       fillHex = '06B6D4';
     } else if (cls.includes('from-emerald-500') || cls.includes('from-emerald-600') || cls.includes('bg-emerald-500') || cls.includes('bg-emerald-600')) {
-      fillHex = '059669';
+      fillHex = '10B981';
     } else if (cls.includes('from-amber-500') || cls.includes('from-amber-600') || cls.includes('bg-amber-500') || cls.includes('bg-amber-600')) {
-      fillHex = 'D97706';
+      fillHex = 'F59E0B';
     } else if (cls.includes('from-purple-500') || cls.includes('from-purple-600') || cls.includes('bg-purple-500') || cls.includes('bg-purple-600')) {
-      fillHex = '7C3AED';
+      fillHex = 'A855F7';
     } else if (cls.includes('from-blue-500') || cls.includes('from-blue-600') || cls.includes('bg-blue-500') || cls.includes('bg-blue-600')) {
-      fillHex = '2563EB';
+      fillHex = '3B82F6';
     } else if (cls.includes('from-rose-500') || cls.includes('from-rose-600') || cls.includes('bg-rose-500') || cls.includes('bg-rose-600')) {
-      fillHex = 'E11D48';
-    }
-    // C. Translucent Badges & Tags (Deep, High-End Luxury Dark Shading)
-    else if (cls.includes('bg-indigo-500/') || cls.includes('bg-indigo-400/') || cls.includes('bg-indigo-50') || cls.includes('bg-indigo-100') || cls.includes('bg-indigo-950')) {
-      fillHex = isLightSlide ? 'EEF2FF' : '0B0D22';
-    } else if (cls.includes('bg-cyan-500/') || cls.includes('bg-cyan-400/') || cls.includes('bg-cyan-50') || cls.includes('bg-cyan-100') || cls.includes('bg-cyan-950')) {
-      fillHex = isLightSlide ? 'ECFEFF' : '03111A';
-    } else if (cls.includes('bg-emerald-500/') || cls.includes('bg-emerald-400/') || cls.includes('bg-emerald-50') || cls.includes('bg-emerald-100') || cls.includes('bg-emerald-950') || cls.includes('bg-teal-500/') || cls.includes('bg-teal-50')) {
-      fillHex = isLightSlide ? 'ECFDF5' : '02140D';
-    } else if (cls.includes('bg-amber-500/') || cls.includes('bg-amber-400/') || cls.includes('bg-amber-50') || cls.includes('bg-amber-100') || cls.includes('bg-amber-950') || cls.includes('bg-orange-500/') || cls.includes('bg-orange-50')) {
-      fillHex = isLightSlide ? 'FFFBEB' : '140C03';
-    } else if (cls.includes('bg-purple-500/') || cls.includes('bg-purple-400/') || cls.includes('bg-purple-50') || cls.includes('bg-purple-100') || cls.includes('bg-purple-950') || cls.includes('bg-violet-500/') || cls.includes('bg-violet-50')) {
-      fillHex = isLightSlide ? 'FAF5FF' : '10061C';
-    } else if (cls.includes('bg-rose-500/') || cls.includes('bg-rose-400/') || cls.includes('bg-rose-50') || cls.includes('bg-rose-100') || cls.includes('bg-pink-500/') || cls.includes('bg-pink-50')) {
-      fillHex = isLightSlide ? 'FFF1F2' : '14040A';
-    } else if (cls.includes('bg-blue-500/') || cls.includes('bg-blue-400/') || cls.includes('bg-blue-50') || cls.includes('bg-blue-100')) {
-      fillHex = isLightSlide ? 'EFF6FF' : '050D1C';
-    }
-    // D. Slate & Translucent White Fills
-    else if (cls.includes('bg-white/10') || cls.includes('bg-white/15') || cls.includes('bg-white/20') || cls.includes('bg-white/25') || cls.includes('bg-white/5')) {
-      fillHex = isLightSlide ? 'F1F5F9' : '0B0F1A';
-    } else if (cls.includes('bg-white')) {
-      fillHex = isLightSlide ? 'FFFFFF' : '1E293B';
+      fillHex = 'F43F5E';
+    } else if (cls.includes('bg-cyan-950')) {
+      fillHex = '083344';
+    } else if (cls.includes('bg-indigo-950')) {
+      fillHex = '1E1B4B';
+    } else if (cls.includes('bg-emerald-950')) {
+      fillHex = '064E3B';
     } else if (cls.includes('bg-[#151633]') || cls.includes('bg-[#131530]') || cls.includes('bg-[#11132A]') || cls.includes('bg-[#0F1230]') || cls.includes('bg-[#12152C]') || cls.includes('bg-[#151838]')) {
       fillHex = '131530';
-    } else if (cls.includes('bg-slate-900') || cls.includes('bg-slate-950')) {
-      fillHex = '0F172A';
-    } else if (cls.includes('bg-slate-800')) {
-      fillHex = isLightSlide ? 'E2E8F0' : '121826';
-    } else if (cls.includes('bg-slate-700')) {
-      fillHex = isLightSlide ? 'CBD5E1' : '1E293B';
-    } else if (cls.includes('bg-slate-100') || cls.includes('bg-slate-50') || cls.includes('bg-neutral-50')) {
-      fillHex = 'F8FAFC';
-    } else if (bgRgba && bgRgba.a > 0.6) {
+    } else if (cls.includes('bg-white/15') || cls.includes('bg-white/20') || cls.includes('bg-white/10') || cls.includes('bg-white/25')) {
+      fillHex = 'FFFFFF';
+    } else if (cls.includes('bg-white')) {
+      fillHex = 'FFFFFF';
+    } else if (cls.includes('bg-teal-50')) fillHex = 'F0FDFA';
+    else if (cls.includes('bg-amber-50')) fillHex = 'FFFBEB';
+    else if (cls.includes('bg-emerald-50')) fillHex = 'ECFDF5';
+    else if (cls.includes('bg-blue-50')) fillHex = 'EFF6FF';
+    else if (cls.includes('bg-orange-50')) fillHex = 'FFF7ED';
+    else if (cls.includes('bg-rose-50')) fillHex = 'FFF1F2';
+    else if (cls.includes('bg-cyan-50')) fillHex = 'ECFEFF';
+    else if (cls.includes('bg-slate-900') || cls.includes('bg-slate-950')) fillHex = '0F172A';
+    else if (cls.includes('bg-slate-800')) fillHex = '1E293B';
+    else if (cls.includes('bg-slate-700')) fillHex = '334155';
+    else if (cls.includes('bg-slate-600')) fillHex = '475569';
+    else if (cls.includes('bg-slate-500')) fillHex = '64748B';
+    else if (cls.includes('bg-slate-100') || cls.includes('bg-slate-50')) fillHex = 'F8FAFC';
+    else if (cls.includes('bg-neutral-50')) fillHex = 'FAFAFA';
+    else if (bgRgba && bgRgba.a > 0.05) {
       fillHex = bgRgba.hex;
     }
   }
 
   // Border Resolution:
   let resolvedColor = '3B82F6';
-  if (cls.includes('border-white/30') || cls.includes('border-white/20') || cls.includes('border-white/25') || cls.includes('border-white')) resolvedColor = isLightSlide ? 'CBD5E1' : '384258';
-  else if (cls.includes('border-indigo-500') || cls.includes('border-indigo-400') || cls.includes('border-indigo-800') || cls.includes('border-indigo')) resolvedColor = '6366F1';
-  else if (cls.includes('border-cyan-500') || cls.includes('border-cyan-400') || cls.includes('border-cyan-800') || cls.includes('border-cyan')) resolvedColor = '06B6D4';
-  else if (cls.includes('border-emerald-500') || cls.includes('border-emerald-400') || cls.includes('border-emerald-800') || cls.includes('border-emerald') || cls.includes('border-teal')) resolvedColor = '10B981';
-  else if (cls.includes('border-amber-500') || cls.includes('border-amber-400') || cls.includes('border-amber-800') || cls.includes('border-amber') || cls.includes('border-orange')) resolvedColor = 'F59E0B';
-  else if (cls.includes('border-purple-500') || cls.includes('border-purple-400') || cls.includes('border-purple-800') || cls.includes('border-purple') || cls.includes('border-violet')) resolvedColor = 'A855F7';
-  else if (cls.includes('border-rose-500') || cls.includes('border-rose-400') || cls.includes('border-rose') || cls.includes('border-pink')) resolvedColor = 'F43F5E';
-  else if (cls.includes('border-blue-500') || cls.includes('border-blue-400') || cls.includes('border-blue-800') || cls.includes('border-blue')) resolvedColor = '3B82F6';
+  if (cls.includes('border-white/30') || cls.includes('border-white/20') || cls.includes('border-white/25') || cls.includes('border-white')) resolvedColor = 'FFFFFF';
+  else if (cls.includes('border-indigo-500') || cls.includes('border-indigo-800')) resolvedColor = '6366F1';
   else if (cls.includes('border-teal-100') || cls.includes('border-teal-200')) resolvedColor = 'CCFBF1';
   else if (cls.includes('border-neutral-200') || cls.includes('border-stone-200')) resolvedColor = 'E5E5E5';
   else if (cls.includes('border-slate-800') || cls.includes('border-slate-700') || cls.includes('border-slate-600')) resolvedColor = '334155';
+  else if (cls.includes('border-emerald-500') || cls.includes('border-emerald-800')) resolvedColor = '10B981';
+  else if (cls.includes('border-amber-500') || cls.includes('border-amber-800')) resolvedColor = 'F59E0B';
+  else if (cls.includes('border-blue-500') || cls.includes('border-blue-800')) resolvedColor = '3B82F6';
+  else if (cls.includes('border-cyan-500') || cls.includes('border-cyan-800')) resolvedColor = '06B6D4';
+  else if (cls.includes('border-purple-500')) resolvedColor = 'A855F7';
   else if (borderRgba && borderRgba.a > 0.15) {
     resolvedColor = borderRgba.hex;
   }
@@ -356,7 +359,7 @@ function extractContainerFillAndBorder(el: HTMLElement, isLightSlide: boolean): 
     borderLeftHex = resolvedColor;
   }
 
-  return { fill: fillHex, topAccentColor, border: borderHex, borderBottom: borderBottomHex, borderTop: borderTopHex, borderLeft: borderLeftHex };
+  return { fill: fillHex, fillTransparency, topAccentColor, border: borderHex, borderBottom: borderBottomHex, borderTop: borderTopHex, borderLeft: borderLeftHex };
 }
 
 /**
@@ -366,7 +369,7 @@ function getEffectiveTextColor(el: HTMLElement, isLightSlide: boolean): string {
   const cls = el.className && typeof el.className === 'string' ? el.className : '';
   const style = window.getComputedStyle(el);
 
-  // 1. Check for text gradient classes (Return luminous vector highlight color)
+  // Check for text gradient classes (Return luminous vector highlight color)
   if (cls.includes('bg-clip-text') || cls.includes('text-transparent')) {
     if (cls.includes('from-white') || cls.includes('to-cyan-200') || cls.includes('via-indigo-100')) {
       return isLightSlide ? '0F172A' : 'E0F2FE';
@@ -381,18 +384,18 @@ function getEffectiveTextColor(el: HTMLElement, isLightSlide: boolean): string {
     }
   }
 
-  // 2. Direct theme colors in class names
-  if (cls.includes('text-indigo-300') || cls.includes('text-indigo-400')) return isLightSlide ? '4338CA' : 'A5B4FC';
-  if (cls.includes('text-cyan-300') || cls.includes('text-cyan-400')) return isLightSlide ? '0E7490' : '67E8F9';
-  if (cls.includes('text-emerald-300') || cls.includes('text-emerald-400') || cls.includes('text-teal-300')) return isLightSlide ? '047857' : '6EE7B7';
-  if (cls.includes('text-amber-300') || cls.includes('text-amber-400') || cls.includes('text-yellow-300')) return isLightSlide ? 'B45309' : 'FCD34D';
-  if (cls.includes('text-purple-300') || cls.includes('text-purple-400') || cls.includes('text-violet-300')) return isLightSlide ? '7E22CE' : 'D8B4FE';
-  if (cls.includes('text-rose-300') || cls.includes('text-rose-400') || cls.includes('text-pink-300')) return isLightSlide ? 'BE123C' : 'FDA4AF';
-  if (cls.includes('text-blue-300') || cls.includes('text-blue-400') || cls.includes('text-sky-300')) return isLightSlide ? '1D4ED8' : '93C5FD';
-  if (cls.includes('text-indigo-200')) return isLightSlide ? '3730A3' : 'C7D2FE';
-  if (cls.includes('text-cyan-200')) return isLightSlide ? '155E75' : 'A5F3FC';
-  if (cls.includes('text-emerald-200')) return isLightSlide ? '065F46' : 'A7F3D0';
-  if (cls.includes('text-amber-200')) return isLightSlide ? '92400E' : 'FDE68A';
+  // Exact Tailwind text color class resolution for high contrast
+  if (cls.includes('text-emerald-300') || cls.includes('text-emerald-400')) return '6EE7B7';
+  if (cls.includes('text-cyan-300') || cls.includes('text-cyan-400')) return '67E8F9';
+  if (cls.includes('text-amber-300') || cls.includes('text-amber-400')) return 'FCD34D';
+  if (cls.includes('text-purple-300') || cls.includes('text-purple-400')) return 'D8B4FE';
+  if (cls.includes('text-indigo-300') || cls.includes('text-indigo-400')) return 'A5B4FC';
+  if (cls.includes('text-rose-300') || cls.includes('text-rose-400')) return 'FDA4AF';
+  if (cls.includes('text-slate-200')) return 'E2E8F0';
+  if (cls.includes('text-slate-300')) return 'CBD5E1';
+  if (cls.includes('text-slate-400')) return '94A3B8';
+  if (cls.includes('text-slate-500')) return '64748B';
+  if (cls.includes('text-white')) return 'FFFFFF';
 
   const parsed = parseRgba(style.color);
   let hex = parsed ? parsed.hex : isLightSlide ? '1E293B' : 'FFFFFF';
@@ -402,6 +405,9 @@ function getEffectiveTextColor(el: HTMLElement, isLightSlide: boolean): string {
     cls.includes('text-white') ||
     cls.includes('text-slate-100') ||
     cls.includes('text-slate-200') ||
+    cls.includes('text-amber-300') ||
+    cls.includes('text-cyan-300') ||
+    cls.includes('text-emerald-300') ||
     el.closest('.bg-gradient-to-r, .bg-gradient-to-br, [class*="from-"], [class*="bg-slate-900"], [class*="bg-[#0"], [class*="bg-blue-600"], [class*="bg-teal-600"]') !== null;
 
   if (isExplicitWhite) {
@@ -470,11 +476,11 @@ async function exportEditablePptx(slides: string[]) {
       const visitedElements = new Set<Element>();
 
       // =========================================================================
-      // LAYER 1: CARDS, BOXES, AND CONTAINERS (Drawn from largest to smallest)
+      // LAYER 1: CARDS, BOXES, PILLS AND CONTAINERS (Drawn from largest to smallest)
       // =========================================================================
       const containerCandidates = Array.from(
         slideEl.querySelectorAll(
-          'div, section, article, blockquote, span, button, .rounded-xl, .rounded-2xl, .rounded-lg, .rounded-md, .rounded-full, .border'
+          'div, section, article, blockquote, span, .rounded-xl, .rounded-2xl, .rounded-lg, .rounded-md, .rounded-full, .border'
         )
       ).filter((el) => {
         if (el === slideEl) return false;
@@ -482,32 +488,35 @@ async function exportEditablePptx(slides: string[]) {
 
         const cls = el.className && typeof el.className === 'string' ? el.className : '';
         const parentCls = el.parentElement?.className && typeof el.parentElement.className === 'string' ? el.parentElement.className : '';
+        const r = el.getBoundingClientRect();
 
-        // FILTER OUT PURE DECORATIVE AMBIENT BLUR LIGHTS & PULSING BACKGROUND RINGS
+        // FILTER OUT PURE DECORATIVE AMBIENT BLUR LIGHTS & GIANT BACKGROUND GLOW ORBS
         const isAmbientBlur = (cls.includes('blur-') || cls.includes('blur-[')) && !cls.includes('backdrop-blur');
+        const isGiantGlowOrb =
+          cls.includes('rounded-full') &&
+          cls.includes('absolute') &&
+          r.width >= 120 &&
+          r.height >= 120 &&
+          (cls.includes('bg-white/10') || cls.includes('bg-cyan-') || cls.includes('bg-indigo-') || cls.includes('opacity-'));
+
         if (
           isAmbientBlur ||
+          isGiantGlowOrb ||
           cls.includes('pointer-events-none') ||
           cls.includes('opacity-10') ||
-          cls.includes('opacity-20') ||
           cls.includes('opacity-5') ||
-          parentCls.includes('opacity-10') ||
-          parentCls.includes('opacity-20') ||
-          parentCls.includes('opacity-5') ||
-          (cls.includes('animate-pulse') && !cls.includes('w-1.5') && !cls.includes('w-2')) ||
-          (cls.includes('rounded-full') && cls.includes('absolute') && (cls.includes('w-[') || cls.includes('w-60') || cls.includes('w-80') || cls.includes('w-96') || cls.includes('w-40') || cls.includes('w-48') || cls.includes('w-64') || cls.includes('w-[300px]') || cls.includes('w-[400px]') || cls.includes('w-[500px]') || cls.includes('w-[600px]')))
+          (cls.includes('animate-pulse') && !cls.includes('w-1.5') && !cls.includes('w-2'))
         ) {
           return false;
         }
 
-        const r = el.getBoundingClientRect();
-        return r.width >= 4 && r.height >= 1;
+        return r.width >= 3 && r.height >= 1;
       });
 
       // Priority sort:
       // 1. Thin connecting line tracks (z-0 / background lines) must be drawn FIRST
       // 2. Large outer cards drawn next.
-      // 3. Small inner cards/badges/header strips drawn last.
+      // 3. Small inner cards/badges/header strips/progress bars drawn last.
       containerCandidates.sort((a, b) => {
         const ra = a.getBoundingClientRect();
         const rb = b.getBoundingClientRect();
@@ -521,7 +530,7 @@ async function exportEditablePptx(slides: string[]) {
       containerCandidates.forEach((el) => {
         const cls = el.className && typeof el.className === 'string' ? el.className : '';
         const style = window.getComputedStyle(el);
-        const { fill: fillColor, topAccentColor, border: borderColor, borderBottom, borderTop, borderLeft } = extractContainerFillAndBorder(el as HTMLElement, isLightSlide);
+        const { fill: fillColor, fillTransparency, topAccentColor, border: borderColor, borderBottom, borderTop, borderLeft } = extractContainerFillAndBorder(el as HTMLElement, isLightSlide);
         const radius = parseFloat(style.borderRadius) || 0;
         const rect = el.getBoundingClientRect();
         const sx = toPptX(rect.left);
@@ -529,7 +538,7 @@ async function exportEditablePptx(slides: string[]) {
         const sw = toPptW(rect.width);
         const sh = toPptH(rect.height);
 
-        if (sx >= -0.5 && sy >= -0.5 && sx <= 10.5 && sy <= 6.0 && sw > 0.02 && sh > 0.01) {
+        if (sx >= -0.5 && sy >= -0.5 && sx <= 10.5 && sy <= 6.0 && sw > 0.01 && sh > 0.005) {
           const isCircle = radius >= rect.height / 2 - 3 && Math.abs(rect.width - rect.height) < 10;
           const shapeType = isCircle
             ? pptx.ShapeType.ellipse
@@ -549,7 +558,7 @@ async function exportEditablePptx(slides: string[]) {
             });
           }
 
-          // 2. Draw solid vector card with optional shadow
+          // 2. Draw solid or semi-transparent vector card/pill with optional shadow
           if (fillColor || borderColor) {
             const hasShadow = cls.includes('shadow') && !cls.includes('shadow-none');
             let shadowConfig: any = undefined;
@@ -578,7 +587,12 @@ async function exportEditablePptx(slides: string[]) {
               w: sw,
               h: sh,
               rectRadius: isCircle ? undefined : Math.min(0.2, (radius / rootW) * 10),
-              fill: fillColor ? { color: fillColor } : undefined,
+              fill: fillColor
+                ? {
+                    color: fillColor,
+                    transparency: fillTransparency,
+                  }
+                : undefined,
               line: borderColor ? { color: borderColor, width: 0.75 } : undefined,
               shadow: shadowConfig,
             });
@@ -620,203 +634,42 @@ async function exportEditablePptx(slides: string[]) {
       });
 
       // =========================================================================
-      // LAYER 2: PROGRESS BARS (Comprehensive Track & Multi-Segment Meter Bars)
+      // LAYER 2: PROGRESS BARS (Multi-segment bars, % width bars, and meters)
       // =========================================================================
-      const progressTracks = Array.from(
-        slideEl.querySelectorAll(
-          'div.rounded-full, div[class*="h-1"], div[class*="h-1.5"], div[class*="h-2"], div[class*="h-2.5"], div[class*="h-3"], div[class*="h-4"], div[class*="overflow-hidden"]'
-        )
-      ).filter((trackEl) => {
-        if (trackEl === slideEl) return false;
-        const rect = trackEl.getBoundingClientRect();
-        // A progress track typically has a small height (<= 24px) and noticeable width (>= 30px)
-        const isTrackHeight = rect.height <= 24 && rect.height >= 2 && rect.width >= 30;
-        const hasProgressChild = Array.from(trackEl.children).some((c) => {
-          const cCls = c.className && typeof c.className === 'string' ? c.className : '';
-          const cStyle = c.getAttribute('style') || '';
-          return (
-            cStyle.includes('width:') ||
-            cCls.includes('w-[') ||
-            cCls.includes('w-1/') ||
-            cCls.includes('w-2/') ||
-            cCls.includes('w-3/') ||
-            cCls.includes('w-4/') ||
-            cCls.includes('w-5/') ||
-            cCls.includes('w-6/') ||
-            cCls.includes('w-7/') ||
-            cCls.includes('w-8/') ||
-            cCls.includes('w-9/') ||
-            cCls.includes('w-10/') ||
-            cCls.includes('w-11/') ||
-            cCls.includes('w-12/') ||
-            cCls.includes('w-full') ||
-            cCls.includes('bg-') ||
-            cCls.includes('from-')
-          );
-        });
-        return isTrackHeight && hasProgressChild;
-      });
-
-      // Also collect any standalone progress fills that might not have matched the track query
-      const standaloneFills = Array.from(
+      const progressFills = Array.from(
         slideEl.querySelectorAll('[style*="width:"], [class*="w-["]')
       ).filter((el) => {
         const cls = el.className && typeof el.className === 'string' ? el.className : '';
         const style = el.getAttribute('style') || '';
-        const isPct = style.includes('%') || cls.includes('w-[');
-        return isPct && !progressTracks.some((t) => t.contains(el));
+        const hasWidthPercent =
+          (style.includes('width:') && style.includes('%')) ||
+          /w-\[\d+%\]/.test(cls);
+        const r = el.getBoundingClientRect();
+        return hasWidthPercent && (el.tagName === 'DIV' || el.tagName === 'SPAN') && r.height <= 25;
       });
 
-      progressTracks.forEach((trackEl) => {
-        visitedElements.add(trackEl);
-        trackEl.querySelectorAll('*').forEach((c) => visitedElements.add(c));
-
-        const tRect = trackEl.getBoundingClientRect();
-        const tx = toPptX(tRect.left);
-        const ty = toPptY(tRect.top);
-        const tw = toPptW(tRect.width);
-        const th = Math.max(0.04, toPptH(tRect.height));
-
-        const trackCls = trackEl.className && typeof trackEl.className === 'string' ? trackEl.className : '';
-        let trackColor = isLightSlide ? 'E2E8F0' : '1E2538';
-        if (trackCls.includes('bg-slate-900') || trackCls.includes('bg-slate-950')) trackColor = '0F172A';
-        else if (trackCls.includes('bg-slate-800')) trackColor = '1E293B';
-        else if (trackCls.includes('bg-slate-700')) trackColor = '334155';
-
-        // 1. Draw the track background groove
-        slide.addShape(pptx.ShapeType.roundRect, {
-          x: tx,
-          y: ty,
-          w: tw,
-          h: th,
-          rectRadius: 0.04,
-          fill: { color: trackColor },
-        });
-
-        // 2. Draw each child segment inside the track
-        const children = Array.from(trackEl.children) as HTMLElement[];
-        children.forEach((childEl) => {
-          const cCls = childEl.className && typeof childEl.className === 'string' ? childEl.className : '';
-          const cStyle = childEl.getAttribute('style') || '';
-
-          // A. Calculate width percentage
-          let widthPct = 0;
-          const styleW = cStyle.match(/width:\s*([\d.]+)%/);
-          if (styleW) {
-            widthPct = parseFloat(styleW[1]);
-          } else {
-            const clsW = cCls.match(/w-\[([\d.]+)%\]/);
-            if (clsW) {
-              widthPct = parseFloat(clsW[1]);
-            } else if (cCls.includes('w-3/4')) widthPct = 75;
-            else if (cCls.includes('w-1/2')) widthPct = 50;
-            else if (cCls.includes('w-2/3')) widthPct = 66.67;
-            else if (cCls.includes('w-4/5')) widthPct = 80;
-            else if (cCls.includes('w-1/4')) widthPct = 25;
-            else if (cCls.includes('w-1/3')) widthPct = 33.33;
-            else if (cCls.includes('w-3/5')) widthPct = 60;
-            else if (cCls.includes('w-2/5')) widthPct = 40;
-            else if (cCls.includes('w-9/10')) widthPct = 90;
-            else if (cCls.includes('w-full')) widthPct = 100;
-            else {
-              const cRect = childEl.getBoundingClientRect();
-              if (cRect.width > 0 && tRect.width > 0) {
-                widthPct = (cRect.width / tRect.width) * 100;
-              }
-            }
-          }
-
-          // B. Calculate left offset percentage
-          let leftPct = 0;
-          const styleL = cStyle.match(/left:\s*([\d.]+)%/);
-          if (styleL) {
-            leftPct = parseFloat(styleL[1]);
-          } else {
-            const clsL = cCls.match(/left-\[([\d.]+)%\]/);
-            if (clsL) {
-              leftPct = parseFloat(clsL[1]);
-            } else if (cCls.includes('left-0')) {
-              leftPct = 0;
-            } else {
-              const cRect = childEl.getBoundingClientRect();
-              if (cRect.left > tRect.left && tRect.width > 0) {
-                leftPct = ((cRect.left - tRect.left) / tRect.width) * 100;
-              }
-            }
-          }
-
-          if (widthPct <= 0) return;
-
-          // C. Calculate color
-          let colorHex = '06B6D4';
-          const fromHexMatch = cCls.match(/(?:from|bg|to)-\[#?([0-9a-fA-F]{6})\]/);
-          if (fromHexMatch) {
-            colorHex = fromHexMatch[1].toUpperCase();
-          } else if (cCls.includes('bg-slate-600') || cCls.includes('bg-slate-500') || cCls.includes('bg-slate-700')) {
-            colorHex = '64748B'; // Slate gray for baseline
-          } else if (cCls.includes('from-indigo') || cCls.includes('bg-indigo') || cCls.includes('to-indigo')) {
-            colorHex = '6366F1';
-          } else if (cCls.includes('from-cyan') || cCls.includes('bg-cyan') || cCls.includes('to-cyan')) {
-            colorHex = '06B6D4';
-          } else if (cCls.includes('from-emerald') || cCls.includes('bg-emerald') || cCls.includes('to-emerald') || cCls.includes('from-green') || cCls.includes('bg-green')) {
-            colorHex = '10B981';
-          } else if (cCls.includes('from-teal') || cCls.includes('bg-teal') || cCls.includes('to-teal')) {
-            colorHex = '14B8A6';
-          } else if (cCls.includes('from-amber') || cCls.includes('bg-amber') || cCls.includes('to-amber') || cCls.includes('from-orange') || cCls.includes('bg-orange')) {
-            colorHex = 'F59E0B';
-          } else if (cCls.includes('from-yellow') || cCls.includes('bg-yellow') || cCls.includes('to-yellow')) {
-            colorHex = 'FACC15';
-          } else if (cCls.includes('from-purple') || cCls.includes('bg-purple') || cCls.includes('to-purple') || cCls.includes('from-violet') || cCls.includes('bg-violet')) {
-            colorHex = 'A855F7';
-          } else if (cCls.includes('from-pink') || cCls.includes('bg-pink') || cCls.includes('to-pink')) {
-            colorHex = 'EC4899';
-          } else if (cCls.includes('from-rose') || cCls.includes('bg-rose') || cCls.includes('to-rose')) {
-            colorHex = 'F43F5E';
-          } else if (cCls.includes('from-blue') || cCls.includes('bg-blue') || cCls.includes('to-blue') || cCls.includes('from-sky') || cCls.includes('bg-sky')) {
-            colorHex = '3B82F6';
-          } else if (cCls.includes('from-red') || cCls.includes('bg-red') || cCls.includes('to-red')) {
-            colorHex = 'EF4444';
-          }
-
-          const segX = tx + tw * (leftPct / 100);
-          const segW = tw * (widthPct / 100);
-
-          if (segW > 0.02) {
-            slide.addShape(pptx.ShapeType.roundRect, {
-              x: segX,
-              y: ty,
-              w: segW,
-              h: th,
-              rectRadius: 0.04,
-              fill: { color: colorHex },
-            });
-          }
-        });
-      });
-
-      standaloneFills.forEach((fillEl) => {
-        visitedElements.add(fillEl);
+      progressFills.forEach((fillEl) => {
         const rect = fillEl.getBoundingClientRect();
         const cls = fillEl.className && typeof fillEl.className === 'string' ? fillEl.className : '';
-        let colorHex = '06B6D4';
+        let colorHex = '3B82F6';
 
-        const fromHexMatch = cls.match(/(?:from|bg|to)-\[#?([0-9a-fA-F]{6})\]/);
-        if (fromHexMatch) {
-          colorHex = fromHexMatch[1].toUpperCase();
-        } else if (cls.includes('from-indigo') || cls.includes('bg-indigo')) colorHex = '6366F1';
+        if (cls.includes('from-indigo') || cls.includes('bg-indigo')) colorHex = '6366F1';
         else if (cls.includes('from-cyan') || cls.includes('bg-cyan')) colorHex = '06B6D4';
         else if (cls.includes('from-emerald') || cls.includes('bg-emerald')) colorHex = '10B981';
         else if (cls.includes('from-amber') || cls.includes('bg-amber')) colorHex = 'F59E0B';
+        else if (cls.includes('from-orange') || cls.includes('bg-orange')) colorHex = 'F97316';
         else if (cls.includes('from-purple') || cls.includes('bg-purple')) colorHex = 'A855F7';
-        else if (cls.includes('from-rose') || cls.includes('bg-rose')) colorHex = 'F43F5E';
         else if (cls.includes('from-blue') || cls.includes('bg-blue')) colorHex = '3B82F6';
+        else if (cls.includes('bg-slate-600')) colorHex = '475569';
+        else if (cls.includes('bg-slate-700')) colorHex = '334155';
+        else if (cls.includes('bg-slate-500')) colorHex = '64748B';
 
         const sx = toPptX(rect.left);
         const sy = toPptY(rect.top);
         const sw = toPptW(rect.width);
         const sh = Math.max(0.04, toPptH(rect.height));
 
-        if (sw > 0.04 && sh > 0.02) {
+        if (sw > 0.02 && sh > 0.01) {
           slide.addShape(pptx.ShapeType.roundRect, {
             x: sx,
             y: sy,
