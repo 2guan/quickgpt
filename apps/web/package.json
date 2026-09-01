@@ -8,7 +8,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@types/html2canvas": "^0.5.35",
     "clsx": "^2.1.1",
+    "html2canvas": "^1.4.1",
     "katex": "^0.16.21",
     "lucide-react": "^0.475.0",
     "pptxgenjs": "^4.0.1",

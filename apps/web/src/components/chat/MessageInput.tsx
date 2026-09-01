@@ -13,7 +13,9 @@ import {
   FileText,
   Loader2,
   Image as ImageIcon,
-  Presentation,
+  Sparkles,
+  ChevronDown,
+  Check,
 } from 'lucide-react';
 
 interface MessageInputProps {
@@ -35,6 +37,8 @@ export const MessageInput: React.FC<MessageInputProps> = ({ onSend }) => {
     setEnableSearch,
     enablePPT,
     setEnablePPT,
+    enableHtmlPPT,
+    setEnableHtmlPPT,
   } = useChatStore();
 
   const { settings } = useSettingsStore();
@@ -42,8 +46,27 @@ export const MessageInput: React.FC<MessageInputProps> = ({ onSend }) => {
   const [input, setInput] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [showPptMenu, setShowPptMenu] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const pptMenuRef = useRef<HTMLDivElement>(null);
+
+  const isPptActive = Boolean(enableHtmlPPT || enablePPT);
+
+  // Close PPT menu on outside click
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (pptMenuRef.current && !pptMenuRef.current.contains(e.target as Node)) {
+        setShowPptMenu(false);
+      }
+    };
+    if (showPptMenu) {
+      document.addEventListener('mousedown', handleOutsideClick);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+    };
+  }, [showPptMenu]);
 
   // Check if current selected model has image generation capability
   const isImageModelActive = selectedModelIds.some((mId) => {
@@ -235,19 +258,125 @@ export const MessageInput: React.FC<MessageInputProps> = ({ onSend }) => {
           <span role="tooltip" className="pointer-events-none absolute left-1/2 top-full z-30 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-800 px-2 py-1 text-[11px] font-medium text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 dark:bg-slate-100 dark:text-slate-900">联网搜索</span>
         </button>
 
-        {/* PPT Generation Background Toggle Button */}
-        <button
-          onClick={() => setEnablePPT(!enablePPT)}
-          className={`group relative border border-transparent p-1.5 rounded-full transition-all shrink-0 mb-0.5 active:scale-95 ${
-            enablePPT
-              ? 'bg-orange-50 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400 border-orange-200 dark:border-orange-800/80'
-              : 'text-slate-400 dark:text-slate-500 hover:text-orange-600 dark:hover:text-orange-400 hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
-          }`}
-          aria-label="制作PPT"
-        >
-          <Presentation className={`w-4 h-4 ${enablePPT ? 'animate-pulse text-orange-600 dark:text-orange-400' : ''}`} />
-          <span role="tooltip" className="pointer-events-none absolute left-1/2 top-full z-30 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-800 px-2 py-1 text-[11px] font-medium text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 dark:bg-slate-100 dark:text-slate-900">制作PPT</span>
-        </button>
+        {/* Combined PPT Toggle & Version Selector (logo+PPT with V1/V2 selector, defaulting to V2) */}
+        <div className="relative" ref={pptMenuRef}>
+          <div
+            className={`group relative flex items-center rounded-full transition-all shrink-0 mb-0.5 border ${
+              isPptActive
+                ? 'bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-800/80 shadow-2xs'
+                : 'text-slate-400 dark:text-slate-500 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 border-transparent'
+            }`}
+          >
+            {/* Main Toggle Button */}
+            <button
+              onClick={() => {
+                if (isPptActive) {
+                  // Toggle off
+                  setEnableHtmlPPT(false);
+                  setEnablePPT(false);
+                } else {
+                  // Default to V2 (HTML mode)
+                  setEnableHtmlPPT(true);
+                  setEnablePPT(false);
+                }
+              }}
+              className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-l-full active:scale-95 transition-all"
+              aria-label="PPT 演示文档生成"
+            >
+              <Sparkles className={`w-3.5 h-3.5 ${isPptActive ? 'animate-pulse text-purple-600 dark:text-purple-400' : ''}`} />
+              <span>PPT</span>
+              {isPptActive && (
+                <span className="text-[10px] font-bold px-1.5 py-0.2 bg-purple-200/70 dark:bg-purple-900/80 rounded-full text-purple-700 dark:text-purple-300 ml-0.5">
+                  {enableHtmlPPT ? 'V2' : 'V1'}
+                </span>
+              )}
+            </button>
+
+            {/* Dropdown Chevron Trigger */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowPptMenu(!showPptMenu);
+              }}
+              className="p-1 pr-1.5 hover:bg-purple-100/50 dark:hover:bg-purple-900/50 rounded-r-full transition-colors active:scale-95 text-slate-400 dark:text-slate-500 hover:text-purple-600 dark:hover:text-purple-400"
+              title="选择 PPT 生成版本"
+            >
+              <ChevronDown className={`w-3 h-3 transition-transform duration-150 ${showPptMenu ? 'rotate-180' : ''}`} />
+            </button>
+          </div>
+
+          {/* Version Selection Popover */}
+          {showPptMenu && (
+            <div className="absolute bottom-full left-0 mb-2 w-64 p-1.5 bg-white dark:bg-[#1c1c22] border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-50 animate-in fade-in zoom-in-95 duration-150">
+              <div className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 px-2 py-1 uppercase tracking-wider">
+                选择 PPT 生成版本
+              </div>
+
+              {/* V2 Option (Default) */}
+              <button
+                onClick={() => {
+                  setEnableHtmlPPT(true);
+                  setEnablePPT(false);
+                  setShowPptMenu(false);
+                }}
+                className={`w-full flex items-center justify-between p-2 rounded-lg text-left transition-colors ${
+                  enableHtmlPPT
+                    ? 'bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300'
+                    : 'hover:bg-slate-100 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-300'
+                }`}
+              >
+                <div className="flex flex-col">
+                  <div className="flex items-center gap-1.5 text-xs font-bold">
+                    <span>V2（HTML版）</span>
+                    <span className="text-[9px] px-1 py-0.2 bg-purple-600 text-white rounded font-medium">默认推荐</span>
+                  </div>
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+                    丰富容器排版、图表与矢量PPTX导出
+                  </span>
+                </div>
+                {enableHtmlPPT && <Check className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0 ml-1" />}
+              </button>
+
+              {/* V1 Option */}
+              <button
+                onClick={() => {
+                  setEnablePPT(true);
+                  setEnableHtmlPPT(false);
+                  setShowPptMenu(false);
+                }}
+                className={`w-full flex items-center justify-between p-2 rounded-lg text-left transition-colors mt-0.5 ${
+                  enablePPT && !enableHtmlPPT
+                    ? 'bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300'
+                    : 'hover:bg-slate-100 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-300'
+                }`}
+              >
+                <div className="flex flex-col">
+                  <span className="text-xs font-bold">V1（Markdown版）</span>
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+                    标准 Markdown 幻灯片语法
+                  </span>
+                </div>
+                {enablePPT && !enableHtmlPPT && <Check className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0 ml-1" />}
+              </button>
+
+              {/* Disable Option */}
+              {isPptActive && (
+                <div className="mt-1 pt-1 border-t border-slate-100 dark:border-slate-800">
+                  <button
+                    onClick={() => {
+                      setEnableHtmlPPT(false);
+                      setEnablePPT(false);
+                      setShowPptMenu(false);
+                    }}
+                    className="w-full text-left px-2 py-1 text-[11px] text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 rounded transition-colors"
+                  >
+                    关闭 PPT 模式
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
         </div>
 
         {/* Auto-resizing Textarea */}

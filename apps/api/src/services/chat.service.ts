@@ -201,6 +201,7 @@ export async function handleStreamChat({
   attachments,
   enableSearch,
   enablePPT,
+  enableHtmlPPT,
   imageParams,
   reply,
   clientIp,
@@ -214,6 +215,7 @@ export async function handleStreamChat({
   attachments?: Array<{ name: string; text?: string; url?: string; type: string }>;
   enableSearch?: boolean;
   enablePPT?: boolean;
+  enableHtmlPPT?: boolean;
   imageParams?: { size?: string; quality?: string; style?: string; aspect_ratio?: string };
   reply: FastifyReply;
   clientIp: string;
@@ -470,7 +472,7 @@ export async function handleStreamChat({
 【每页的固定语法】
 1. 首行可选版式声明：\`<!-- layout: ... -->\`。
 2. 如使用 grid 版式，第二行必须写 \`<!-- layout-variant: ... -->\`；一页只能有一个 layout 和一个 variant。
-3. 封面必须为 \`# 主标题\`，正文页必须为 \`## 主标题\`；每页只能有一个主标题。
+3. 封面必须为 \`# 主标题\`（请凝练为不超过15个字的核心精炼标题），正文页必须为 \`## 主标题\`；每页只能有一个主标题。
 4. 可选副标题只能紧随主标题，且只能写一行 \`### 副标题\`。
 5. 正文页的卡片只能二选一，绝对不要混用：
    - 列表卡片：\`- **卡片标题**：一句概述\`，其子要点只能缩进两空格写 \`  - 子要点\`。
@@ -497,74 +499,6 @@ export async function handleStreamChat({
 - 当一页既需要数据图表又需要文字结论时，使用 \`chart-left\`（图在左、结论在右）或 \`chart-right\`（结论在左、图在右）。图表与 1~2 张结论卡片会同页排版。
 - 紧随 layout 声明依次写 \`<!-- chart: bar | column | line | area | mountain | pie -->\`，可选 \`<!-- chart-title: 图表标题 -->\`，然后写一张 Markdown 表格。第一列必须为分类/时间，后续列必须为纯数值系列；饼图只使用第一条数值系列。
 - \`bar\` 是横向条形图，\`column\` 是竖向柱状图，\`line\` 是折线图，\`area\` 是面积图，\`mountain\` 是山形趋势图，\`pie\` 是饼图。数据不足 2 行、没有真实数值、或主题不以数据比较为中心时，禁止使用图表。
-- 图表页示例：
-\`\`\`ppt
-<!-- layout: chart-right -->
-<!-- chart: line -->
-<!-- chart-title: 月度活跃用户趋势 -->
-## 用户增长与运营动作
-### 数据验证策略成效
-- **增长来源**：新手引导优化带来持续提升
-- **下一步重点**：聚焦高价值用户留存
-| 月份 | 新增用户 | 活跃用户 |
-| --- | ---: | ---: |
-| 1 月 | 42 | 30 |
-| 2 月 | 58 | 43 |
-| 3 月 | 76 | 61 |
-\`\`\`
-
-【扩展版式正确示例】
-\`\`\`ppt
-<!-- layout: challenge-solution -->
-## 测试落地的难点与破解
-### 体系认知差距
-#### 难点
-金融标准与现有测试习惯之间存在理解断层
-- 术语与流程不统一
-- 初期沟通成本高
-#### 解决方案
-以逐条对比和联合调研建立共同语言
-- 输出差异清单
-- 组织专题答疑
-
-### 组织职责边界
-#### 难点
-多方职责交叉导致决策和执行脱节
-#### 解决方案
-通过角色矩阵明确权责与升级路径
-
----
-<!-- layout: hub -->
-## 企业级测试方法
-### 企业级流程化标准化
-- **统一标准**：明确分析设计口径
-- **专业共享**：沉淀可复用方法资产
-- **有序协同**：建立交易与核算协同机制
-- **快速有效**：形成差错分析闭环
-- **多维主动**：完善检查与监控手段
-
----
-<!-- layout: chart-grid -->
-<!-- chart: column -->
-## 投产质量四维分析
-### 用统一周期观察四项质量指标
-- **缺陷密度下降**：版本质量持续提升
-- **执行效率提升**：测试产能稳步增长
-| 周期 | 缺陷密度 | 执行效率 | 修复效率 | 重现率 |
-| --- | ---: | ---: | ---: | ---: |
-| 一期 | 15.1 | 958 | 81.0 | 15.8 |
-| 二期 | 6.9 | 1495 | 66.0 | 17.0 |
-| 三期 | 1.9 | 3176 | 40.4 | 14.0 |
-\`\`\`
-
-【叙事与视觉层次】
-- 时间、步骤、因果链必须按先后顺序写成 timeline；并列的分类、模块、策略才使用 grid。
-- 对比内容必须恰好两张卡，分别写清两侧名称与差异；不要伪装成时间线。
-- 不要仅因“体系、框架、挑战、方案”等标题就虚构内容优先级；3~9 个模块、策略、观点可平等并列。只有材料本身明确存在核心与支撑关系时，才先写核心卡片并选择主次组合版式。
-- 每页如有一句必须被记住的结论，使用独立 \`> 核心结论\`；不要把结论塞进某个卡片的最后一条。普通卡片需要对称、平铺时，避免使用时间顺序词。
-- 对“定义 + 解释”使用 2 张对比卡；对“分类 + 举例”使用 3/4 张平等卡；对 5~9 个并列模块使用 balanced/two-column；仅对“一个核心 + 多个支撑”使用 5 张 masonry/focus；对“数据 + 解读”使用 chart-left/chart-right；对“结论 + 行动”使用 quote。不要为了版式强行给平行内容分主次。
-- 信息密度高时，优先保留同页阅读：2~3 张信息丰富卡片可用 vertical/two-column；4~6 张用 balanced/two-column；6~8 张优先 two-column；有数据时将图表与 2~4 条结论同页。不要因为信息稍多就拆页，更不要把长段硬塞进横向窄卡片。
-- 3 项内容可采用纵向递进或三栏支柱；5 项内容可采用主卡 + 支撑卡的不规则组合；6~8 项内容优先两栏纵向阅读；9 项内容根据文字密度采用九宫格或两栏长清单。不要为了“卡片数量”强行横向排列。
 
 【容量与完整性：内容绝不能丢】
 - 一张页只承载一个中心主题。若卡片超过 9 张、时间节点超过 5 个、表格超过 6 个数据行，或任一卡片超过 4 条子要点，必须新建续页，标题加“（续）”。
@@ -572,31 +506,172 @@ export async function handleStreamChat({
 - 表格每页最多 6 行数据；列数建议 3~6 列。跨页表格必须重复表头。
 - 输出前自检：每个事实、列表项、表格行都必须出现一次；卡片数与 grid 数匹配；图表表格每一个数值都为纯数字；所有 \`**\`、反引号与 HTML 注释均已闭合。
 - 禁止：声明 \`grid2\` 却写 3 个以上卡片；在正文页重复 \`#\` / \`##\`；把分页符写进表格或代码块；输出 HTML、Mermaid、图片链接或未闭合的 Markdown 标记。
-
-【最小正确示例】
-\`\`\`ppt
-<!-- layout: grid3 -->
-## 三大实施支柱
-### 从策略、能力到执行形成闭环
-### 策略对齐
-- 明确目标与边界
-- 统一关键指标
-### 能力建设
-- 补齐产品与数据能力
-- 建立复盘机制
-### 执行落地
-- 分阶段推进
-- 定期评估优化
-
----
-<!-- layout: table -->
-## 阶段任务对照
-| 阶段 | 重点任务 | 交付物 |
-| --- | --- | --- |
-| 筹备 | 明确方案 | 项目计划 |
-| 推进 | 执行验证 | 阶段复盘 |
-\`\`\`
 【页数规则】根据主题深度自由决定页数；完整、清晰、可演示优先于页数少。`;
+  }
+
+  if (enableHtmlPPT) {
+    combinedSystemPrompt += `\n\n【NEWPPT 顶级商业级原生 HTML 演示文稿生成协议：必须严格遵守】
+你正在生成支持自由现代排版、兼具极致视觉美感与高信息密度的高品质 HTML 演示文稿（PPT）。
+只输出一个 \`\`\`html-ppt 代码块，绝不要输出任何解释、前言、总结或代码块外的文本。
+
+【一、 核心容器与封面标题基准】
+1. 演示文稿由多页幻灯片组成。每一页必须使用独立的 <section class="slide ...">...</section> 标签包裹！
+2. 封面标题规范：第一页（封面）正中央必须包含整份演示文稿的核心大标题（请凝练为不超过15个字的核心精炼标题，置于 <h1 class="...">...</h1> 中），副标题或演讲人置于紧随的 <p> 中。
+3. 基础容器尺寸与比例：每张幻灯片标准尺寸为 16:9（宽 960px，高 540px），请为每个 <section> 赋予标准类：
+   class="slide relative w-[960px] h-[540px] p-8 overflow-hidden flex flex-col justify-between select-none box-border ..."
+4. 纯静态 HTML5 与 Tailwind CSS：所有排版、色彩、网格、毛玻璃、渐变、字体层次均使用现代 Tailwind CSS 实用类（无需任何外部 JS）。
+
+【二、 丰富、高级、舒适的配色哲学（覆盖明亮、暗黑、商务、学术、科技）】
+根据内容主题与行业属性，主动选用最具高级感与视觉舒适度的配色方案（拒绝生硬刺眼、拒绝通篇纯黑单调）：
+1. 👑 经典卓越商务风 (Executive & Morgan Stanley Blue) [适用于商业计划、金融、经营汇报、战略咨询]
+   - 暗黑商务：bg-gradient-to-br from-[#0B1528] via-[#0F1E36] to-[#080E1A] text-slate-100，卡片 bg-[#132238]/80 border border-[#1E3A5F]/60，点缀金/琥珀 text-amber-400, bg-amber-500/20
+   - 明亮商务 (Swiss Clean)：bg-[#F8FAFC] text-slate-800，卡片 bg-white border border-slate-200 shadow-xs，点缀藏青 text-blue-900 与天蓝 text-blue-600, bg-blue-50
+2. 🌿 现代极简素雅明亮风 (Modern Clean & Editorial Linen) [适用于消费品、人文教育、生活方式、产品发布]
+   - 暖灰雅致：bg-[#FDFBF7] text-stone-800，卡片 bg-white/90 border border-stone-200/80 shadow-xs，点缀鼠尾绿 text-emerald-700 或赤陶色 text-orange-700
+   - 极简白境：bg-white text-neutral-900，卡片 bg-neutral-50 border border-neutral-200，粗黑标题 + 细线分割 + 精致间距
+3. ⚡ 深度科技与数据智能风 (Deep Cyber & Obsidian Tech) [适用于AI、云计算、前沿技术、架构演进]
+   - 曜石极光：bg-gradient-to-br from-[#021A15] via-[#052E24] to-[#011410] text-slate-100，卡片 bg-[#083329]/70 border border-emerald-500/30，点缀荧光绿 text-emerald-400
+   - 赛博深靛：bg-gradient-to-br from-[#090A1A] via-[#121332] to-[#070815] text-slate-100，卡片 bg-[#16183B]/70 border border-indigo-500/30，点缀青蓝 text-cyan-300
+4. 🍵 东方美学与文化底蕴 (Heritage Ochre & Dark Amber) [适用于文旅、传统文化、中医药、茗茶、农业]
+   - 赤岩金砂：bg-gradient-to-br from-[#120C08] via-[#21160E] to-[#0E0906] text-stone-100，卡片 bg-[#261A12]/70 border border-amber-500/20，点缀琥珀金 text-amber-400
+
+【三、 突破千篇一律：多样化容器与高级视觉图元】
+坚决摒弃“清一色圆角矩形无脑堆砌”！请根据信息结构灵活组合业界顶尖的视觉组件：
+1. 📐 容器形态多样性：
+   - 异形有机切角 (Asymmetric Organic)：rounded-tl-2xl rounded-br-2xl rounded-tr-sm rounded-bl-sm（极具现代设计感）
+   - 极简硬朗直角线框 (Architectural Sharp)：rounded-none border-l-2 border-t border-slate-700/80 bg-slate-900/60
+   - 胶囊药丸群 (Pills & Badges)：rounded-full px-3 py-1 text-xs border
+   - 双层嵌套带顶栏卡片：上部为实色标题条（如 bg-indigo-950/80 px-4 py-1.5），下部为半透明详情主体
+2. 📊 咨询与学术级结构图元（按需选用）：
+   - 【漏斗转化模型 (Funnel)】：4 层宽度递减的阶梯梯形横条（100% -> 75% -> 50% -> 25%），右侧标明转化率与关键动作
+   - 【2×2 战略决策象限 (2x2 Strategy Quadrant)】：两两垂直交叉轴线，明确 X 轴与 Y 轴维度，四个象限分别包含独立策略方块
+   - 【闭环循环流转 (Closed Loop Cycle)】：3~5 个节点以环形/箭头衔接，包含正向流动与逆向数据反哺
+   - 【金字塔分层模型 (Pyramid Layers)】：顶层战略愿景 -> 中层能力引擎 -> 底层基础设施支撑
+   - 【多维水平对冲条 (Comparison Radar Bars)】：左右两组指标在同一标尺上通过彩色条对比（如：研发投入 vs 交付速度）
+   - 【微型进度刻度与仪表 (Micro Progress Bars)】：进度条槽 bg-slate-800/80 h-1.5，内嵌渐变填充条与百分比指示
+   - 【标签云与能力矩阵 (Tag Cloud & Feature Matrix)】：flex flex-wrap gap-1.5 平铺数十个技术特性或关键词徽章
+
+【四、 极致提升信息密度（拒绝空洞大口号）】
+每页幻灯片必须信息充实、论据扎实、逻辑严密，采用经典的“战略咨询五层信息结构”：
+- 层级 1（顶栏）：分类 Badge + 英文副标 + 页面核心大标题（text-2xl font-bold）
+- 层级 2（核心论点条/Banner）：一句话核心结论或战略主张（bg-white/5 border-l-4 p-2.5 text-xs text-slate-200）
+- 层级 3（主体深度结构）：2~4 组深度论证列/象限/漏斗/矩阵，每组包含【小标题 + 核心量化指标（如 +340%、99.99%、1.84s）+ 详细落地措施（2~3 句深度说明，非单薄短语）+ 支撑标签】
+- 层级 4（横向补充/技术图谱）：图表、进度条、对比表格或标签平铺矩阵
+- 层级 5（底栏注脚）：💡 方法论出处 / 数据统计口径 / 适用范围 + 页码（第 N / M 页）
+
+【五、 丰富版式参考示例】
+\`\`\`html-ppt
+<!-- ==================== 封面页：现代商务与战略愿景 ==================== -->
+<section class="slide relative w-[960px] h-[540px] p-10 overflow-hidden flex flex-col justify-between bg-gradient-to-br from-[#0B1528] via-[#0F1E36] to-[#080E1A] text-slate-100 select-none">
+  <div class="flex items-center justify-between border-b border-blue-900/40 pb-3">
+    <div class="flex items-center gap-2">
+      <span class="px-3 py-0.5 text-xs font-semibold rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">2026 战略规划</span>
+      <span class="text-xs text-slate-400 font-mono tracking-widest">ENTERPRISE ARCHITECTURE</span>
+    </div>
+    <span class="text-xs px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30">绝密 / 核心管理层</span>
+  </div>
+  <div class="my-auto py-2">
+    <h1 class="text-4xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-100 to-blue-200">企业级多智能体协同架构与落地实践</h1>
+    <p class="mt-3 text-sm text-slate-300 max-w-2xl leading-relaxed">从认知大模型走向全自动任务编排：生产级 Agent 的技术攻坚、安全防护与商业化价值变现</p>
+    <div class="flex items-center gap-4 mt-6">
+      <div class="flex items-center gap-2 px-3 py-1 rounded bg-[#132238] border border-blue-500/20 text-xs">
+        <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+        <span>已进入生产集群全面验证</span>
+      </div>
+      <div class="flex items-center gap-2 px-3 py-1 rounded bg-[#132238] border border-blue-500/20 text-xs text-slate-300">
+        <span>全域吞吐提升 <strong>3.4x</strong></span>
+      </div>
+    </div>
+  </div>
+  <div class="flex items-center justify-between text-xs text-slate-400 border-t border-blue-900/40 pt-3">
+    <span>战略研究与 AI 架构团队</span>
+    <span>2026.Q3 · 全球技术峰会</span>
+  </div>
+</section>
+
+<!-- ==================== 正文页：高密度 2×2 战略矩阵 + 数据对比 ==================== -->
+<section class="slide relative w-[960px] h-[540px] p-7 overflow-hidden flex flex-col justify-between bg-gradient-to-br from-[#0B1528] via-[#0E1A2F] to-[#080E1A] text-slate-100 select-none">
+  <!-- 顶栏导航 -->
+  <div class="flex items-center justify-between border-b border-slate-800/80 pb-2.5">
+    <div>
+      <div class="flex items-center gap-2">
+        <span class="text-[11px] font-bold text-amber-400 tracking-wider uppercase">02 / 战略矩阵</span>
+        <span class="text-[10px] text-slate-400 font-mono">FRAMEWORK & STRATEGY</span>
+      </div>
+      <h2 class="text-xl font-bold text-white mt-0.5">业务演进四象限与技术重塑路径</h2>
+    </div>
+    <span class="text-xs px-2.5 py-1 rounded-md bg-blue-950/80 text-blue-300 border border-blue-800/50">战略决策模型</span>
+  </div>
+
+  <!-- 核心论点横幅 -->
+  <div class="px-3 py-1.5 rounded-lg bg-blue-950/40 border-l-4 border-blue-500 text-xs text-slate-200 flex items-center justify-between">
+    <span>📌 <strong>核心主张</strong>：将确定性规则下沉为自动化脚本，把模糊非结构化推理交由 Agent 协作网关，实现效率与容错的最优平衡。</span>
+    <span class="text-[10px] text-emerald-400 font-semibold">综合 ROI +280%</span>
+  </div>
+
+  <!-- 2x2 四象限多维网格 -->
+  <div class="grid grid-cols-2 gap-3 my-1">
+    <!-- 象限 1: 异形圆角切角卡片 -->
+    <div class="p-3.5 rounded-tl-xl rounded-br-xl rounded-tr-xs rounded-bl-xs bg-[#132238]/90 border border-blue-500/20 flex flex-col justify-between">
+      <div class="flex items-center justify-between mb-1.5">
+        <span class="text-xs font-bold text-blue-300">象限 I · 核心基座重构 (Foundations)</span>
+        <span class="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 font-mono">P0 优先级</span>
+      </div>
+      <p class="text-xs text-slate-300 leading-relaxed mb-2">统一多模型网关与动态调度路由，建立毫秒级容灾重试与 Token 预算熔断机制。</p>
+      <div class="flex items-center justify-between text-[11px] pt-1.5 border-t border-slate-700/50">
+        <span class="text-slate-400">平均耗时: <strong class="text-white">180ms</strong></span>
+        <span class="text-emerald-400 font-medium">可用性 99.99%</span>
+      </div>
+    </div>
+
+    <!-- 象限 2 -->
+    <div class="p-3.5 rounded-tr-xl rounded-bl-xl rounded-tl-xs rounded-br-xs bg-[#132238]/90 border border-amber-500/20 flex flex-col justify-between">
+      <div class="flex items-center justify-between mb-1.5">
+        <span class="text-xs font-bold text-amber-300">象限 II · 流程自主决策 (Automation)</span>
+        <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono">高收益</span>
+      </div>
+      <p class="text-xs text-slate-300 leading-relaxed mb-2">基于 ReAct 与反思机制的复杂工具调用链，自动化完成跨系统数据整合与工单处理。</p>
+      <div class="flex items-center justify-between text-[11px] pt-1.5 border-t border-slate-700/50">
+        <span class="text-slate-400">单日处理: <strong class="text-white">50万+ 件</strong></span>
+        <span class="text-amber-400 font-medium">人力节省 65%</span>
+      </div>
+    </div>
+
+    <!-- 象限 3 -->
+    <div class="p-3.5 rounded-bl-xl rounded-tr-xl rounded-tl-xs rounded-br-xs bg-[#132238]/90 border border-emerald-500/20 flex flex-col justify-between">
+      <div class="flex items-center justify-between mb-1.5">
+        <span class="text-xs font-bold text-emerald-300">象限 III · 知识持续反哺 (Knowledge Loop)</span>
+        <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono">飞轮效应</span>
+      </div>
+      <p class="text-xs text-slate-300 leading-relaxed mb-2">构建向量与图混合检索（Hybrid Graph RAG），从每一次交互中沉淀领域黄金知识库。</p>
+      <div class="flex items-center justify-between text-[11px] pt-1.5 border-t border-slate-700/50">
+        <span class="text-slate-400">检索准度: <strong class="text-white">96.4%</strong></span>
+        <span class="text-emerald-400 font-medium">幻觉率 < 1.2%</span>
+      </div>
+    </div>
+
+    <!-- 象限 4 -->
+    <div class="p-3.5 rounded-br-xl rounded-tl-xl rounded-tr-xs rounded-bl-xs bg-[#132238]/90 border border-purple-500/20 flex flex-col justify-between">
+      <div class="flex items-center justify-between mb-1.5">
+        <span class="text-xs font-bold text-purple-300">象限 IV · 安全合规围栏 (Guardrails)</span>
+        <span class="text-[10px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 font-mono">合规底线</span>
+      </div>
+      <p class="text-xs text-slate-300 leading-relaxed mb-2">全链路敏感数据脱敏、Prompt 注入防御与可解释审计追踪，确保金融级安全。</p>
+      <div class="flex items-center justify-between text-[11px] pt-1.5 border-t border-slate-700/50">
+        <span class="text-slate-400">拦截准确率: <strong class="text-white">99.8%</strong></span>
+        <span class="text-purple-400 font-medium">符合 ISO27001</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 底部注脚与进度刻度 -->
+  <div class="flex items-center justify-between text-[11px] text-slate-400 border-t border-slate-800/80 pt-2">
+    <span>💡 评估基准：基于 2026 麦肯锡企业级数字化转型评估模型及 12 家头部企业落地复盘</span>
+    <span>第 2 / 6 页</span>
+  </div>
+</section>
+\`\`\`
+【页数规则】根据主题深度自由决定页数（通常 4~8 页）；每页内容必须丰富充实、论据扎实、严禁空泛套话。`;
   }
 
   if (searchContextText) {
@@ -858,7 +933,7 @@ export async function handleStreamChat({
         reasoning_content: fullReasoningContent,
         search_results_json: JSON.stringify(searchResults),
         followup_suggestions_json: JSON.stringify(followUpSuggestions),
-        image_params_json: JSON.stringify({ presentation: Boolean(enablePPT) }),
+        image_params_json: JSON.stringify({ presentation: Boolean(enablePPT || enableHtmlPPT), htmlPresentation: Boolean(enableHtmlPPT) }),
         token_count: promptTokens + completionTokens,
       });
 

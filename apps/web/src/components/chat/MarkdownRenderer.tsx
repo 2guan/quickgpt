@@ -7,6 +7,7 @@ import rehypeRaw from 'rehype-raw';
 import rehypeHighlight from 'rehype-highlight';
 import { Copy, Check, X } from 'lucide-react';
 import { SlideDeckViewer } from './SlideDeckViewer.js';
+import { HtmlSlideDeckViewer } from './HtmlSlideDeckViewer.js';
 
 interface MarkdownRendererProps {
   content: string;
@@ -70,7 +71,16 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, isS
             const language = (match ? match[1] : '').toLowerCase();
             const codeString = String(children).replace(/\n$/, '');
 
-            // Detect PPT / Presentation Slide Deck format
+            // Detect NEWPPT / HTML Slide Deck format
+            if (
+              !inline &&
+              (['html-ppt', 'html:ppt', 'html_ppt', 'htmlppt'].includes(language) ||
+                (enablePptPreview && (language === 'html' || language === 'htm') && codeString.includes('class="slide')))
+            ) {
+              return <HtmlSlideDeckViewer rawCode={codeString} isStreaming={isStreaming} />;
+            }
+
+            // Detect Standard PPT / Presentation Slide Deck format
             if (enablePptPreview && !inline && ['ppt', 'pptx', 'slide', 'slides', 'presentation', 'marp'].includes(language)) {
               return <SlideDeckViewer rawCode={codeString} isStreaming={isStreaming} />;
             }

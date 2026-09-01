@@ -24,6 +24,7 @@ interface ChatState {
   attachments: MessageAttachment[];
   enableSearch: boolean;
   enablePPT: boolean;
+  enableHtmlPPT: boolean;
   imageParams: ImageParams;
 
   // Actions
@@ -41,6 +42,7 @@ interface ChatState {
   clearAttachments: () => void;
   setEnableSearch: (enabled: boolean) => void;
   setEnablePPT: (enabled: boolean) => void;
+  setEnableHtmlPPT: (enabled: boolean) => void;
   setImageParams: (params: Partial<ImageParams>) => void;
   
   sendMessage: (content: string) => Promise<void>;
@@ -63,6 +65,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   attachments: [],
   enableSearch: false,
   enablePPT: false,
+  enableHtmlPPT: false,
   imageParams: {
     size: '1024x1024',
     quality: 'standard',
@@ -204,7 +207,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   setEnableSearch: (enabled: boolean) => set({ enableSearch: enabled }),
-  setEnablePPT: (enabled: boolean) => set({ enablePPT: enabled }),
+  setEnablePPT: (enabled: boolean) =>
+    set({ enablePPT: enabled, ...(enabled ? { enableHtmlPPT: false } : {}) }),
+  setEnableHtmlPPT: (enabled: boolean) =>
+    set({ enableHtmlPPT: enabled, ...(enabled ? { enablePPT: false } : {}) }),
 
   setImageParams: (params: Partial<ImageParams>) =>
     set((state) => ({ imageParams: { ...state.imageParams, ...params } })),
@@ -236,6 +242,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const selectedModels = get().selectedModelIds;
     const enableSearch = get().enableSearch;
     const enablePPT = get().enablePPT;
+    const enableHtmlPPT = get().enableHtmlPPT;
     const imageParams = get().imageParams;
 
     // 1. Optimistic User Message
@@ -258,7 +265,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       reasoning_content: '',
       search_results_json: '[]',
       followup_suggestions_json: '[]',
-      presentation_enabled: enablePPT,
+      presentation_enabled: Boolean(enablePPT || enableHtmlPPT),
       created_at: new Date().toISOString(),
       isStreaming: true,
     }));
@@ -296,6 +303,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           attachments: currentAttachments,
           enableSearch,
           enablePPT,
+          enableHtmlPPT,
           imageParams,
         }),
         signal: activeAbortController.signal,
