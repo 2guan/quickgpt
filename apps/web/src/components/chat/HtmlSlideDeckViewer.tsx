@@ -1512,11 +1512,21 @@ export const HtmlSlideDeckViewer: React.FC<HtmlSlideDeckViewerProps> = ({
     return deckTitle.length > 15 ? deckTitle.slice(0, 15) + '…' : deckTitle;
   }, [deckTitle]);
 
-  // Auto resize canvas scale to maintain 16:9
+  // Auto resize canvas scale to maintain strict 16:9 without any clipping
   const updateScale = useCallback(() => {
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (!rect?.width) return;
-    const next = Math.max(0.1, Math.min(rect.width / 960, rect.height > 0 ? rect.height / 540 : 1));
+    const el = containerRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    if (!rect?.width || !rect?.height) return;
+
+    const computedStyle = window.getComputedStyle(el);
+    const padX = (parseFloat(computedStyle.paddingLeft) || 12) + (parseFloat(computedStyle.paddingRight) || 12);
+    const padY = (parseFloat(computedStyle.paddingTop) || 12) + (parseFloat(computedStyle.paddingBottom) || 12);
+
+    const availW = Math.max(60, rect.width - padX);
+    const availH = Math.max(40, rect.height - padY);
+
+    const next = Math.max(0.05, Math.min(availW / 960, availH / 540));
     setScale((prev) => (Math.abs(prev - next) > 0.001 ? next : prev));
   }, []);
 
@@ -1781,8 +1791,8 @@ export const HtmlSlideDeckViewer: React.FC<HtmlSlideDeckViewerProps> = ({
         >
           {/* 16:9 Aspect Ratio Canvas Container with Instant Native Rendering */}
           <div
-            className="relative shrink-0 overflow-hidden rounded-2xl shadow-2xl border border-slate-800/80 bg-slate-950 flex items-center justify-center select-none"
-            style={{ width: 960 * scale, height: 540 * scale }}
+            className="relative shrink-0 overflow-hidden rounded-xl shadow-2xl border border-slate-800/80 bg-slate-950 select-none"
+            style={{ width: Math.round(960 * scale), height: Math.round(540 * scale) }}
           >
             <div
               style={{
@@ -1791,7 +1801,7 @@ export const HtmlSlideDeckViewer: React.FC<HtmlSlideDeckViewerProps> = ({
                 transform: `scale(${scale})`,
                 transformOrigin: 'top left',
               }}
-              className="not-prose absolute left-0 top-0 overflow-hidden flex items-center justify-center [&_.slide]:w-[960px]! [&_.slide]:h-[540px]! [&_.slide]:overflow-hidden!"
+              className="not-prose absolute left-0 top-0 overflow-hidden [&_.slide]:w-[960px]! [&_.slide]:h-[540px]!"
               dangerouslySetInnerHTML={{ __html: currentSlideHtml }}
             />
           </div>
