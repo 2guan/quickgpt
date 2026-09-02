@@ -785,7 +785,7 @@ async function exportEditablePptx(slides: string[]) {
 
         let pptW = toPptW(domW);
         let pptX = toPptX(rect.left);
-        const pptY = toPptY(rect.top);
+        let pptY = toPptY(rect.top);
         let pptH = Math.max(0.18, toPptH(domH));
 
         const cls = el.className && typeof el.className === 'string' ? el.className : '';
@@ -802,11 +802,12 @@ async function exportEditablePptx(slides: string[]) {
           domH <= 38 &&
           text.length <= 15;
 
+        // Pill / badge labels MUST always be centered horizontally!
         const isCentered =
+          isBadgeOrPill ||
           style.textAlign === 'center' ||
           cls.includes('text-center') ||
           cls.includes('justify-center') ||
-          (isBadgeOrPill && (cls.includes('justify-center') || style.textAlign === 'center' || parentCls.includes('justify-center'))) ||
           (parentCls.includes('text-center') &&
             !cls.includes('text-left') &&
             !cls.includes('text-right') &&
@@ -836,8 +837,10 @@ async function exportEditablePptx(slides: string[]) {
               pptX = toPptX(domCenterX) - pptW / 2;
             }
           } else if (isBadgeOrPill) {
+            // Keep exact badge dimensions, apply optical vertical lift of 0.012 in (approx 1.2px) so CJK characters are dead-center
             pptW = toPptW(domW);
             pptH = toPptH(domH);
+            pptY = pptY - 0.012;
           } else {
             pptW = Math.max(pptW * 1.05, text.length * 0.1, 0.3);
             if (isCentered) {
@@ -869,7 +872,7 @@ async function exportEditablePptx(slides: string[]) {
 
           slide.addText(text, {
             x: Math.max(0.08, pptX),
-            y: Math.max(0.08, pptY),
+            y: Math.max(0.04, pptY),
             w: Math.min(9.8, pptW),
             h: pptH,
             fontSize: Math.round(fontSizePt * 10) / 10,
