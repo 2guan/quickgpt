@@ -110,12 +110,12 @@ function detectSlideBackground(classes = ''): { dataUrl: string; isLight: boolea
   const toHex = classes.match(/to-\[#?([0-9a-fA-F]{6})\]/)?.[1];
   const bgHex = classes.match(/bg-\[#?([0-9a-fA-F]{6})\]/)?.[1];
 
-  let c1 = '#020617';
-  let c2 = '#0f172a';
-  let c3 = '#020617';
+  let c1 = '#090A1A';
+  let c2 = '#0E1128';
+  let c3 = '#060712';
   let isLight = false;
-  let glow1 = 'rgba(99, 102, 241, 0.18)';
-  let glow2 = 'rgba(45, 212, 191, 0.14)';
+  let glow1 = 'rgba(99, 102, 241, 0.16)';
+  let glow2 = 'rgba(6, 182, 212, 0.12)';
 
   if (fromHex && toHex) {
     c1 = '#' + fromHex.toUpperCase();
@@ -180,60 +180,54 @@ function detectSlideBackground(classes = ''): { dataUrl: string; isLight: boolea
         classes.includes('text-gray-900') ||
         classes.includes('text-stone-800'));
 
-  let c1 = '#090A1A';
-  let c2 = '#0E1128';
-  let c3 = '#060712';
-  let glow1 = 'rgba(99, 102, 241, 0.16)';
-  let glow2 = 'rgba(6, 182, 212, 0.12)';
-
-  if (isLight) {
-    if (classes.includes('stone') || classes.includes('amber') || classes.includes('orange')) {
-      c1 = '#FAF8F5';
-      c2 = '#F5F2EC';
-      c3 = '#EFECE6';
-      glow1 = 'rgba(217, 119, 6, 0.05)';
-      glow2 = 'rgba(180, 83, 9, 0.03)';
-    } else if (classes.includes('teal') || classes.includes('emerald') || classes.includes('green')) {
-      c1 = '#F0FDFA';
-      c2 = '#E6FFFA';
-      c3 = '#CCFBF1';
-      glow1 = 'rgba(20, 184, 166, 0.06)';
-      glow2 = 'rgba(6, 182, 212, 0.04)';
-    } else if (classes.includes('blue') || classes.includes('cyan') || classes.includes('indigo')) {
-      c1 = '#FFFFFF';
-      c2 = '#F0F7FF';
-      c3 = '#E0F2FE';
-      glow1 = 'rgba(59, 130, 246, 0.05)';
-      glow2 = 'rgba(14, 165, 233, 0.03)';
+    if (isLight) {
+      if (classes.includes('stone') || classes.includes('amber') || classes.includes('orange')) {
+        c1 = '#FAF8F5';
+        c2 = '#F5F2EC';
+        c3 = '#EFECE6';
+        glow1 = 'rgba(217, 119, 6, 0.05)';
+        glow2 = 'rgba(180, 83, 9, 0.03)';
+      } else if (classes.includes('teal') || classes.includes('emerald') || classes.includes('green')) {
+        c1 = '#F0FDFA';
+        c2 = '#E6FFFA';
+        c3 = '#CCFBF1';
+        glow1 = 'rgba(20, 184, 166, 0.06)';
+        glow2 = 'rgba(6, 182, 212, 0.04)';
+      } else if (classes.includes('blue') || classes.includes('cyan') || classes.includes('indigo')) {
+        c1 = '#FFFFFF';
+        c2 = '#F0F7FF';
+        c3 = '#E0F2FE';
+        glow1 = 'rgba(59, 130, 246, 0.05)';
+        glow2 = 'rgba(14, 165, 233, 0.03)';
+      } else {
+        c1 = '#FFFFFF';
+        c2 = '#F8FAFC';
+        c3 = '#F1F5F9';
+        glow1 = 'rgba(59, 130, 246, 0.04)';
+        glow2 = 'rgba(14, 165, 233, 0.03)';
+      }
     } else {
-      c1 = '#FFFFFF';
-      c2 = '#F8FAFC';
-      c3 = '#F1F5F9';
-      glow1 = 'rgba(59, 130, 246, 0.04)';
-      glow2 = 'rgba(14, 165, 233, 0.03)';
-    }
-  } else {
-    if (classes.includes('amber') || classes.includes('orange') || classes.includes('stone') || classes.includes('yellow')) {
-      c1 = '#0C0A09';
-      c2 = '#22160D';
-      c3 = '#141210';
-      glow1 = 'rgba(245, 158, 11, 0.22)';
-      glow2 = 'rgba(234, 88, 12, 0.16)';
-    } else if (classes.includes('emerald') || classes.includes('green') || classes.includes('teal')) {
-      c1 = '#021A15';
-      c2 = '#052E24';
-      c3 = '#011410';
-      glow1 = 'rgba(16, 185, 129, 0.20)';
-      glow2 = 'rgba(20, 184, 166, 0.14)';
-    } else if (classes.includes('blue') || classes.includes('cyan') || classes.includes('sky')) {
-      c1 = '#0F172A';
-      c2 = '#0B132B';
-      c3 = '#060B1E';
-      glow1 = 'rgba(59, 130, 246, 0.20)';
-      glow2 = 'rgba(14, 165, 233, 0.15)';
+      if (classes.includes('amber') || classes.includes('orange') || classes.includes('stone') || classes.includes('yellow')) {
+        c1 = '#0C0A09';
+        c2 = '#22160D';
+        c3 = '#141210';
+        glow1 = 'rgba(245, 158, 11, 0.22)';
+        glow2 = 'rgba(234, 88, 12, 0.16)';
+      } else if (classes.includes('emerald') || classes.includes('green') || classes.includes('teal')) {
+        c1 = '#021A15';
+        c2 = '#052E24';
+        c3 = '#011410';
+        glow1 = 'rgba(16, 185, 129, 0.20)';
+        glow2 = 'rgba(20, 184, 166, 0.14)';
+      } else if (classes.includes('blue') || classes.includes('cyan') || classes.includes('sky')) {
+        c1 = '#0F172A';
+        c2 = '#0B132B';
+        c3 = '#060B1E';
+        glow1 = 'rgba(59, 130, 246, 0.20)';
+        glow2 = 'rgba(14, 165, 233, 0.15)';
+      }
     }
   }
-}
 
   const grad = ctx.createLinearGradient(0, 0, 1920, 1080);
   grad.addColorStop(0, c1);
@@ -303,6 +297,12 @@ function extractContainerFillAndBorder(el: HTMLElement, isLightSlide: boolean): 
     fillHex = bgHexMatch[1].toUpperCase();
   }
 
+  // Check SVG fill or polygon fill for icons and arrows
+  const svgFill = el.getAttribute('fill') || el.querySelector('polygon, path, circle, rect')?.getAttribute('fill');
+  if (svgFill && svgFill.startsWith('#')) {
+    fillHex = svgFill.slice(1).toUpperCase();
+  }
+
   // Check for top accent strip inside this card (e.g. Slide 2 KPI cards)
   const topStripEl = el.querySelector(':scope > div.absolute.top-0, :scope > div[class*="h-1"], :scope > div[class*="h-0.5"]');
   if (topStripEl) {
@@ -318,21 +318,21 @@ function extractContainerFillAndBorder(el: HTMLElement, isLightSlide: boolean): 
   // 2. Themed fills
   if (!fillHex) {
     if (cls.includes('bg-white')) fillHex = 'FFFFFF';
-    else if (cls.includes('bg-blue-600')) fillHex = '2563EB';
-    else if (cls.includes('bg-blue-500')) fillHex = '3B82F6';
+    else if (cls.includes('bg-blue-600') || cls.includes('from-blue-600')) fillHex = '2563EB';
+    else if (cls.includes('bg-blue-500') || cls.includes('from-blue-500')) fillHex = '3B82F6';
     else if (cls.includes('bg-blue-100')) fillHex = 'DBEAFE';
     else if (cls.includes('bg-blue-50')) fillHex = 'EFF6FF';
     else if (cls.includes('bg-blue-200')) fillHex = 'BFDBFE';
-    else if (cls.includes('bg-emerald-600')) fillHex = '059669';
-    else if (cls.includes('bg-emerald-500')) fillHex = '10B981';
+    else if (cls.includes('bg-emerald-600') || cls.includes('from-emerald-600')) fillHex = '059669';
+    else if (cls.includes('bg-emerald-500') || cls.includes('from-emerald-500')) fillHex = '10B981';
     else if (cls.includes('bg-emerald-100')) fillHex = 'D1FAE5';
     else if (cls.includes('bg-emerald-50')) fillHex = 'ECFDF5';
-    else if (cls.includes('bg-amber-600')) fillHex = 'D97706';
-    else if (cls.includes('bg-amber-500')) fillHex = 'F59E0B';
+    else if (cls.includes('bg-amber-600') || cls.includes('from-amber-600')) fillHex = 'D97706';
+    else if (cls.includes('bg-amber-500') || cls.includes('from-amber-500')) fillHex = 'F59E0B';
     else if (cls.includes('bg-amber-100')) fillHex = 'FEF3C7';
     else if (cls.includes('bg-amber-50')) fillHex = 'FFFBEB';
-    else if (cls.includes('bg-purple-600')) fillHex = '7C3AED';
-    else if (cls.includes('bg-purple-500')) fillHex = 'A855F7';
+    else if (cls.includes('bg-purple-600') || cls.includes('from-purple-600')) fillHex = '7C3AED';
+    else if (cls.includes('bg-purple-500') || cls.includes('from-purple-500')) fillHex = 'A855F7';
     else if (cls.includes('bg-purple-100')) fillHex = 'F3E8FF';
     else if (cls.includes('bg-purple-50')) fillHex = 'FAF5FF';
     else if (cls.includes('bg-teal-50')) fillHex = 'F0FDFA';
@@ -909,9 +909,9 @@ async function exportEditablePptx(slides: string[]) {
             cls.includes('rounded-lg') ||
             cls.includes('rounded') ||
             (cls.includes('px-') && cls.includes('py-'))) &&
-          domW <= 220 &&
-          domH <= 40 &&
-          text.length <= 15;
+          domW <= 320 &&
+          domH <= 46 &&
+          text.length <= 30;
 
         // Pill / badge labels MUST always be centered horizontally!
         const isCentered =
