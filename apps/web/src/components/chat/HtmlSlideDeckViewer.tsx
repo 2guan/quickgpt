@@ -1083,15 +1083,27 @@ async function exportEditablePptx(slides: string[]) {
           (cls.includes('p-') || cls.includes('px-') || cls.includes('py-')) &&
           domH >= 24;
 
+        const isSmallIconOrBadge =
+          (domW <= 70 && domH <= 70 && text.length <= 6) ||
+          cls.includes('w-8') ||
+          cls.includes('w-7') ||
+          cls.includes('w-6') ||
+          cls.includes('w-5') ||
+          cls.includes('h-8') ||
+          cls.includes('h-7') ||
+          cls.includes('h-6') ||
+          cls.includes('h-5');
+
         const isBadgeOrPill =
-          (cls.includes('rounded-full') ||
+          isSmallIconOrBadge ||
+          ((cls.includes('rounded-full') ||
             cls.includes('rounded-md') ||
             cls.includes('rounded-lg') ||
             cls.includes('rounded') ||
             (cls.includes('px-') && cls.includes('py-'))) &&
           domW <= 320 &&
           domH <= 46 &&
-          text.length <= 30;
+          text.length <= 30);
 
         // Pill / badge labels MUST always be centered horizontally!
         const isCentered =
@@ -1105,12 +1117,16 @@ async function exportEditablePptx(slides: string[]) {
             !parentCls.includes('flex'));
 
         // Check if text is naturally multi-line (card body descriptions, paragraphs, long summaries, leading classes)
-        const isSingleLineByDom = domH <= 24 && !text.includes('\n');
+        const isSingleLineByDom =
+          text.length <= 8 ||
+          isSmallIconOrBadge ||
+          (domH <= 32 && text.length <= 36 && !text.includes('\n'));
+
         const isMultiLine =
           !isSingleLineByDom &&
           (isParagraph ||
             text.includes('\n') ||
-            domH >= 25 ||
+            domH >= 36 ||
             (text.length > 20 && domW < 380));
 
         if (isMultiLine) {
