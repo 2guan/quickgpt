@@ -386,11 +386,17 @@ function getEffectiveTextColor(el: HTMLElement, isLightSlide: boolean): string {
 
   // Exact Tailwind text color class resolution for high contrast
   if (cls.includes('text-emerald-300') || cls.includes('text-emerald-400')) return '6EE7B7';
+  if (cls.includes('text-emerald-200')) return 'A7F3D0';
   if (cls.includes('text-cyan-300') || cls.includes('text-cyan-400')) return '67E8F9';
+  if (cls.includes('text-cyan-200')) return 'A5F3FC';
   if (cls.includes('text-amber-300') || cls.includes('text-amber-400')) return 'FCD34D';
+  if (cls.includes('text-amber-200')) return 'FDE68A';
   if (cls.includes('text-purple-300') || cls.includes('text-purple-400')) return 'D8B4FE';
+  if (cls.includes('text-purple-200')) return 'E9D5FF';
   if (cls.includes('text-indigo-300') || cls.includes('text-indigo-400')) return 'A5B4FC';
+  if (cls.includes('text-indigo-200')) return 'C7D2FE';
   if (cls.includes('text-rose-300') || cls.includes('text-rose-400')) return 'FDA4AF';
+  if (cls.includes('text-teal-300') || cls.includes('text-teal-400')) return '5EEAD4';
   if (cls.includes('text-slate-200')) return 'E2E8F0';
   if (cls.includes('text-slate-300')) return 'CBD5E1';
   if (cls.includes('text-slate-400')) return '94A3B8';
@@ -405,9 +411,12 @@ function getEffectiveTextColor(el: HTMLElement, isLightSlide: boolean): string {
     cls.includes('text-white') ||
     cls.includes('text-slate-100') ||
     cls.includes('text-slate-200') ||
+    cls.includes('text-slate-300') ||
     cls.includes('text-amber-300') ||
     cls.includes('text-cyan-300') ||
     cls.includes('text-emerald-300') ||
+    cls.includes('text-purple-200') ||
+    cls.includes('text-purple-300') ||
     el.closest('.bg-gradient-to-r, .bg-gradient-to-br, [class*="from-"], [class*="bg-slate-900"], [class*="bg-[#0"], [class*="bg-blue-600"], [class*="bg-teal-600"]') !== null;
 
   if (isExplicitWhite) {
@@ -801,24 +810,34 @@ async function exportEditablePptx(slides: string[]) {
           isBadgeOrPill ||
           (parentCls.includes('text-center') && !cls.includes('text-left') && !cls.includes('text-right') && !parentCls.includes('flex'));
 
-        // Check if text is naturally multi-line
-        const isMultiLine = isParagraph || text.includes('\n') || (text.length > 30 && domH > 26);
+        // Check if text is naturally multi-line (card body descriptions, paragraphs, long summaries, leading classes)
+        const isMultiLine =
+          isParagraph ||
+          text.includes('\n') ||
+          text.length > 15 ||
+          domH > 20 ||
+          cls.includes('leading-tight') ||
+          cls.includes('leading-normal') ||
+          cls.includes('leading-relaxed') ||
+          cls.includes('leading-snug') ||
+          cls.includes('leading-loose');
 
         if (isMultiLine) {
-          pptW = Math.max(pptW * 1.05, 0.4);
-          pptH = Math.max(pptH * 1.18, 0.28);
+          // Constrain width to container's computed width with slight breathing room, ensure wrap is true
+          pptW = Math.max(pptW * 1.02, 0.4);
+          pptH = Math.max(pptH * 1.25, 0.3);
           if (isCentered && !isBadgeOrPill) {
             pptX = toPptX(domCenterX) - pptW / 2;
           }
         } else {
-          // Single-line elements (headings, badges, tags, buttons) receive generous width and wrap: false
+          // Single-line elements (headings, badges, tags, buttons, short metric values)
           if (isHeading) {
             pptW = Math.max(pptW * 1.18, el.tagName === 'H1' ? 7.5 : el.tagName === 'H2' ? 6.0 : 3.5);
             if (isCentered) {
               pptX = toPptX(domCenterX) - pptW / 2;
             }
           } else if (!isBadgeOrPill) {
-            pptW = Math.max(pptW * 1.15, text.length * 0.12, 0.35);
+            pptW = Math.max(pptW * 1.1, text.length * 0.1, 0.3);
             if (isCentered) {
               pptX = toPptX(domCenterX) - pptW / 2;
             }
@@ -858,7 +877,7 @@ async function exportEditablePptx(slides: string[]) {
             fontFace: 'Microsoft YaHei',
             wrap: isMultiLine,
             shrinkText: true,
-            valign: isHeading || isCentered || isBadgeOrPill ? 'middle' : isParagraph ? 'top' : 'middle',
+            valign: isHeading || isBadgeOrPill ? 'middle' : isMultiLine ? 'top' : isCentered ? 'middle' : 'top',
             margin: 0,
           });
 
