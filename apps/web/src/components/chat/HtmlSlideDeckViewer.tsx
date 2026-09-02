@@ -1036,35 +1036,30 @@ async function exportEditablePptx(slides: string[]) {
       // =========================================================================
       // LAYER 4: TEXT FRAMES (100% Native Editable PowerPoint Text Boxes)
       // =========================================================================
-      const allTextElements = Array.from(slideEl.querySelectorAll('*')).filter((el) => {
-        if (visitedElements.has(el)) return false;
-        if (el.tagName === 'TABLE' || el.closest('table')) return false;
-        const text = cleanText(el.textContent || '');
-        return text.length > 0;
-      });
-
-      allTextElements.forEach((el) => {
-        if (visitedElements.has(el)) return;
-
-        const text = cleanText(el.textContent || '');
-        if (!text) return;
-
-        const isHeading = ['H1', 'H2', 'H3', 'H4'].includes(el.tagName);
-        const isParagraph = el.tagName === 'P' || el.tagName === 'BLOCKQUOTE';
-        const isLeaf = el.children.length === 0;
-
-        const hasDirectText = Array.from(el.childNodes).some(
-          (n) => n.nodeType === Node.TEXT_NODE && (n.textContent || '').trim().length > 0
-        );
-
-        // Only emit if it is a heading, a paragraph, a leaf text element, or a callout container with direct text nodes
-        const shouldEmit = isHeading || isParagraph || isLeaf || (hasDirectText && el.children.length <= 4);
-
-        if (!shouldEmit) {
-          return;
+      function hasIndependentChildren(el: HTMLElement): boolean {
+        for (let idx = 0; idx < el.children.length; idx++) {
+          const child = el.children[idx] as HTMLElement;
+          const cCls = child.className && typeof child.className === 'string' ? child.className : '';
+          const isBadgeOrButton =
+            cCls.includes('bg-') ||
+            cCls.includes('border') ||
+            cCls.includes('rounded') ||
+            cCls.includes('w-') ||
+            cCls.includes('h-') ||
+            child.tagName === 'BUTTON' ||
+            child.tagName === 'SVG' ||
+            child.tagName === 'TABLE';
+          if (isBadgeOrButton) return true;
         }
+        return false;
+      }
 
-        const rect = el.getBoundingClientRect();
+      const emitTextFrame = (
+        targetEl: HTMLElement,
+        text: string,
+        rect: DOMRect,
+        styleEl: HTMLElement
+      ) => {
         const domW = rect.width;
         const domH = rect.height;
         const domCenterX = rect.left + domW / 2;
@@ -1074,9 +1069,9 @@ async function exportEditablePptx(slides: string[]) {
         let pptY = toPptY(rect.top);
         let pptH = toPptH(domH);
 
-        const cls = el.className && typeof el.className === 'string' ? el.className : '';
-        const parentCls = el.parentElement?.className && typeof el.parentElement.className === 'string' ? el.parentElement.className : '';
-        const style = window.getComputedStyle(el);
+        const cls = targetEl.className && typeof targetEl.className === 'string' ? targetEl.className : '';
+        const parentCls = targetEl.parentElement?.className && typeof targetEl.parentElement.className === 'string' ? targetEl.parentElement.className : '';
+        const style = window.getComputedStyle(styleEl);
 
         const isCalloutOrBox =
           (cls.includes('bg-') || cls.includes('border') || cls.includes('rounded-')) &&
@@ -1101,9 +1096,12 @@ async function exportEditablePptx(slides: string[]) {
             cls.includes('rounded-lg') ||
             cls.includes('rounded') ||
             (cls.includes('px-') && cls.includes('py-'))) &&
-          domW <= 320 &&
-          domH <= 46 &&
-          text.length <= 30);
+            domW <= 320 &&
+            domH <= 46 &&
+            text.length <= 30);
+
+        const isHeading = ['H1', 'H2', 'H3', 'H4'].includes(targetEl.tagName) || ['H1', 'H2', 'H3', 'H4'].includes(styleEl.tagName);
+        const isParagraph = targetEl.tagName === 'P' || targetEl.tagName === 'BLOCKQUOTE';
 
         // Pill / badge labels MUST always be centered horizontally!
         const isCentered =
@@ -1116,7 +1114,6 @@ async function exportEditablePptx(slides: string[]) {
             !cls.includes('text-right') &&
             !parentCls.includes('flex'));
 
-        // Check if text is naturally multi-line (card body descriptions, paragraphs, long summaries, leading classes)
         const isSingleLineByDom =
           text.length <= 8 ||
           isSmallIconOrBadge ||
@@ -1138,8 +1135,8 @@ async function exportEditablePptx(slides: string[]) {
           }
         } else {
           // Single-line elements (headings, badges, tags, buttons, short metric values)
-          if (isHeading) {
-            pptW = Math.max(pptW * 1.18, el.tagName === 'H1' ? 7.5 : el.tagName === 'H2' ? 6.0 : 3.5);
+          if (isHeading && !isBadgeOrPill) {
+            pptW = Math.max(pptW * 1.18, styleEl.tagName === 'H1' ? 7.5 : styleEl.tagName === 'H2' ? 6.0 : 3.5);
             if (isCentered) {
               pptX = toPptX(domCenterX) - pptW / 2;
             }
@@ -1174,15 +1171,15 @@ async function exportEditablePptx(slides: string[]) {
         }
 
         if (pptX >= -0.5 && pptY >= -0.5 && pptX <= 10.5 && pptY <= 6.0 && pptW > 0.02) {
-          let textColor = getEffectiveTextColor(el as HTMLElement, isLightSlide);
+          let textColor = getEffectiveTextColor(styleEl, isLightSlide);
 
           const fontSizePx = parseFloat(style.fontSize) || 12;
           let fontSizePt = Math.max(7, Math.min(36, fontSizePx * (72 / 96)));
           const isBold = parseInt(style.fontWeight, 10) >= 600 || style.fontWeight === 'bold';
 
-          if (isHeading) {
+          if (isHeading && !isBadgeOrPill) {
             fontSizePt = Math.min(30, fontSizePt * 0.92);
-            if (el.tagName === 'H1' && !isLightSlide && !cls.includes('text-white') && !cls.includes('from-white')) textColor = 'FDE68A';
+            if (styleEl.tagName === 'H1' && !isLightSlide && !cls.includes('text-white') && !cls.includes('from-white')) textColor = 'FDE68A';
           } else if (isMultiLine) {
             fontSizePt = Math.max(6.8, Math.min(22, fontSizePt * 0.92));
           } else {
@@ -1206,12 +1203,12 @@ async function exportEditablePptx(slides: string[]) {
             fontFace: 'Microsoft YaHei',
             wrap: isMultiLine,
             shrinkText: true,
-            valign: isHeading || isBadgeOrPill || isCalloutOrBox || !isMultiLine || domH < 75 ? 'middle' : 'top',
-            margin: isCalloutOrBox ? [2, 6, 2, 6] : 0,
+            valign: isHeading || isBadgeOrPill || isSmallIconOrBadge || isCalloutOrBox || !isMultiLine || domH < 75 ? 'middle' : 'top',
+            margin: isSmallIconOrBadge ? 0 : isCalloutOrBox ? [2, 6, 2, 6] : 0,
           });
 
           // Check if this text element has a gradient (Strictly bg-clip-text + text-transparent)
-          const gradStops = extractTextGradientStops(el as HTMLElement);
+          const gradStops = extractTextGradientStops(styleEl);
           if (gradStops) {
             if (!gradientTexts[i]) gradientTexts[i] = [];
             const lines = text
@@ -1223,11 +1220,60 @@ async function exportEditablePptx(slides: string[]) {
               stops: gradStops,
             });
           }
-
-          // Mark element and all descendants as visited
-          visitedElements.add(el);
-          el.querySelectorAll('*').forEach((child) => visitedElements.add(child));
         }
+      };
+
+      const allTextElements = Array.from(slideEl.querySelectorAll('*')).filter((el) => {
+        if (visitedElements.has(el)) return false;
+        if (el.tagName === 'TABLE' || el.closest('table')) return false;
+        const text = cleanText(el.textContent || '');
+        return text.length > 0;
+      });
+
+      allTextElements.forEach((el) => {
+        if (visitedElements.has(el)) return;
+
+        const htmlEl = el as HTMLElement;
+        const isContainerWithIndependentChildren = hasIndependentChildren(htmlEl);
+        if (isContainerWithIndependentChildren) {
+          // Process direct text nodes of this container (e.g. text right beside an icon/badge)
+          Array.from(htmlEl.childNodes).forEach((node) => {
+            if (node.nodeType === Node.TEXT_NODE) {
+              const directText = cleanText(node.textContent || '');
+              if (directText.length > 0) {
+                const range = document.createRange();
+                range.selectNodeContents(node);
+                const r = range.getBoundingClientRect();
+                if (r.width > 0 && r.height > 0) {
+                  emitTextFrame(htmlEl, directText, r, htmlEl);
+                }
+              }
+            }
+          });
+          // Mark container itself as visited, but leave children unvisited so each child badge emits independently
+          visitedElements.add(htmlEl);
+          return;
+        }
+
+        const text = cleanText(htmlEl.textContent || '');
+        if (!text) return;
+
+        const isHeading = ['H1', 'H2', 'H3', 'H4'].includes(htmlEl.tagName);
+        const isParagraph = htmlEl.tagName === 'P' || htmlEl.tagName === 'BLOCKQUOTE';
+        const isLeaf = htmlEl.children.length === 0;
+
+        const hasDirectText = Array.from(htmlEl.childNodes).some(
+          (n) => n.nodeType === Node.TEXT_NODE && (n.textContent || '').trim().length > 0
+        );
+
+        const shouldEmit = isHeading || isParagraph || isLeaf || (hasDirectText && htmlEl.children.length <= 4);
+        if (!shouldEmit) return;
+
+        const rect = htmlEl.getBoundingClientRect();
+        emitTextFrame(htmlEl, text, rect, htmlEl);
+
+        visitedElements.add(htmlEl);
+        htmlEl.querySelectorAll('*').forEach((child) => visitedElements.add(child));
       });
     }
 
