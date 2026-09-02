@@ -542,12 +542,16 @@ export async function handleStreamChat({
    - 极简硬朗直角线框 (Architectural Sharp)：rounded-none border-l-2 border-t border-slate-700/80 bg-slate-900/60
    - 胶囊药丸群 (Pills & Badges)：rounded-full px-3 py-1 text-xs border
    - 双层嵌套带顶栏卡片：上部为实色标题条（如 bg-indigo-950/80 px-4 py-1.5），下部为半透明详情主体
-2. 📊 咨询与学术级结构图元与五大高级特色版式（按需选用）：
-   - 🌟【底部半圆同心放射拱门模型 (Concentric Radial Arches)】：底部正中央主半圆（w-[420px] h-[160px] rounded-t-full bg-blue-600 text-white）承载核心结论，外层 2 层同心半圆虚线拱门，圆弧上均匀分布 5 个标号徽章（1~5）及对应两行说明文案。适用于 5 阶段演进路线、五维能力跃迁。
-   - 🌟【双漏斗聚合过滤对比模型 (Twin Funnels)】：左右对称双漏斗容器（w-56 h-20 bg-gradient-to-b from-blue-100/60 to-blue-200/40 border border-blue-300 rounded-b-3xl），顶部为浮动指标气泡球群，底部为椭圆基座与大字量化成果。适用于双路径转化对比、公私域协同。
-   - 🌟【核心中枢 + 6大卫星轨道辐射模型 (Central Orbit & Satellites)】：中心核心大圆（w-44 h-44 rounded-full bg-blue-600 text-white）+ 外围同心虚线轨道环 + 左右对称分布 6 个卫星卡片（含圆形图标徽章 + 类别标题 + 要点）。适用于“一体六翼”全场景业务生态全景。
-   - 🌟【金字塔分层阶梯成熟度模型 (Pyramid Hierarchy)】：中央 5 层自上而下逐层加宽的金字塔梯形色块（w-24/36/48/60/72 h-9 bg-blue-600 text-white）+ 左右两侧各 2 个圆角呼应卡片（rounded-r-2xl / rounded-l-2xl）指向对应梯队 + 底部椭圆基座 3 项基石。适用于 5 阶能力成熟度进阶。
+2. 📊 咨询与学术级结构图元与九大高级特色版式（按需选用）：
+   - 🌟【底部半圆同心放射拱门模型 (Concentric Radial Arches)】：底部主半圆（w-[420px] rounded-t-full bg-blue-600）承载核心结论，外层 2 层同心半圆虚线拱门，圆弧分布 5 个标号徽章（1~5）及说明。适用于 5 阶段演进、五维能力跃迁。
+   - 🌟【双漏斗聚合过滤对比模型 (Twin Funnels)】：左右对称双漏斗容器（w-56 h-20 bg-gradient-to-b border rounded-b-3xl），顶部浮动指标气泡球群，底部椭圆基座与大字量化成果。适用于双路径转化对比、公私域协同。
+   - 🌟【核心中枢 + 6大卫星轨道辐射模型 (Central Orbit & Satellites)】：中心核心大圆（w-44 h-44 rounded-full bg-blue-600）+ 外围同心虚线轨道环 + 左右对称分布 6 个卫星卡片（含圆形图标徽章 + 标题 + 要点）。适用于“一体六翼”全景生态架构。
+   - 🌟【金字塔分层阶梯成熟度模型 (Pyramid Hierarchy)】：中央 5 层逐层加宽的金字塔梯形色块（w-24/36/48/60/72 h-9 bg-blue-600）+ 左右两侧各 2 个圆角呼应卡片（rounded-r-2xl / rounded-l-2xl）+ 底部椭圆基座 3 项基石。适用于 5 阶能力成熟度进阶。
    - 🌟【两极流转与阶段演进流模型 (Two-Stage Transformation Flow)】：顶部全宽背景导言 + 左侧起始源圆形枢纽（w-48 h-48 rounded-full）+ 中间 3 个纵向排列的流转胶囊条（px-6 py-2 rounded-full）配合向右箭头 ➔ + 右侧目标落地大圆形枢纽（w-56 h-56 rounded-full），展示端到端转型。
+   - 🌟【阶梯式递进卡片模型 (Staircase Stepped Growth)】：左侧大字导引段落 + 右侧 4 级自左向右高度递增（h-[190px] -> h-[240px] -> h-[290px] -> h-[340px]）的年份卡片（底部基线对齐），重点阶段采用实色渐变高亮（bg-blue-600 text-white）。适用于业务规模成长历程、年度跃升。
+   - 🌟【贯穿式上下交错时间轴模型 (Cross-Slide Alternating Timeline Arrow)】：左侧圆形时钟中枢 + 贯穿式主箭头轴线（h-3 bg-blue-600 rounded-r-full）+ 5 个圆形交错节点在箭头上下两侧（Top 3 / Bottom 2）呈现年份/阶段标签与卡片。适用于实施路线图、交付时间轴。
+   - 🌟【三栏立式书签卡片模型 (3-Column Vertical Bookmark Cards)】：3 栏等宽卡片（grid grid-cols-3 gap-5），每张卡片左侧带有立式书签色条（w-10 bg-blue-600 text-white 竖排文字 + 01/02/03 序号），主体内嵌圆形大图标与说明。适用于 3 大核心抓手、三大支柱。
+   - 🌟【左右双轮对比分析模型 (Left-Right Dual Panel: Bar Chart vs Dual Venn)】：左侧 4 年双色柱状增长对比图（营收与毛利）+ 右侧双核交织韦恩圆环图（技术中枢与场景生态）。适用于经营收益与能力生态双维度综合呈现。
    - 【漏斗转化模型 (Funnel)】：4 层宽度递减的阶梯梯形横条（100% -> 75% -> 50% -> 25%），右侧标明转化率与关键动作
    - 【2×2 战略决策象限 (2x2 Strategy Quadrant)】：两两垂直交叉轴线，明确 X 轴与 Y 轴维度，四个象限分别包含独立策略方块
    - 【闭环循环流转 (Closed Loop Cycle)】：3~5 个节点以环形/箭头衔接，包含正向流动与逆向数据反哺
@@ -564,17 +568,23 @@ export async function handleStreamChat({
    - ⚠️ 绝对禁止在两侧有大圆的情况下中间横向排布多个卡片！因为：左圆(180px) + 3/4个横排卡片(600px) + 右圆(180px) = 960px+，必然导致右侧圆盘被严重截断！
    - 如果需要展示 4~5 个连续的水平阶段/步骤（Roadmap / Phase 1~4），必须使用标准的从左到右等宽网格（grid grid-cols-4 gap-3 或 grid grid-cols-5 gap-2.5），两端切勿额外添加大圆盘！
 
-2. 🛑 金字塔分层模型 (Pyramid Hierarchy) 的宽度铁律：
+2. 🛑 阶梯成长模型 (Staircase Stepped Growth) 的宽度铁律：
+   - 左侧导语宽度 w-[220px]，右侧 4 张阶梯卡片单宽 w-[140px]（4 × 140px = 560px），间距 gap-3.5（42px），总宽 822px < 900px，排版呼吸感完美。
+
+3. 🛑 金字塔分层模型 (Pyramid Hierarchy) 的宽度铁律：
    - 中央金字塔底座最大宽度严格限制为 w-72（288px）以内（推荐梯队宽度：w-24 -> w-36 -> w-48 -> w-60 -> w-72）；
    - 左右两侧呼应卡片宽度严格限制在 w-44 ~ w-48（176px~192px）；
    - 左右两侧每侧最多放 2 张卡片（左 2 右 2），避免 3 张卡片挤压导致高度和宽度过载；
    - 保证：左卡(180px) + 间距(28px) + 金字塔(288px) + 间距(28px) + 右卡(180px) = 704px，预留出两端充足的呼吸感，严禁贴边或与金字塔重叠！
 
-3. 🛑 核心中枢 + 卫星轨道 (Central Orbit & Satellites) 的宽度铁律：
+4. 🛑 核心中枢 + 卫星轨道 (Central Orbit & Satellites) 的宽度铁律：
    - 中心大圆尺寸控制在 w-40 h-40（160px），轨道环 w-[320px] h-[320px]；
    - 左右两侧卫星卡片宽度严格控制在 w-[240px] ~ w-[260px]，左右各 3 张，垂直间距 space-y-3。
 
-4. 🛑 普通横排卡片的列数与宽度规范：
+5. 🛑 三栏立式书签卡片 (3-Column Vertical Bookmark Cards) 的宽度铁律：
+   - 采用标准三栏网格 grid grid-cols-3 gap-5，每张卡片总宽约 280px，内嵌书签色条 w-10（40px）。
+
+6. 🛑 普通横排卡片的列数与宽度规范：
    - 3 列并排：grid grid-cols-3 gap-4（每卡宽度约 280px）
    - 4 列并排：grid grid-cols-4 gap-3（每卡宽度约 205px）
    - 5 列并排：grid grid-cols-5 gap-2.5（每卡宽度约 165px，文字短小精炼）
@@ -947,7 +957,323 @@ export async function handleStreamChat({
 
   <div class="flex items-center justify-between text-[11px] text-slate-400 border-t border-slate-200 pt-2">
     <span>💡 演进成果：打通上下游 14 个业务系统，形成跨部门高效协同闭环</span>
-    <span>第 6 / 6 页</span>
+    <span>第 6 / 10 页</span>
+  </div>
+</section>
+
+<!-- ==================== 正文页：阶梯式递进卡片模型 ==================== -->
+<section class="slide relative w-[960px] h-[540px] p-7 overflow-hidden flex flex-col justify-between bg-white text-slate-800 select-none">
+  <div class="flex items-center justify-between border-b border-slate-200 pb-2.5">
+    <div>
+      <div class="flex items-center gap-2">
+        <span class="text-[11px] font-bold text-blue-600 tracking-wider uppercase">07 / 跨越发展</span>
+        <span class="text-[10px] text-slate-400 font-mono">STEPPED GROWTH</span>
+      </div>
+      <h2 class="text-xl font-bold text-slate-900 mt-0.5">业务规模与技术底座阶梯式跃升历程</h2>
+    </div>
+    <span class="text-xs px-2.5 py-1 rounded-md bg-blue-50 text-blue-600 border border-blue-100">阶梯成长</span>
+  </div>
+
+  <div class="flex items-end justify-between my-auto px-4 h-[380px]">
+    <div class="w-[220px] mb-8">
+      <h3 class="text-2xl font-black text-slate-900 leading-snug">从点状探索走向<br><span class="text-blue-600">全域规模化变现</span></h3>
+      <p class="text-xs text-slate-500 mt-2 leading-relaxed">历经四个发展周期，实现技术架构、业务范式与商业价值的全面跨越。</p>
+    </div>
+
+    <div class="flex items-end gap-3.5 flex-1 justify-end">
+      <div class="w-[140px] h-[190px] p-3 rounded-t-xl bg-slate-50 border-t-4 border-blue-400 shadow-xs flex flex-col justify-between">
+        <div>
+          <span class="text-xs font-mono font-bold text-slate-700">2021-2022</span>
+          <h4 class="text-xs font-bold text-blue-600 mt-1">单点试点探索</h4>
+        </div>
+        <ul class="text-[10px] text-slate-600 space-y-1">
+          <li>• 团队PoC单点验证</li>
+          <li>• 搭建基础实验集群</li>
+        </ul>
+      </div>
+
+      <div class="w-[140px] h-[240px] p-3 rounded-t-xl bg-slate-50 border-t-4 border-blue-500 shadow-xs flex flex-col justify-between">
+        <div>
+          <span class="text-xs font-mono font-bold text-slate-700">2022-2023</span>
+          <h4 class="text-xs font-bold text-blue-600 mt-1">工程化协同集成</h4>
+        </div>
+        <ul class="text-[10px] text-slate-600 space-y-1">
+          <li>• MLOps 流水线统一</li>
+          <li>• 核心业务场景贯通</li>
+        </ul>
+      </div>
+
+      <div class="w-[145px] h-[290px] p-3.5 rounded-t-xl bg-gradient-to-b from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-500/20 flex flex-col justify-between">
+        <div>
+          <span class="text-xs font-mono font-bold text-blue-200">2023-2024</span>
+          <h4 class="text-xs font-bold text-white mt-1">跨BU规模化推广</h4>
+        </div>
+        <ul class="text-[10px] text-blue-100 space-y-1">
+          <li>• 全域数据资产打通</li>
+          <li>• ROI 量化审计机制</li>
+          <li>• 赋能 20+ 业务线</li>
+        </ul>
+      </div>
+
+      <div class="w-[140px] h-[340px] p-3.5 rounded-t-xl bg-slate-50 border-t-4 border-blue-700 shadow-xs flex flex-col justify-between">
+        <div>
+          <span class="text-xs font-mono font-bold text-slate-700">2024-2025</span>
+          <h4 class="text-xs font-bold text-blue-600 mt-1">生态自进化闭环</h4>
+        </div>
+        <ul class="text-[10px] text-slate-600 space-y-1">
+          <li>• Agent 自主编排</li>
+          <li>• 商业飞轮全面变现</li>
+          <li>• 构建行业开放生态</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="flex items-center justify-between text-[11px] text-slate-400 border-t border-slate-200 pt-2">
+    <span>💡 阶梯节奏：每阶段设置清晰准入/准出基线，保障研发投资与业务回报平衡</span>
+    <span>第 7 / 10 页</span>
+  </div>
+</section>
+
+<!-- ==================== 正文页：贯穿式上下交错时间轴模型 ==================== -->
+<section class="slide relative w-[960px] h-[540px] p-7 overflow-hidden flex flex-col justify-between bg-white text-slate-800 select-none">
+  <div class="flex items-center justify-between border-b border-slate-200 pb-2.5">
+    <div>
+      <div class="flex items-center gap-2">
+        <span class="text-[11px] font-bold text-blue-600 tracking-wider uppercase">08 / 实施路线</span>
+        <span class="text-[10px] text-slate-400 font-mono">ROADMAP MILESTONES</span>
+      </div>
+      <h2 class="text-xl font-bold text-slate-900 mt-0.5">全生命周期推进时间轴与交付节点</h2>
+    </div>
+    <span class="text-xs px-2.5 py-1 rounded-md bg-blue-50 text-blue-600 border border-blue-100">时间里程碑</span>
+  </div>
+
+  <div class="relative w-full flex-1 my-2 flex items-center px-4">
+    <div class="w-16 h-16 rounded-full border-2 border-dashed border-blue-300 bg-blue-50 flex items-center justify-center text-blue-600 text-xl font-bold shrink-0 z-20 mr-4 shadow-sm">
+      ⏱️
+    </div>
+
+    <div class="relative flex-1 h-3 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-700 rounded-r-full z-10 flex items-center justify-between pr-4">
+      <div class="w-3.5 h-3.5 rounded-full bg-white border-2 border-blue-600 shadow-sm relative">
+        <div class="absolute bottom-6 left-1/2 -translate-x-1/2 w-40 flex flex-col items-start">
+          <span class="px-2.5 py-0.5 rounded-t-md bg-blue-600 text-white text-[10px] font-bold">2024.Q1 · 规划期</span>
+          <div class="w-full p-2 bg-white border border-slate-200 rounded-b-md shadow-xs text-[10px] text-slate-600 leading-tight">
+            完成顶层架构设计与 10 大核心场景评估
+          </div>
+        </div>
+      </div>
+
+      <div class="w-3.5 h-3.5 rounded-full bg-white border-2 border-blue-600 shadow-sm relative">
+        <div class="absolute top-6 left-1/2 -translate-x-1/2 w-40 flex flex-col items-start">
+          <span class="px-2.5 py-0.5 rounded-t-md bg-blue-600 text-white text-[10px] font-bold">2024.Q2 · 试运行</span>
+          <div class="w-full p-2 bg-white border border-slate-200 rounded-b-md shadow-xs text-[10px] text-slate-600 leading-tight">
+            启动核心生产集群小流量灰度试运行
+          </div>
+        </div>
+      </div>
+
+      <div class="w-3.5 h-3.5 rounded-full bg-white border-2 border-blue-600 shadow-sm relative">
+        <div class="absolute bottom-6 left-1/2 -translate-x-1/2 w-40 flex flex-col items-start">
+          <span class="px-2.5 py-0.5 rounded-t-md bg-blue-600 text-white text-[10px] font-bold">2024.Q3 · 全面推广</span>
+          <div class="w-full p-2 bg-white border border-slate-200 rounded-b-md shadow-xs text-[10px] text-slate-600 leading-tight">
+            向全行各业务线统一推开，全面接入中枢
+          </div>
+        </div>
+      </div>
+
+      <div class="w-3.5 h-3.5 rounded-full bg-white border-2 border-blue-600 shadow-sm relative">
+        <div class="absolute top-6 left-1/2 -translate-x-1/2 w-40 flex flex-col items-start">
+          <span class="px-2.5 py-0.5 rounded-t-md bg-blue-600 text-white text-[10px] font-bold">2024.Q4 · 效益复盘</span>
+          <div class="w-full p-2 bg-white border border-slate-200 rounded-b-md shadow-xs text-[10px] text-slate-600 leading-tight">
+            开展年度 ROI 审计与效能增益评估
+          </div>
+        </div>
+      </div>
+
+      <div class="w-3.5 h-3.5 rounded-full bg-white border-2 border-blue-600 shadow-sm relative">
+        <div class="absolute bottom-6 left-1/2 -translate-x-1/2 w-40 flex flex-col items-start">
+          <span class="px-2.5 py-0.5 rounded-t-md bg-blue-600 text-white text-[10px] font-bold">2025.Q1 · 生态开放</span>
+          <div class="w-full p-2 bg-white border border-slate-200 rounded-b-md shadow-xs text-[10px] text-slate-600 leading-tight">
+            对外开放标准 API 网关与第三方插件集
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flex items-center justify-between text-[11px] text-slate-400 border-t border-slate-200 pt-2">
+    <span>💡 交付保障：成立跨部门专项 PMO，双周敏捷迭代，确保按期高质交付</span>
+    <span>第 8 / 10 页</span>
+  </div>
+</section>
+
+<!-- ==================== 正文页：三栏立式书签卡片模型 ==================== -->
+<section class="slide relative w-[960px] h-[540px] p-7 overflow-hidden flex flex-col justify-between bg-white text-slate-800 select-none">
+  <div class="flex items-center justify-between border-b border-slate-200 pb-2.5">
+    <div>
+      <div class="flex items-center gap-2">
+        <span class="text-[11px] font-bold text-blue-600 tracking-wider uppercase">09 / 核心支柱</span>
+        <span class="text-[10px] text-slate-400 font-mono">VERTICAL BOOKMARKS</span>
+      </div>
+      <h2 class="text-xl font-bold text-slate-900 mt-0.5">支撑数字化转型落地实施的三大核心抓手</h2>
+    </div>
+    <span class="text-xs px-2.5 py-1 rounded-md bg-blue-50 text-blue-600 border border-blue-100">核心抓手</span>
+  </div>
+
+  <div class="grid grid-cols-3 gap-5 my-auto px-2">
+    <div class="h-[340px] rounded-2xl bg-white border border-slate-200 shadow-sm flex overflow-hidden">
+      <div class="w-10 bg-blue-600 text-white flex flex-col justify-between items-center py-4 shrink-0">
+        <span class="text-xs font-bold [writing-mode:vertical-lr] tracking-widest">战略引领</span>
+        <span class="text-xs font-mono font-bold">01</span>
+      </div>
+      <div class="flex-1 p-5 flex flex-col items-center text-center justify-between">
+        <div class="w-20 h-20 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 text-2xl mb-1">
+          🤝
+        </div>
+        <div>
+          <h3 class="text-sm font-bold text-slate-900 mb-1.5">组织与机制变革</h3>
+          <p class="text-xs text-slate-600 leading-relaxed">建立敏捷跨职能作战单元，打破部门壁垒，实现业务与技术双轮驱动。</p>
+        </div>
+        <div class="w-full pt-2 border-t border-slate-100 text-[10px] text-slate-400">
+          机制重塑 · 考核牵引
+        </div>
+      </div>
+    </div>
+
+    <div class="h-[340px] rounded-2xl bg-white border border-slate-200 shadow-sm flex overflow-hidden">
+      <div class="w-10 bg-blue-500 text-white flex flex-col justify-between items-center py-4 shrink-0">
+        <span class="text-xs font-bold [writing-mode:vertical-lr] tracking-widest">技术重构</span>
+        <span class="text-xs font-mono font-bold">02</span>
+      </div>
+      <div class="flex-1 p-5 flex flex-col items-center text-center justify-between">
+        <div class="w-20 h-20 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 text-2xl mb-1">
+          ⚙️
+        </div>
+        <div>
+          <h3 class="text-sm font-bold text-slate-900 mb-1.5">中台底座演进</h3>
+          <p class="text-xs text-slate-600 leading-relaxed">重构微服务与实时数仓底座，毫秒级响应海量高并发业务诉求。</p>
+        </div>
+        <div class="w-full pt-2 border-t border-slate-100 text-[10px] text-slate-400">
+          云原生 · 弹性伸缩
+        </div>
+      </div>
+    </div>
+
+    <div class="h-[340px] rounded-2xl bg-white border border-slate-200 shadow-sm flex overflow-hidden">
+      <div class="w-10 bg-cyan-500 text-white flex flex-col justify-between items-center py-4 shrink-0">
+        <span class="text-xs font-bold [writing-mode:vertical-lr] tracking-widest">生态共赢</span>
+        <span class="text-xs font-mono font-bold">03</span>
+      </div>
+      <div class="flex-1 p-5 flex flex-col items-center text-center justify-between">
+        <div class="w-20 h-20 rounded-full bg-cyan-50 border border-cyan-100 flex items-center justify-center text-cyan-600 text-2xl mb-1">
+          🌐
+        </div>
+        <div>
+          <h3 class="text-sm font-bold text-slate-900 mb-1.5">开放场景连接</h3>
+          <p class="text-xs text-slate-600 leading-relaxed">以开放 API 对接上下游产业生态，打通全价值链场景深度变现。</p>
+        </div>
+        <div class="w-full pt-2 border-t border-slate-100 text-[10px] text-slate-400">
+          场景融合 · 生态闭环
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flex items-center justify-between text-[11px] text-slate-400 border-t border-slate-200 pt-2">
+    <span>💡 协同原则：三大抓手相互依存、循环促进，构成转型落地坚实三角支撑</span>
+    <span>第 9 / 10 页</span>
+  </div>
+</section>
+
+<!-- ==================== 正文页：柱状增长趋势与双核生态交集模型 ==================== -->
+<section class="slide relative w-[960px] h-[540px] p-7 overflow-hidden flex flex-col justify-between bg-white text-slate-800 select-none">
+  <div class="flex items-center justify-between border-b border-slate-200 pb-2.5">
+    <div>
+      <div class="flex items-center gap-2">
+        <span class="text-[11px] font-bold text-blue-600 tracking-wider uppercase">10 / 经营与能力</span>
+        <span class="text-[10px] text-slate-400 font-mono">FINANCIAL & ECOSYSTEM</span>
+      </div>
+      <h2 class="text-xl font-bold text-slate-900 mt-0.5">经营收益爆发式增长与双核生态交织演进</h2>
+    </div>
+    <span class="text-xs px-2.5 py-1 rounded-md bg-blue-50 text-blue-600 border border-blue-100">经营与生态</span>
+  </div>
+
+  <div class="px-3.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-600 leading-relaxed">
+    <strong>量化成效</strong>：通过持续深耕核心自研底座与多元场景连接，近四年营收实现跃迁式增长，技术与业务交织形成良性正循环。
+  </div>
+
+  <div class="grid grid-cols-2 gap-6 my-auto px-2">
+    <div class="p-3.5 bg-slate-50/70 rounded-xl border border-slate-200 flex flex-col justify-between h-[290px]">
+      <div class="flex items-center justify-between">
+        <div>
+          <span class="text-[10px] text-blue-600 font-bold uppercase">REVENUE LEAP</span>
+          <h4 class="text-xs font-bold text-slate-800">四年经营收益跨越增长</h4>
+        </div>
+        <div class="flex items-center gap-2 text-[10px] text-slate-500">
+          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded bg-blue-600"></span>营业额</span>
+          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded bg-amber-500"></span>毛利</span>
+        </div>
+      </div>
+
+      <div class="flex items-end justify-between h-[200px] pt-4 px-3 border-b border-slate-200">
+        <div class="flex flex-col items-center">
+          <div class="flex items-end gap-1">
+            <div class="w-5 bg-blue-500 rounded-t h-8 flex flex-col justify-start items-center"><span class="text-[8px] text-white font-bold">2.8</span></div>
+            <div class="w-5 bg-amber-500 rounded-t h-5 flex flex-col justify-start items-center"><span class="text-[8px] text-white font-bold">1.9</span></div>
+          </div>
+          <span class="text-[10px] text-slate-500 mt-1">2021</span>
+        </div>
+        <div class="flex flex-col items-center">
+          <div class="flex items-end gap-1">
+            <div class="w-5 bg-blue-500 rounded-t h-12 flex flex-col justify-start items-center"><span class="text-[8px] text-white font-bold">3.6</span></div>
+            <div class="w-5 bg-amber-500 rounded-t h-7 flex flex-col justify-start items-center"><span class="text-[8px] text-white font-bold">2.7</span></div>
+          </div>
+          <span class="text-[10px] text-slate-500 mt-1">2022</span>
+        </div>
+        <div class="flex flex-col items-center">
+          <div class="flex items-end gap-1">
+            <div class="w-6 bg-blue-600 rounded-t h-32 flex flex-col justify-start items-center"><span class="text-[9px] text-white font-bold">28.6</span></div>
+            <div class="w-6 bg-amber-500 rounded-t h-18 flex flex-col justify-start items-center"><span class="text-[9px] text-white font-bold">16.3</span></div>
+          </div>
+          <span class="text-[10px] text-slate-500 mt-1 font-bold">2023</span>
+        </div>
+        <div class="flex flex-col items-center">
+          <div class="flex items-end gap-1">
+            <div class="w-6 bg-blue-600 rounded-t h-40 flex flex-col justify-start items-center"><span class="text-[9px] text-white font-bold">35.1</span></div>
+            <div class="w-6 bg-amber-500 rounded-t h-24 flex flex-col justify-start items-center"><span class="text-[9px] text-white font-bold">20.1</span></div>
+          </div>
+          <span class="text-[10px] text-slate-700 mt-1 font-bold">2024</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="p-3.5 bg-slate-50/70 rounded-xl border border-slate-200 flex flex-col justify-between h-[290px]">
+      <div>
+        <span class="text-[10px] text-blue-600 font-bold uppercase">DUAL ECOSYSTEM</span>
+        <h4 class="text-xs font-bold text-slate-800">技术与业务双核交织赋能</h4>
+      </div>
+
+      <div class="relative w-full flex-1 flex items-center justify-center gap-3 my-1">
+        <div class="relative w-36 h-36 rounded-full bg-blue-500/20 border-2 border-blue-500 flex flex-col items-center justify-center p-2 text-center">
+          <span class="text-[10px] font-bold text-blue-800">技术中枢</span>
+          <span class="text-[9px] text-slate-600 mt-0.5 leading-tight">算力 · 算法 · 数据湖</span>
+        </div>
+
+        <div class="relative w-36 h-36 rounded-full bg-amber-500/20 border-2 border-amber-500 flex flex-col items-center justify-center p-2 text-center -ml-8">
+          <span class="text-[10px] font-bold text-amber-800">场景生态</span>
+          <span class="text-[9px] text-slate-600 mt-0.5 leading-tight">客群 · 渠道 · 商业化</span>
+        </div>
+      </div>
+
+      <div class="text-[10px] text-slate-500 text-center border-t border-slate-200 pt-1.5">
+        两核深度交汇形成统一数字化生产力引擎
+      </div>
+    </div>
+  </div>
+
+  <div class="flex items-center justify-between text-[11px] text-slate-400 border-t border-slate-200 pt-2">
+    <span>💡 统计口径：按会计准则年度审计口径合并报表，毛利率维持在 57% 以上</span>
+    <span>第 10 / 10 页</span>
   </div>
 </section>
 \`\`\`
