@@ -295,10 +295,13 @@ function extractContainerFillAndBorder(el: HTMLElement, isLightSlide: boolean): 
     fillHex = bgHexMatch[1].toUpperCase();
   }
 
-  // Check SVG fill or polygon fill for icons and arrows
-  const svgFill = el.getAttribute('fill') || el.querySelector('polygon, path, circle, rect')?.getAttribute('fill');
-  if (svgFill && svgFill.startsWith('#')) {
-    fillHex = svgFill.slice(1).toUpperCase();
+  // Check SVG fill or polygon fill ONLY IF el itself is an SVG element
+  const tag = el.tagName.toLowerCase();
+  if (tag === 'svg' || tag === 'polygon' || tag === 'path' || tag === 'circle' || tag === 'rect') {
+    const svgFill = el.getAttribute('fill') || (tag === 'svg' ? el.querySelector('polygon, path, circle, rect')?.getAttribute('fill') : undefined);
+    if (svgFill && svgFill.startsWith('#')) {
+      fillHex = svgFill.slice(1).toUpperCase();
+    }
   }
 
   // 2. Themed fills
