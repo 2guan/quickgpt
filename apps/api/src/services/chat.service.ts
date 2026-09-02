@@ -542,11 +542,15 @@ export async function handleStreamChat({
    - 极简硬朗直角线框 (Architectural Sharp)：rounded-none border-l-2 border-t border-slate-700/80 bg-slate-900/60
    - 胶囊药丸群 (Pills & Badges)：rounded-full px-3 py-1 text-xs border
    - 双层嵌套带顶栏卡片：上部为实色标题条（如 bg-indigo-950/80 px-4 py-1.5），下部为半透明详情主体
-2. 📊 咨询与学术级结构图元（按需选用）：
+2. 📊 咨询与学术级结构图元与五大高级特色版式（按需选用）：
+   - 🌟【底部半圆同心放射拱门模型 (Concentric Radial Arches)】：底部正中央主半圆（w-[420px] h-[160px] rounded-t-full bg-blue-600 text-white）承载核心结论，外层 2 层同心半圆虚线拱门，圆弧上均匀分布 5 个标号徽章（1~5）及对应两行说明文案。适用于 5 阶段演进路线、五维能力跃迁。
+   - 🌟【双漏斗聚合过滤对比模型 (Twin Funnels)】：左右对称双漏斗容器（w-56 h-20 bg-gradient-to-b from-blue-100/60 to-blue-200/40 border border-blue-300 rounded-b-3xl），顶部为浮动指标气泡球群，底部为椭圆基座与大字量化成果。适用于双路径转化对比、公私域协同。
+   - 🌟【核心中枢 + 6大卫星轨道辐射模型 (Central Orbit & Satellites)】：中心核心大圆（w-44 h-44 rounded-full bg-blue-600 text-white）+ 外围同心虚线轨道环 + 左右对称分布 6 个卫星卡片（含圆形图标徽章 + 类别标题 + 要点）。适用于“一体六翼”全场景业务生态全景。
+   - 🌟【金字塔分层阶梯成熟度模型 (Pyramid Hierarchy)】：中央 5 层自上而下逐层加宽的金字塔梯形色块（w-24/36/48/60/72 h-9 bg-blue-600 text-white）+ 左右两侧各 2 个圆角呼应卡片（rounded-r-2xl / rounded-l-2xl）指向对应梯队 + 底部椭圆基座 3 项基石。适用于 5 阶能力成熟度进阶。
+   - 🌟【两极流转与阶段演进流模型 (Two-Stage Transformation Flow)】：顶部全宽背景导言 + 左侧起始源圆形枢纽（w-48 h-48 rounded-full）+ 中间 3 个纵向排列的流转胶囊条（px-6 py-2 rounded-full）配合向右箭头 ➔ + 右侧目标落地大圆形枢纽（w-56 h-56 rounded-full），展示端到端转型。
    - 【漏斗转化模型 (Funnel)】：4 层宽度递减的阶梯梯形横条（100% -> 75% -> 50% -> 25%），右侧标明转化率与关键动作
    - 【2×2 战略决策象限 (2x2 Strategy Quadrant)】：两两垂直交叉轴线，明确 X 轴与 Y 轴维度，四个象限分别包含独立策略方块
    - 【闭环循环流转 (Closed Loop Cycle)】：3~5 个节点以环形/箭头衔接，包含正向流动与逆向数据反哺
-   - 【金字塔分层模型 (Pyramid Layers)】：顶层战略愿景 -> 中层能力引擎 -> 底层基础设施支撑
    - 【多维水平对冲条 (Comparison Radar Bars)】：左右两组指标在同一标尺上通过彩色条对比（如：研发投入 vs 交付速度）
    - 【微型进度刻度与仪表 (Micro Progress Bars)】：进度条槽 bg-slate-800/80 h-1.5，内嵌渐变填充条与百分比指示
    - 【标签云与能力矩阵 (Tag Cloud & Feature Matrix)】：flex flex-wrap gap-1.5 平铺数十个技术特性或关键词徽章
@@ -555,7 +559,7 @@ export async function handleStreamChat({
 每页幻灯片必须信息充实、论据扎实、逻辑严密，采用经典的“战略咨询五层信息结构”：
 - 层级 1（顶栏）：分类 Badge + 英文副标 + 页面核心大标题（text-2xl font-bold）
 - 层级 2（核心论点条/Banner）：一句话核心结论或战略主张（bg-white/5 border-l-4 p-2.5 text-xs text-slate-200）
-- 层级 3（主体深度结构）：2~4 组深度论证列/象限/漏斗/矩阵，每组包含【小标题 + 核心量化指标（如 +340%、99.99%、1.84s）+ 详细落地措施（2~3 句深度说明，非单薄短语）+ 支撑标签】
+- 层级 3（主体深度结构）：2~4 组深度论证列/象限/漏斗/矩阵/拱门/轨道，每组包含【小标题 + 核心量化指标（如 +340%、99.99%、1.84s）+ 详细落地措施（2~3 句深度说明，非单薄短语）+ 支撑标签】
 - 层级 4（横向补充/技术图谱）：图表、进度条、对比表格或标签平铺矩阵
 - 层级 5（底栏注脚）：💡 方法论出处 / 数据统计口径 / 适用范围 + 页码（第 N / M 页）
 
@@ -668,6 +672,257 @@ export async function handleStreamChat({
   <div class="flex items-center justify-between text-[11px] text-slate-400 border-t border-slate-800/80 pt-2">
     <span>💡 评估基准：基于 2026 麦肯锡企业级数字化转型评估模型及 12 家头部企业落地复盘</span>
     <span>第 2 / 6 页</span>
+  </div>
+</section>
+
+<!-- ==================== 正文页：底部同心半圆放射拱门演进图 ==================== -->
+<section class="slide relative w-[960px] h-[540px] p-7 overflow-hidden flex flex-col justify-between bg-white text-slate-800 select-none">
+  <div class="flex items-center justify-between border-b border-slate-200 pb-2.5">
+    <div>
+      <div class="flex items-center gap-2">
+        <span class="text-[11px] font-bold text-blue-600 tracking-wider uppercase">03 / 演进路线</span>
+        <span class="text-[10px] text-slate-400 font-mono">RADIAL MILESTONES</span>
+      </div>
+      <h2 class="text-xl font-bold text-slate-900 mt-0.5">数智化能力梯次跃迁与战略拱门</h2>
+    </div>
+    <span class="text-xs px-2.5 py-1 rounded-md bg-blue-50 text-blue-600 border border-blue-100">演进模型</span>
+  </div>
+
+  <div class="relative w-full flex-1 my-2 flex items-end justify-center overflow-hidden">
+    <div class="absolute bottom-[-160px] w-[760px] h-[380px] rounded-t-full border border-blue-100 bg-blue-50/30"></div>
+    <div class="absolute bottom-[-120px] w-[600px] h-[300px] rounded-t-full border border-dashed border-blue-200 bg-blue-50/50"></div>
+
+    <div class="absolute left-10 bottom-24 flex flex-col items-center text-center w-32">
+      <div class="text-xs font-bold text-slate-700 mb-1">基础设施云化<br><span class="text-[10px] font-normal text-slate-400">算力与容器治理</span></div>
+      <div class="w-7 h-7 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center shadow-md shadow-blue-500/20">1</div>
+    </div>
+    <div class="absolute left-40 top-12 flex flex-col items-center text-center w-32">
+      <div class="text-xs font-bold text-slate-700 mb-1">全域数据贯通<br><span class="text-[10px] font-normal text-slate-400">实时数仓入湖</span></div>
+      <div class="w-7 h-7 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center shadow-md shadow-blue-500/20">2</div>
+    </div>
+    <div class="absolute left-1/2 -translate-x-1/2 top-2 flex flex-col items-center text-center w-36">
+      <div class="text-xs font-bold text-slate-700 mb-1">模型中枢构建<br><span class="text-[10px] font-normal text-slate-400">多模型网关路由</span></div>
+      <div class="w-7 h-7 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center shadow-md shadow-blue-500/20">3</div>
+    </div>
+    <div class="absolute right-40 top-12 flex flex-col items-center text-center w-32">
+      <div class="text-xs font-bold text-slate-700 mb-1">业务智能体编排<br><span class="text-[10px] font-normal text-slate-400">Agent全流程自主</span></div>
+      <div class="w-7 h-7 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center shadow-md shadow-blue-500/20">4</div>
+    </div>
+    <div class="absolute right-10 bottom-24 flex flex-col items-center text-center w-32">
+      <div class="text-xs font-bold text-slate-700 mb-1">价值飞轮闭环<br><span class="text-[10px] font-normal text-slate-400">全场景商业变现</span></div>
+      <div class="w-7 h-7 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center shadow-md shadow-blue-500/20">5</div>
+    </div>
+
+    <div class="relative z-10 w-[420px] h-[160px] rounded-t-full bg-gradient-to-b from-blue-600 to-blue-700 text-white flex flex-col items-center justify-center pt-6 shadow-xl shadow-blue-600/30">
+      <span class="text-xs text-blue-200 font-medium tracking-wider uppercase mb-1">CORE TARGET</span>
+      <h3 class="text-xl font-black tracking-wide">实现业务全链路自主进化</h3>
+      <p class="text-xs text-blue-100 mt-1">从自动化辅助走向端到端自主决策与商业闭环</p>
+    </div>
+  </div>
+
+  <div class="flex items-center justify-between text-[11px] text-slate-400 border-t border-slate-200 pt-2">
+    <span>💡 实施路径：分三期推进，每期聚焦核心能力闭环并向下一阶段平滑迁移</span>
+    <span>第 3 / 6 页</span>
+  </div>
+</section>
+
+<!-- ==================== 正文页：核心中枢 + 6大卫星轨道辐射模型 ==================== -->
+<section class="slide relative w-[960px] h-[540px] p-7 overflow-hidden flex flex-col justify-between bg-white text-slate-800 select-none">
+  <div class="flex items-center justify-between border-b border-slate-200 pb-2.5">
+    <div>
+      <div class="flex items-center gap-2">
+        <span class="text-[11px] font-bold text-blue-600 tracking-wider uppercase">04 / 架构图谱</span>
+        <span class="text-[10px] text-slate-400 font-mono">ORBIT & SATELLITES</span>
+      </div>
+      <h2 class="text-xl font-bold text-slate-900 mt-0.5">“一体六翼”全场景业务生态能力全景</h2>
+    </div>
+    <span class="text-xs px-2.5 py-1 rounded-md bg-blue-50 text-blue-600 border border-blue-100">生态全景</span>
+  </div>
+
+  <div class="relative w-full flex-1 my-2 flex items-center justify-between px-2">
+    <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[340px] h-[340px] rounded-full border border-dashed border-blue-200 pointer-events-none"></div>
+
+    <div class="w-[280px] space-y-3 z-10">
+      <div class="flex items-center gap-3 bg-white p-2.5 rounded-xl border border-slate-200 shadow-xs">
+        <div class="w-10 h-10 rounded-full bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center font-bold text-sm shrink-0">📈</div>
+        <div>
+          <h4 class="text-xs font-bold text-blue-600">智能投顾引擎</h4>
+          <p class="text-[11px] text-slate-500 leading-tight mt-0.5">多因子风险测算，动态资产配置调优</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3 bg-white p-2.5 rounded-xl border border-slate-200 shadow-xs">
+        <div class="w-10 h-10 rounded-full bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center font-bold text-sm shrink-0">📋</div>
+        <div>
+          <h4 class="text-xs font-bold text-blue-600">全维合规风控</h4>
+          <p class="text-[11px] text-slate-500 leading-tight mt-0.5">毫秒级反洗钱筛查与反欺诈实时熔断</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3 bg-white p-2.5 rounded-xl border border-slate-200 shadow-xs">
+        <div class="w-10 h-10 rounded-full bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center font-bold text-sm shrink-0">📦</div>
+        <div>
+          <h4 class="text-xs font-bold text-blue-600">开放资产超市</h4>
+          <p class="text-[11px] text-slate-500 leading-tight mt-0.5">跨机构一站式产品供给与货架管理</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="z-10 w-44 h-44 rounded-full bg-gradient-to-br from-blue-600 to-blue-700 text-white flex flex-col items-center justify-center text-center p-4 shadow-xl shadow-blue-500/30">
+      <span class="text-[10px] text-blue-200 tracking-wider">CORE HUB</span>
+      <h3 class="text-lg font-black mt-0.5">统一数据与决策中枢</h3>
+      <p class="text-[10px] text-blue-100 mt-1">全局状态同步 · 智能调度网关</p>
+    </div>
+
+    <div class="w-[280px] space-y-3 z-10">
+      <div class="flex items-center gap-3 bg-white p-2.5 rounded-xl border border-slate-200 shadow-xs">
+        <div>
+          <h4 class="text-xs font-bold text-blue-600">自动化营运中心</h4>
+          <p class="text-[11px] text-slate-500 leading-tight mt-0.5">自动化清结算对账与报表无缝直连</p>
+        </div>
+        <div class="w-10 h-10 rounded-full bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center font-bold text-sm shrink-0">⚙️</div>
+      </div>
+      <div class="flex items-center gap-3 bg-white p-2.5 rounded-xl border border-slate-200 shadow-xs">
+        <div>
+          <h4 class="text-xs font-bold text-blue-600">全域安全防护</h4>
+          <p class="text-[11px] text-slate-500 leading-tight mt-0.5">零信任权限隔离与端到端国密加密</p>
+        </div>
+        <div class="w-10 h-10 rounded-full bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center font-bold text-sm shrink-0">🛡️</div>
+      </div>
+      <div class="flex items-center gap-3 bg-white p-2.5 rounded-xl border border-slate-200 shadow-xs">
+        <div>
+          <h4 class="text-xs font-bold text-blue-600">智能渠道触达</h4>
+          <p class="text-[11px] text-slate-500 leading-tight mt-0.5">多端消息统一推送与交互意图理解</p>
+        </div>
+        <div class="w-10 h-10 rounded-full bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center font-bold text-sm shrink-0">🚚</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flex items-center justify-between text-[11px] text-slate-400 border-t border-slate-200 pt-2">
+    <span>💡 架构说明：六大支撑支柱通过中枢总线统一注册、鉴权与弹性扩容</span>
+    <span>第 4 / 6 页</span>
+  </div>
+</section>
+
+<!-- ==================== 正文页：金字塔分层阶梯成熟度模型 ==================== -->
+<section class="slide relative w-[960px] h-[540px] p-7 overflow-hidden flex flex-col justify-between bg-white text-slate-800 select-none">
+  <div class="flex items-center justify-between border-b border-slate-200 pb-2.5">
+    <div>
+      <div class="flex items-center gap-2">
+        <span class="text-[11px] font-bold text-blue-600 tracking-wider uppercase">05 / 成熟度阶梯</span>
+        <span class="text-[10px] text-slate-400 font-mono">PYRAMID HIERARCHY</span>
+      </div>
+      <h2 class="text-xl font-bold text-slate-900 mt-0.5">企业级数智化五阶能力成熟度进阶模型</h2>
+    </div>
+    <span class="text-xs px-2.5 py-1 rounded-md bg-blue-50 text-blue-600 border border-blue-100">分层模型</span>
+  </div>
+
+  <div class="relative w-full flex-1 my-2 flex items-center justify-center">
+    <div class="absolute left-4 top-1/2 -translate-y-1/2 space-y-4 w-52 z-20">
+      <div class="p-3 rounded-r-2xl rounded-l-md bg-blue-600 text-white shadow-md shadow-blue-500/20">
+        <h4 class="text-xs font-bold">L4 · 协同自主编排</h4>
+        <p class="text-[10px] text-blue-100 mt-0.5 leading-tight">跨系统自治协同与异常自动愈合</p>
+      </div>
+      <div class="p-3 rounded-r-2xl rounded-l-md bg-blue-600 text-white shadow-md shadow-blue-500/20">
+        <h4 class="text-xs font-bold">L2 · 规则自动化</h4>
+        <p class="text-[10px] text-blue-100 mt-0.5 leading-tight">确定性脚本与流程式批处理</p>
+      </div>
+    </div>
+
+    <div class="flex flex-col items-center justify-center space-y-1 z-10">
+      <div class="w-24 h-9 bg-blue-600 text-white font-bold text-xs flex items-center justify-center rounded-t-lg shadow-sm">
+        L5 · 自进化生态
+      </div>
+      <div class="w-36 h-9 bg-blue-500 text-white text-xs font-semibold flex items-center justify-center shadow-sm">
+        L4 · 认知与自主协同
+      </div>
+      <div class="w-48 h-9 bg-blue-500 text-white text-xs flex items-center justify-center shadow-sm">
+        L3 · 数据驱动决策
+      </div>
+      <div class="w-60 h-9 bg-blue-600 text-white text-xs flex items-center justify-center shadow-sm">
+        L2 · 流程化协同互通
+      </div>
+      <div class="w-72 h-9 bg-blue-600 text-white text-xs flex items-center justify-center rounded-b-lg shadow-sm">
+        L1 · 基础数字化支撑
+      </div>
+
+      <div class="w-96 h-6 rounded-[100%] border border-blue-200 bg-blue-50/70 mt-1 flex items-center justify-around px-4">
+        <span class="text-[10px] font-bold text-blue-700">📌 算力基座</span>
+        <span class="text-[10px] font-bold text-blue-700">📌 统一数据湖</span>
+        <span class="text-[10px] font-bold text-blue-700">📌 组织敏捷机制</span>
+      </div>
+    </div>
+
+    <div class="absolute right-4 top-1/2 -translate-y-1/2 space-y-4 w-52 z-20">
+      <div class="p-3 rounded-l-2xl rounded-r-md bg-blue-600 text-white shadow-md shadow-blue-500/20">
+        <h4 class="text-xs font-bold">L5 · 商业飞轮闭环</h4>
+        <p class="text-[10px] text-blue-100 mt-0.5 leading-tight">实现指数级增长与业务自我进化</p>
+      </div>
+      <div class="p-3 rounded-l-2xl rounded-r-md bg-blue-600 text-white shadow-md shadow-blue-500/20">
+        <h4 class="text-xs font-bold">L3 · 智能辅助决策</h4>
+        <p class="text-[10px] text-blue-100 mt-0.5 leading-tight">基于预测算法的精准资源分配</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="flex items-center justify-between text-[11px] text-slate-400 border-t border-slate-200 pt-2">
+    <span>💡 进阶策略：底层基石稳固后依次向上攀升，避免单点过早冒进</span>
+    <span>第 5 / 6 页</span>
+  </div>
+</section>
+
+<!-- ==================== 正文页：两极流转与阶段演进流模型 ==================== -->
+<section class="slide relative w-[960px] h-[540px] p-7 overflow-hidden flex flex-col justify-between bg-white text-slate-800 select-none">
+  <div class="flex items-center justify-between border-b border-slate-200 pb-2.5">
+    <div>
+      <div class="flex items-center gap-2">
+        <span class="text-[11px] font-bold text-blue-600 tracking-wider uppercase">06 / 流程变革</span>
+        <span class="text-[10px] text-slate-400 font-mono">TRANSFORMATION FLOW</span>
+      </div>
+      <h2 class="text-xl font-bold text-slate-900 mt-0.5">从传统孤岛运作走向端到端数智化价值流</h2>
+    </div>
+    <span class="text-xs px-2.5 py-1 rounded-md bg-blue-50 text-blue-600 border border-blue-100">流转演进</span>
+  </div>
+
+  <div class="px-3.5 py-2 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-600 leading-relaxed">
+    <strong>变革路径</strong>：通过打通传统孤立断点，重塑业务上下游连接机制，实现从分散低效的手工作业向高度敏捷、闭环可控的智能价值流转型。
+  </div>
+
+  <div class="relative w-full flex-1 my-2 flex items-center justify-between px-6">
+    <div class="w-48 h-48 rounded-full bg-gradient-to-br from-blue-600 to-blue-700 text-white flex flex-col items-center justify-center text-center p-4 shadow-xl shadow-blue-500/20 z-10">
+      <div class="text-2xl mb-1">👷‍♂️</div>
+      <h4 class="text-base font-bold">传统业务现状</h4>
+      <p class="text-[10px] text-blue-100 mt-1">流程割裂 · 人工流转 · 响应滞后</p>
+    </div>
+
+    <div class="flex flex-col items-center space-y-3 z-10">
+      <div class="px-6 py-2 rounded-full bg-blue-500 text-white text-xs font-semibold shadow-sm flex items-center gap-2">
+        <span>阶段一 · 核心资产数字化</span>
+        <span>➔</span>
+      </div>
+      <div class="px-6 py-2 rounded-full bg-blue-500 text-white text-xs font-semibold shadow-sm flex items-center gap-2">
+        <span>阶段二 · 业务链路智能化</span>
+        <span>➔</span>
+      </div>
+      <div class="px-6 py-2 rounded-full bg-blue-500 text-white text-xs font-semibold shadow-sm flex items-center gap-2">
+        <span>阶段三 · 价值协同生态化</span>
+        <span>➔</span>
+      </div>
+    </div>
+
+    <div class="w-56 h-56 rounded-full bg-blue-400/90 text-white flex flex-col items-center justify-center text-center p-5 shadow-xl shadow-blue-400/30 z-10">
+      <span class="text-xs text-blue-100 font-bold uppercase">TARGET STATE</span>
+      <h4 class="text-lg font-black mt-1">全链路数智新高地</h4>
+      <p class="text-xs text-white/90 mt-1.5 leading-relaxed">
+        交付周期缩短 <strong>70%</strong><br>
+        协同效率提升 <strong>3.5x</strong><br>
+        端到端全流程自动闭环
+      </p>
+    </div>
+  </div>
+
+  <div class="flex items-center justify-between text-[11px] text-slate-400 border-t border-slate-200 pt-2">
+    <span>💡 演进成果：打通上下游 14 个业务系统，形成跨部门高效协同闭环</span>
+    <span>第 6 / 6 页</span>
   </div>
 </section>
 \`\`\`

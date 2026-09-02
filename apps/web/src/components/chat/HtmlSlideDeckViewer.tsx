@@ -727,12 +727,33 @@ async function exportEditablePptx(slides: string[]) {
         const sh = toPptH(rect.height);
 
         if (sx >= -0.5 && sy >= -0.5 && sx <= 10.5 && sy <= 6.0 && sw > 0.01 && sh > 0.005) {
-          const isCircle = radius >= rect.height / 2 - 3 && Math.abs(rect.width - rect.height) < 10;
-          const shapeType = isCircle
+          const isCircle =
+            (radius >= rect.height / 2 - 3 && Math.abs(rect.width - rect.height) < 12) ||
+            (cls.includes('rounded-full') && Math.abs(rect.width - rect.height) < 12);
+          const isEllipse =
+            cls.includes('rounded-[100%]') ||
+            (cls.includes('rounded-full') && !cls.includes('px-') && !cls.includes('py-') && rect.width > 100 && rect.height > 100) ||
+            style.borderRadius.includes('50%');
+          const isPill =
+            (cls.includes('rounded-full') || cls.includes('rounded-md') || cls.includes('rounded-lg')) &&
+            rect.width > rect.height * 1.3 &&
+            !isEllipse;
+
+          const shapeType = isCircle || isEllipse
             ? pptx.ShapeType.ellipse
-            : radius > 2
+            : radius > 2 || isPill || cls.includes('rounded-')
             ? pptx.ShapeType.roundRect
             : pptx.ShapeType.rect;
+
+          const isDashed = cls.includes('border-dashed') || style.borderStyle === 'dashed';
+          const isDotted = cls.includes('border-dotted') || style.borderStyle === 'dotted';
+          const lineConfig = borderColor
+            ? {
+                color: borderColor,
+                width: 0.75,
+                dashType: isDashed ? ('dash' as const) : isDotted ? ('sysDot' as const) : ('solid' as const),
+              }
+            : undefined;
 
           // 1. Draw top accent crown behind card (same size as card, shifted upward by 0.04 inches)
           if (topAccentColor && fillColor) {
@@ -741,7 +762,7 @@ async function exportEditablePptx(slides: string[]) {
               y: Math.max(0.04, sy - 0.04),
               w: sw,
               h: sh,
-              rectRadius: isCircle ? undefined : Math.min(0.2, (radius / rootW) * 10),
+              rectRadius: isCircle || isEllipse ? undefined : isPill ? 0.5 : Math.min(0.2, (radius / rootW) * 10),
               fill: { color: topAccentColor },
             });
           }
@@ -774,14 +795,14 @@ async function exportEditablePptx(slides: string[]) {
               y: sy,
               w: sw,
               h: sh,
-              rectRadius: isCircle ? undefined : Math.min(0.2, (radius / rootW) * 10),
+              rectRadius: isCircle || isEllipse ? undefined : isPill ? 0.5 : Math.min(0.2, (radius / rootW) * 10),
               fill: fillColor
                 ? {
                     color: fillColor,
                     transparency: fillTransparency,
                   }
                 : undefined,
-              line: borderColor ? { color: borderColor, width: 0.75 } : undefined,
+              line: lineConfig,
               shadow: shadowConfig,
             });
           }
