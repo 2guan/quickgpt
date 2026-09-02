@@ -307,6 +307,9 @@ function extractContainerFillAndBorder(el: HTMLElement, isLightSlide: boolean): 
   // 2. Themed fills
   if (!fillHex) {
     if (cls.includes('bg-white')) fillHex = 'FFFFFF';
+    else if (cls.includes('bg-indigo-600') || cls.includes('from-indigo-600') || cls.includes('from-indigo-500') || cls.includes('bg-indigo-500')) fillHex = '4F46E5';
+    else if (cls.includes('bg-cyan-600') || cls.includes('from-cyan-600') || cls.includes('from-cyan-500') || cls.includes('bg-cyan-500')) fillHex = '06B6D4';
+    else if (cls.includes('bg-violet-600') || cls.includes('from-violet-600') || cls.includes('from-violet-500') || cls.includes('bg-violet-500')) fillHex = '7C3AED';
     else if (cls.includes('bg-blue-600') || cls.includes('from-blue-600')) fillHex = '2563EB';
     else if (cls.includes('bg-blue-500') || cls.includes('from-blue-500')) fillHex = '3B82F6';
     else if (cls.includes('bg-blue-100')) fillHex = 'DBEAFE';
@@ -324,8 +327,11 @@ function extractContainerFillAndBorder(el: HTMLElement, isLightSlide: boolean): 
     else if (cls.includes('bg-purple-500') || cls.includes('from-purple-500')) fillHex = 'A855F7';
     else if (cls.includes('bg-purple-100')) fillHex = 'F3E8FF';
     else if (cls.includes('bg-purple-50')) fillHex = 'FAF5FF';
+    else if (cls.includes('bg-teal-600') || cls.includes('from-teal-600') || cls.includes('from-teal-500') || cls.includes('bg-teal-500')) fillHex = '0D9488';
     else if (cls.includes('bg-teal-50')) fillHex = 'F0FDFA';
+    else if (cls.includes('bg-rose-600') || cls.includes('from-rose-600') || cls.includes('from-rose-500') || cls.includes('bg-rose-500')) fillHex = 'E11D48';
     else if (cls.includes('bg-rose-50')) fillHex = 'FFF1F2';
+    else if (cls.includes('bg-sky-600') || cls.includes('from-sky-600') || cls.includes('from-sky-500') || cls.includes('bg-sky-500')) fillHex = '0284C7';
     else if (cls.includes('bg-slate-50')) fillHex = 'F8FAFC';
     else if (cls.includes('bg-slate-100')) fillHex = 'F1F5F9';
     else if (cls.includes('bg-slate-200')) fillHex = 'E2E8F0';
@@ -345,7 +351,11 @@ function extractContainerFillAndBorder(el: HTMLElement, isLightSlide: boolean): 
 
   // Border Resolution:
   let resolvedColor = isLightSlide ? 'E2E8F0' : '334155';
-  if (cls.includes('border-blue-100')) resolvedColor = 'DBEAFE';
+  if (cls.includes('border-indigo-500')) resolvedColor = '6366F1';
+  else if (cls.includes('border-indigo-600')) resolvedColor = '4F46E5';
+  else if (cls.includes('border-cyan-500')) resolvedColor = '06B6D4';
+  else if (cls.includes('border-cyan-600')) resolvedColor = '0891B2';
+  else if (cls.includes('border-blue-100')) resolvedColor = 'DBEAFE';
   else if (cls.includes('border-blue-200')) resolvedColor = 'BFDBFE';
   else if (cls.includes('border-blue-500')) resolvedColor = '3B82F6';
   else if (cls.includes('border-blue-600')) resolvedColor = '2563EB';
@@ -361,6 +371,7 @@ function extractContainerFillAndBorder(el: HTMLElement, isLightSlide: boolean): 
   else if (cls.includes('border-slate-100')) resolvedColor = 'F1F5F9';
   else if (cls.includes('border-slate-200')) resolvedColor = 'E2E8F0';
   else if (cls.includes('border-slate-300')) resolvedColor = 'CBD5E1';
+  else if (cls.includes('border-slate-600')) resolvedColor = '475569';
   else if (cls.includes('border-slate-700')) resolvedColor = '334155';
   else if (cls.includes('border-slate-800')) resolvedColor = '1E293B';
   else if (cls.includes('border-white')) resolvedColor = 'FFFFFF';
