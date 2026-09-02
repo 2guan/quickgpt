@@ -786,7 +786,7 @@ async function exportEditablePptx(slides: string[]) {
         let pptW = toPptW(domW);
         let pptX = toPptX(rect.left);
         let pptY = toPptY(rect.top);
-        let pptH = Math.max(0.18, toPptH(domH));
+        let pptH = toPptH(domH);
 
         const cls = el.className && typeof el.className === 'string' ? el.className : '';
         const parentCls = el.parentElement?.className && typeof el.parentElement.className === 'string' ? el.parentElement.className : '';
@@ -799,7 +799,7 @@ async function exportEditablePptx(slides: string[]) {
             cls.includes('rounded') ||
             (cls.includes('px-') && cls.includes('py-'))) &&
           domW <= 220 &&
-          domH <= 38 &&
+          domH <= 40 &&
           text.length <= 15;
 
         // Pill / badge labels MUST always be centered horizontally!
@@ -837,10 +837,11 @@ async function exportEditablePptx(slides: string[]) {
               pptX = toPptX(domCenterX) - pptW / 2;
             }
           } else if (isBadgeOrPill) {
-            // Keep exact badge dimensions, apply optical vertical lift of 0.012 in (approx 1.2px) so CJK characters are dead-center
+            // Keep EXACT 1:1 geometry matching Layer 1 shape bounding box
+            pptX = toPptX(rect.left);
+            pptY = toPptY(rect.top);
             pptW = toPptW(domW);
             pptH = toPptH(domH);
-            pptY = pptY - 0.012;
           } else {
             pptW = Math.max(pptW * 1.05, text.length * 0.1, 0.3);
             if (isCentered) {
