@@ -109,36 +109,29 @@ interface SlideBackgroundInfo {
 
 /**
  * Extract gradient color stops for text with Tailwind gradient classes.
- * Accurately detects HTML gradient text while guarding normal badges, pills, and plain text.
+ * Strictly active ONLY when bg-clip-text and text-transparent are present!
  */
 function extractTextGradientStops(el: HTMLElement): string[] | null {
   const cls = el.className && typeof el.className === 'string' ? el.className : '';
-  const parentCls = el.parentElement?.className && typeof el.parentElement.className === 'string' ? el.parentElement.className : '';
-  const grandParentCls = el.parentElement?.parentElement?.className && typeof el.parentElement.parentElement.className === 'string' ? el.parentElement.parentElement.className : '';
-  const combinedCls = `${cls} ${parentCls} ${grandParentCls}`;
+  const style = el.getAttribute('style') || '';
 
-  // Guard: If it's a badge / pill / small icon box without explicit bg-clip-text, don't treat text as gradient text
-  if (cls.includes('w-') && cls.includes('h-') && (cls.includes('rounded-lg') || cls.includes('rounded-full')) && !cls.includes('bg-clip-text')) {
-    return null;
-  }
-  if (cls.includes('px-') && cls.includes('py-') && cls.includes('rounded') && !cls.includes('bg-clip-text')) {
-    return null;
-  }
+  const hasClipText =
+    cls.includes('bg-clip-text') ||
+    style.includes('background-clip: text') ||
+    style.includes('-webkit-background-clip: text');
 
-  // Check if this element or its wrapper has gradient text styling
-  const isGradText =
-    combinedCls.includes('bg-clip-text') ||
-    combinedCls.includes('text-transparent') ||
-    (el.tagName === 'H1' && (combinedCls.includes('bg-gradient-') || combinedCls.includes('from-')));
+  const hasTransparentText =
+    cls.includes('text-transparent') ||
+    cls.includes('text-opacity-0') ||
+    style.includes('color: transparent');
 
-  if (!isGradText) {
+  if (!hasClipText || !hasTransparentText) {
     return null;
   }
 
-  // 1. Direct Regex Extraction of Hex gradients
-  const fromHexMatch = combinedCls.match(/from-\[#?([0-9a-fA-F]{6})\]/);
-  const viaHexMatch = combinedCls.match(/via-\[#?([0-9a-fA-F]{6})\]/);
-  const toHexMatch = combinedCls.match(/to-\[#?([0-9a-fA-F]{6})\]/);
+  const fromHexMatch = cls.match(/from-\[#?([0-9a-fA-F]{6})\]/);
+  const viaHexMatch = cls.match(/via-\[#?([0-9a-fA-F]{6})\]/);
+  const toHexMatch = cls.match(/to-\[#?([0-9a-fA-F]{6})\]/);
   if (fromHexMatch && toHexMatch) {
     const s0 = fromHexMatch[1].toUpperCase();
     const s1 = viaHexMatch ? viaHexMatch[1].toUpperCase() : undefined;
@@ -146,43 +139,35 @@ function extractTextGradientStops(el: HTMLElement): string[] | null {
     return s1 ? [s0, s1, s2] : [s0, s2];
   }
 
-  // 2. Comprehensive Named Tailwind Gradients
-  if (combinedCls.includes('from-white')) {
-    if (combinedCls.includes('to-cyan-200') || combinedCls.includes('to-cyan-300') || combinedCls.includes('to-blue-200') || combinedCls.includes('via-indigo-100') || combinedCls.includes('via-indigo-200') || combinedCls.includes('via-slate-200') || combinedCls.includes('to-indigo-200')) {
-      return ['FFFFFF', 'E0E7FF', 'A5F3FC'];
-    }
-    return ['FFFFFF', 'E2E8F0', 'CBD5E1'];
+  if (cls.includes('from-white') && (cls.includes('to-cyan-200') || cls.includes('to-cyan-300') || cls.includes('to-blue-200') || cls.includes('via-slate-200') || cls.includes('to-indigo-200') || cls.includes('via-indigo-100'))) {
+    return ['FFFFFF', 'E0E7FF', 'A5F3FC'];
   }
-  if (combinedCls.includes('from-blue-900') || combinedCls.includes('from-blue-800') || combinedCls.includes('from-blue-700')) {
+  if (cls.includes('from-blue-900') || (cls.includes('from-blue-800') && cls.includes('to-blue-500'))) {
     return ['1E3A8A', '1D4ED8', '3B82F6'];
   }
-  if (combinedCls.includes('from-blue-600') || combinedCls.includes('from-blue-500')) {
+  if (cls.includes('from-blue-600') && (cls.includes('to-cyan-500') || cls.includes('to-indigo-600'))) {
     return ['2563EB', '3B82F6', '06B6D4'];
   }
-  if (combinedCls.includes('from-cyan-400') || combinedCls.includes('from-cyan-500') || combinedCls.includes('from-cyan-300')) {
+  if (cls.includes('from-cyan-400') || cls.includes('from-cyan-500')) {
     return ['22D3EE', '06B6D4', '3B82F6'];
   }
-  if (combinedCls.includes('from-indigo-300') || combinedCls.includes('from-indigo-400') || combinedCls.includes('from-indigo-500') || combinedCls.includes('from-indigo-600')) {
+  if (cls.includes('from-indigo-300') || cls.includes('from-indigo-400') || cls.includes('from-indigo-500') || cls.includes('from-indigo-600')) {
     return ['A5B4FC', '818CF8', '67E8F9'];
   }
-  if (combinedCls.includes('from-emerald-400') || combinedCls.includes('from-emerald-500') || combinedCls.includes('from-emerald-600') || combinedCls.includes('from-emerald-300')) {
+  if (cls.includes('from-emerald-400') || cls.includes('from-emerald-500') || cls.includes('from-emerald-600')) {
     return ['6EE7B7', '10B981', '06B6D4'];
   }
-  if (combinedCls.includes('from-amber-400') || combinedCls.includes('from-amber-500') || combinedCls.includes('from-amber-600') || combinedCls.includes('from-amber-300')) {
+  if (cls.includes('from-amber-400') || cls.includes('from-amber-500') || cls.includes('from-amber-600')) {
     return ['FDE68A', 'F59E0B', 'EA580C'];
   }
-  if (combinedCls.includes('from-purple-400') || combinedCls.includes('from-purple-500') || combinedCls.includes('from-purple-600') || combinedCls.includes('from-purple-300')) {
+  if (cls.includes('from-purple-400') || cls.includes('from-purple-500') || cls.includes('from-purple-600')) {
     return ['E9D5FF', 'C084FC', 'F43F5E'];
   }
-  if (combinedCls.includes('from-rose-400') || combinedCls.includes('from-rose-500') || combinedCls.includes('from-rose-600')) {
+  if (cls.includes('from-rose-400') || cls.includes('from-rose-500')) {
     return ['FDA4AF', 'F43F5E', 'FB7185'];
   }
 
-  if (combinedCls.includes('bg-gradient-') || combinedCls.includes('from-')) {
-    return ['4F46E5', '06B6D4'];
-  }
-
-  return null;
+  return ['4F46E5', '06B6D4'];
 }
 
 /**
@@ -631,8 +616,7 @@ async function exportEditablePptx(slides: string[]) {
   document.body.appendChild(container);
 
   const slideBgInfos: SlideBackgroundInfo[] = [];
-  const gradientTokenMap: Record<number, { token: string; stops: string[] }[]> = {};
-  let tokenCounter = 100;
+  const gradientTexts: Record<number, { lines: string[]; stops: string[] }[]> = {};
 
   try {
     for (let i = 0; i < slides.length; i++) {
@@ -1082,19 +1066,6 @@ async function exportEditablePptx(slides: string[]) {
             | 'right'
             | 'left';
 
-          // Check if this text element has a gradient (strictly requires bg-clip-text AND text-transparent)
-          const gradStops = extractTextGradientStops(el as HTMLElement);
-          if (gradStops) {
-            tokenCounter++;
-            const tokenHex = `EE${tokenCounter.toString(16).padStart(4, '0')}`.toUpperCase();
-            textColor = tokenHex;
-            if (!gradientTokenMap[i]) gradientTokenMap[i] = [];
-            gradientTokenMap[i].push({
-              token: tokenHex,
-              stops: gradStops,
-            });
-          }
-
           slide.addText(text, {
             x: Math.max(0.08, pptX),
             y: Math.max(0.04, pptY),
@@ -1110,6 +1081,20 @@ async function exportEditablePptx(slides: string[]) {
             valign: isHeading || isBadgeOrPill || !isMultiLine ? 'middle' : 'top',
             margin: 0,
           });
+
+          // Check if this text element has a gradient (Strictly bg-clip-text + text-transparent)
+          const gradStops = extractTextGradientStops(el as HTMLElement);
+          if (gradStops) {
+            if (!gradientTexts[i]) gradientTexts[i] = [];
+            const lines = text
+              .split('\n')
+              .map((l) => cleanText(l))
+              .filter((l) => l.length > 0);
+            gradientTexts[i].push({
+              lines,
+              stops: gradStops,
+            });
+          }
 
           // Mark element and all descendants as visited
           visitedElements.add(el);
@@ -1150,20 +1135,24 @@ async function exportEditablePptx(slides: string[]) {
         }
       }
 
-      // 2. Inject Native DrawingML Gradient Text for gradient titles/phrases using 100% unique tokens
-      const tokenList = gradientTokenMap[sIdx] || [];
-      for (const item of tokenList) {
-        const stops = item.stops;
+      // 2. Inject Native DrawingML Gradient Text for gradient titles/phrases
+      const gTexts = gradientTexts[sIdx] || [];
+      for (const gt of gTexts) {
+        if (!gt.stops || gt.stops.length === 0 || !gt.lines || gt.lines.length === 0) continue;
+        const stops = gt.stops;
         const gsListXml =
           stops.length === 2
             ? `<a:gs pos="0"><a:srgbClr val="${stops[0]}"/></a:gs><a:gs pos="100000"><a:srgbClr val="${stops[1]}"/></a:gs>`
             : `<a:gs pos="0"><a:srgbClr val="${stops[0]}"/></a:gs><a:gs pos="50000"><a:srgbClr val="${stops[1]}"/></a:gs><a:gs pos="100000"><a:srgbClr val="${stops[2]}"/></a:gs>`;
-        const gradFillXml = `<a:gradFill flip="none" rotWithShape="1"><a:gsLst>${gsListXml}</a:gsLst><a:lin ang="0" scaled="1"/></a:gradFill>`;
+        const gradFillXml = `<a:gradFill><a:gsLst>${gsListXml}</a:gsLst><a:lin ang="0"/></a:gradFill>`;
 
-        xml = xml.replace(
-          new RegExp(`<a:solidFill><a:srgbClr val="${item.token}"/></a:solidFill>`, 'g'),
-          gradFillXml
-        );
+        for (const line of gt.lines) {
+          const escapedLine = line.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const rRegex = new RegExp(`(<a:r>([\\s\\S]*?)<a:t>([\\s\\S]*?${escapedLine}[\\s\\S]*?)<\\/a:t><\\/a:r>)`, 'g');
+          xml = xml.replace(rRegex, (m, fullR) => {
+            return fullR.replace(/<a:solidFill>[\s\S]*?<\/a:solidFill>/, gradFillXml);
+          });
+        }
       }
 
       zip.file(slidePath, xml);
