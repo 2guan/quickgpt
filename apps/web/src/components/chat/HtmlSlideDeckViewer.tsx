@@ -109,10 +109,25 @@ interface SlideBackgroundInfo {
 
 /**
  * Extract gradient color stops for text with Tailwind gradient classes.
+ * Strictly requires BOTH bg-clip-text AND text-transparent to prevent false positives on normal text.
  */
-function extractTextGradientStops(cls = ''): string[] | null {
-  const isGrad = (cls.includes('bg-clip-text') && cls.includes('text-transparent')) || cls.includes('bg-gradient-');
-  if (!isGrad) return null;
+function extractTextGradientStops(el: HTMLElement): string[] | null {
+  const cls = el.className && typeof el.className === 'string' ? el.className : '';
+  const style = window.getComputedStyle(el);
+
+  const isClipText =
+    cls.includes('bg-clip-text') ||
+    style.webkitBackgroundClip === 'text' ||
+    style.backgroundClip === 'text';
+
+  const isTransparentText =
+    cls.includes('text-transparent') ||
+    style.color === 'rgba(0, 0, 0, 0)' ||
+    style.color === 'transparent';
+
+  if (!isClipText || !isTransparentText) {
+    return null;
+  }
 
   const fromHexMatch = cls.match(/from-\[#?([0-9a-fA-F]{6})\]/);
   const viaHexMatch = cls.match(/via-\[#?([0-9a-fA-F]{6})\]/);
@@ -124,8 +139,8 @@ function extractTextGradientStops(cls = ''): string[] | null {
     return s1 ? [s0, s1, s2] : [s0, s2];
   }
 
-  if (cls.includes('from-white') && (cls.includes('to-cyan-200') || cls.includes('to-cyan-300') || cls.includes('to-blue-200') || cls.includes('via-slate-200') || cls.includes('to-indigo-200'))) {
-    return ['FFFFFF', 'E2E8F0', 'A5F3FC'];
+  if (cls.includes('from-white') && (cls.includes('to-cyan-200') || cls.includes('to-cyan-300') || cls.includes('to-blue-200') || cls.includes('via-indigo-100') || cls.includes('via-slate-200') || cls.includes('to-indigo-200'))) {
+    return ['FFFFFF', 'E0E7FF', 'A5F3FC'];
   }
   if (cls.includes('from-blue-900') || (cls.includes('from-blue-800') && cls.includes('to-blue-500'))) {
     return ['1E3A8A', '1D4ED8', '3B82F6'];
@@ -601,7 +616,8 @@ async function exportEditablePptx(slides: string[]) {
   document.body.appendChild(container);
 
   const slideBgInfos: SlideBackgroundInfo[] = [];
-  const gradientTexts: Record<number, { textExcerpt: string; stops: string[] }[]> = {};
+  const gradientTokenMap: Record<number, { token: string; stops: string[] }[]> = {};
+  let tokenCounter = 100;
 
   try {
     for (let i = 0; i < slides.length; i++) {
@@ -1051,6 +1067,19 @@ async function exportEditablePptx(slides: string[]) {
             | 'right'
             | 'left';
 
+          // Check if this text element has a gradient (strictly requires bg-clip-text AND text-transparent)
+          const gradStops = extractTextGradientStops(el as HTMLElement);
+          if (gradStops) {
+            tokenCounter++;
+            const tokenHex = `EE${tokenCounter.toString(16).padStart(4, '0')}`.toUpperCase();
+            textColor = tokenHex;
+            if (!gradientTokenMap[i]) gradientTokenMap[i] = [];
+            gradientTokenMap[i].push({
+              token: tokenHex,
+              stops: gradStops,
+            });
+          }
+
           slide.addText(text, {
             x: Math.max(0.08, pptX),
             y: Math.max(0.04, pptY),
@@ -1066,16 +1095,6 @@ async function exportEditablePptx(slides: string[]) {
             valign: isHeading || isBadgeOrPill || !isMultiLine ? 'middle' : 'top',
             margin: 0,
           });
-
-          // Check if this text element has a gradient
-          const gradStops = extractTextGradientStops(cls);
-          if (gradStops) {
-            if (!gradientTexts[i]) gradientTexts[i] = [];
-            gradientTexts[i].push({
-              textExcerpt: cleanText(text).slice(0, 35),
-              stops: gradStops,
-            });
-          }
 
           // Mark element and all descendants as visited
           visitedElements.add(el);
@@ -1116,22 +1135,20 @@ async function exportEditablePptx(slides: string[]) {
         }
       }
 
-      // 2. Inject Native DrawingML Gradient Text for gradient titles/phrases
-      const gTexts = gradientTexts[sIdx] || [];
-      for (const gt of gTexts) {
-        if (!gt.stops || gt.stops.length === 0 || !gt.textExcerpt) continue;
-        const stops = gt.stops;
+      // 2. Inject Native DrawingML Gradient Text for gradient titles/phrases using 100% unique tokens
+      const tokenList = gradientTokenMap[sIdx] || [];
+      for (const item of tokenList) {
+        const stops = item.stops;
         const gsListXml =
           stops.length === 2
             ? `<a:gs pos="0"><a:srgbClr val="${stops[0]}"/></a:gs><a:gs pos="100000"><a:srgbClr val="${stops[1]}"/></a:gs>`
             : `<a:gs pos="0"><a:srgbClr val="${stops[0]}"/></a:gs><a:gs pos="50000"><a:srgbClr val="${stops[1]}"/></a:gs><a:gs pos="100000"><a:srgbClr val="${stops[2]}"/></a:gs>`;
         const gradFillXml = `<a:gradFill><a:gsLst>${gsListXml}</a:gsLst><a:lin ang="0"/></a:gradFill>`;
 
-        const escapedExcerpt = gt.textExcerpt.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const rRegex = new RegExp(`(<a:r>([\\s\\S]*?)<a:t>([\\s\\S]*?${escapedExcerpt}[\\s\\S]*?)<\\/a:t><\\/a:r>)`, 'g');
-        xml = xml.replace(rRegex, (m, fullR) => {
-          return fullR.replace(/<a:solidFill>[\s\S]*?<\/a:solidFill>/, gradFillXml);
-        });
+        xml = xml.replace(
+          new RegExp(`<a:solidFill><a:srgbClr val="${item.token}"/></a:solidFill>`, 'g'),
+          gradFillXml
+        );
       }
 
       zip.file(slidePath, xml);
