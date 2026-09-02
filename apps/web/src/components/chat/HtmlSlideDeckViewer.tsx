@@ -1047,12 +1047,13 @@ function exportStandaloneHtml(slides: string[], title = '演示文稿') {
     document.getElementById('fullscreenBtn').onclick = toggleFullscreen;
     document.getElementById('exitFullscreenBtn').onclick = toggleFullscreen;
 
+    // Keyboard Navigation (Arrow Keys Left/Right/Up/Down, Space, Enter, PageUp/Down)
     window.addEventListener('keydown', (e) => {
-      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+      if (['ArrowDown', 'ArrowRight', ' ', 'PageDown', 'Enter'].includes(e.key)) {
         e.preventDefault();
         showPage(current + 1);
       }
-      if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+      if (['ArrowUp', 'ArrowLeft', 'PageUp'].includes(e.key)) {
         e.preventDefault();
         showPage(current - 1);
       }
@@ -1066,6 +1067,43 @@ function exportStandaloneHtml(slides: string[], title = '演示文稿') {
         showPage(total - 1);
       }
     });
+
+    // Mouse Wheel / Trackpad Scroll Navigation (with 350ms cooldown)
+    let isWheelThrottled = false;
+    window.addEventListener('wheel', (e) => {
+      if (isWheelThrottled) return;
+      if (Math.abs(e.deltaY) < 20) return;
+      
+      if (e.deltaY > 0) {
+        showPage(current + 1);
+      } else {
+        showPage(current - 1);
+      }
+      
+      isWheelThrottled = true;
+      setTimeout(() => {
+        isWheelThrottled = false;
+      }, 350);
+    }, { passive: true });
+
+    // Mouse Click to Advance in Presentation Viewport
+    const mainViewport = document.querySelector('main');
+    if (mainViewport) {
+      mainViewport.addEventListener('click', (e) => {
+        // Don't trigger if user clicked on button, link, input, or exit button
+        if (e.target.closest('button, a, input, textarea, select, #exitFullscreenBtn')) return;
+        
+        const rect = mainViewport.getBoundingClientRect();
+        const clickX = e.clientX - rect.left;
+        
+        // If clicking left 25%, go back; otherwise advance next
+        if (clickX < rect.width * 0.25) {
+          showPage(current - 1);
+        } else {
+          showPage(current + 1);
+        }
+      });
+    }
 
     updateScale();
   </script>
@@ -1144,19 +1182,43 @@ export const HtmlSlideDeckViewer: React.FC<HtmlSlideDeckViewerProps> = ({
     return () => observer.disconnect();
   }, [updateScale, isFullscreen, isSourceMode]);
 
-  // Fullscreen keyboard controls
+  // Fullscreen keyboard, wheel, and click controls
   useEffect(() => {
     if (!isFullscreen) return;
+
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setIsFullscreen(false);
-      if (e.key === 'ArrowLeft' || e.key === 'PageUp') setCurrentIndex((i) => Math.max(0, i - 1));
-      if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') {
+      if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(e.key)) {
+        e.preventDefault();
+        setCurrentIndex((i) => Math.max(0, i - 1));
+      }
+      if (['ArrowRight', 'ArrowDown', 'PageDown', ' ', 'Enter'].includes(e.key)) {
         e.preventDefault();
         setCurrentIndex((i) => Math.min(total - 1, i + 1));
       }
     };
+
+    let isWheelThrottled = false;
+    const onWheel = (e: WheelEvent) => {
+      if (isWheelThrottled) return;
+      if (Math.abs(e.deltaY) < 20) return;
+      if (e.deltaY > 0) {
+        setCurrentIndex((i) => Math.min(total - 1, i + 1));
+      } else {
+        setCurrentIndex((i) => Math.max(0, i - 1));
+      }
+      isWheelThrottled = true;
+      setTimeout(() => {
+        isWheelThrottled = false;
+      }, 350);
+    };
+
     window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    window.addEventListener('wheel', onWheel, { passive: true });
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('wheel', onWheel);
+    };
   }, [isFullscreen, total]);
 
   const copyCode = async () => {
@@ -1344,8 +1406,20 @@ export const HtmlSlideDeckViewer: React.FC<HtmlSlideDeckViewerProps> = ({
         <div
           ref={containerRef}
           className={`flex min-h-0 items-center justify-center overflow-hidden bg-slate-950 ${
-            isFullscreen ? 'flex-1 p-4' : 'h-[360px] p-3 sm:h-[460px]'
+            isFullscreen ? 'flex-1 p-4 cursor-pointer' : 'h-[360px] p-3 sm:h-[460px]'
           }`}
+          onClick={(e) => {
+            if (!isFullscreen) return;
+            if ((e.target as HTMLElement).closest('button, a, input, textarea, select')) return;
+            const rect = containerRef.current?.getBoundingClientRect();
+            if (!rect) return;
+            const clickX = e.clientX - rect.left;
+            if (clickX < rect.width * 0.25) {
+              setCurrentIndex((idx) => Math.max(0, idx - 1));
+            } else {
+              setCurrentIndex((idx) => Math.min(total - 1, idx + 1));
+            }
+          }}
           onTouchStart={(e) => {
             touchStart.current = e.touches[0]?.clientX ?? null;
           }}
