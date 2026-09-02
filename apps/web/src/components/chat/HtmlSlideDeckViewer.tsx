@@ -793,39 +793,38 @@ async function exportEditablePptx(slides: string[]) {
         const style = window.getComputedStyle(el);
 
         const isBadgeOrPill =
-          cls.includes('rounded-full') ||
-          cls.includes('rounded-lg') ||
-          cls.includes('rounded-md') ||
-          cls.includes('rounded-xl') ||
-          cls.includes('rounded') ||
-          (cls.includes('px-') && cls.includes('py-')) ||
-          cls.includes('cursor-pointer') ||
-          parentCls.includes('rounded-full') ||
-          (parentCls.includes('px-') && parentCls.includes('py-'));
+          (cls.includes('rounded-full') ||
+            cls.includes('rounded-md') ||
+            cls.includes('rounded-lg') ||
+            cls.includes('rounded') ||
+            (cls.includes('px-') && cls.includes('py-'))) &&
+          domW <= 220 &&
+          domH <= 38 &&
+          text.length <= 15;
 
         const isCentered =
           style.textAlign === 'center' ||
           cls.includes('text-center') ||
           cls.includes('justify-center') ||
-          isBadgeOrPill ||
-          (parentCls.includes('text-center') && !cls.includes('text-left') && !cls.includes('text-right') && !parentCls.includes('flex'));
+          (isBadgeOrPill && (cls.includes('justify-center') || style.textAlign === 'center' || parentCls.includes('justify-center'))) ||
+          (parentCls.includes('text-center') &&
+            !cls.includes('text-left') &&
+            !cls.includes('text-right') &&
+            !parentCls.includes('flex'));
 
         // Check if text is naturally multi-line (card body descriptions, paragraphs, long summaries, leading classes)
+        const isSingleLineByDom = domH <= 24 && !text.includes('\n');
         const isMultiLine =
-          isParagraph ||
-          text.includes('\n') ||
-          text.length > 15 ||
-          domH > 20 ||
-          cls.includes('leading-tight') ||
-          cls.includes('leading-normal') ||
-          cls.includes('leading-relaxed') ||
-          cls.includes('leading-snug') ||
-          cls.includes('leading-loose');
+          !isSingleLineByDom &&
+          (isParagraph ||
+            text.includes('\n') ||
+            domH >= 25 ||
+            (text.length > 20 && domW < 380));
 
         if (isMultiLine) {
           // Constrain width to container's computed width with slight breathing room, ensure wrap is true
           pptW = Math.max(pptW * 1.02, 0.4);
-          pptH = Math.max(pptH * 1.25, 0.3);
+          pptH = Math.max(pptH * 1.18, 0.28);
           if (isCentered && !isBadgeOrPill) {
             pptX = toPptX(domCenterX) - pptW / 2;
           }
@@ -836,8 +835,11 @@ async function exportEditablePptx(slides: string[]) {
             if (isCentered) {
               pptX = toPptX(domCenterX) - pptW / 2;
             }
-          } else if (!isBadgeOrPill) {
-            pptW = Math.max(pptW * 1.1, text.length * 0.1, 0.3);
+          } else if (isBadgeOrPill) {
+            pptW = toPptW(domW);
+            pptH = toPptH(domH);
+          } else {
+            pptW = Math.max(pptW * 1.05, text.length * 0.1, 0.3);
             if (isCentered) {
               pptX = toPptX(domCenterX) - pptW / 2;
             }
@@ -877,7 +879,7 @@ async function exportEditablePptx(slides: string[]) {
             fontFace: 'Microsoft YaHei',
             wrap: isMultiLine,
             shrinkText: true,
-            valign: isHeading || isBadgeOrPill ? 'middle' : isMultiLine ? 'top' : isCentered ? 'middle' : 'top',
+            valign: isHeading || isBadgeOrPill || !isMultiLine ? 'middle' : 'top',
             margin: 0,
           });
 
