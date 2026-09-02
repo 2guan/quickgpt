@@ -256,7 +256,6 @@ function detectSlideBackground(classes = ''): { dataUrl: string; isLight: boolea
 interface ContainerStyle {
   fill?: string;
   fillTransparency?: number;
-  topAccentColor?: string;
   border?: string;
   borderBottom?: string;
   borderTop?: string;
@@ -274,7 +273,6 @@ function extractContainerFillAndBorder(el: HTMLElement, isLightSlide: boolean): 
 
   let fillHex: string | undefined = undefined;
   let fillTransparency: number | undefined = undefined;
-  let topAccentColor: string | undefined = undefined;
   let borderHex: string | undefined = undefined;
   let borderBottomHex: string | undefined = undefined;
   let borderTopHex: string | undefined = undefined;
@@ -301,18 +299,6 @@ function extractContainerFillAndBorder(el: HTMLElement, isLightSlide: boolean): 
   const svgFill = el.getAttribute('fill') || el.querySelector('polygon, path, circle, rect')?.getAttribute('fill');
   if (svgFill && svgFill.startsWith('#')) {
     fillHex = svgFill.slice(1).toUpperCase();
-  }
-
-  // Check for top accent strip inside this card (e.g. Slide 2 KPI cards)
-  const topStripEl = el.querySelector(':scope > div.absolute.top-0, :scope > div[class*="h-1"], :scope > div[class*="h-0.5"]');
-  if (topStripEl) {
-    const stripCls = topStripEl.className && typeof topStripEl.className === 'string' ? topStripEl.className : '';
-    if (stripCls.includes('from-indigo') || stripCls.includes('bg-indigo')) topAccentColor = '6366F1';
-    else if (stripCls.includes('from-cyan') || stripCls.includes('bg-cyan')) topAccentColor = '06B6D4';
-    else if (stripCls.includes('from-emerald') || stripCls.includes('bg-emerald')) topAccentColor = '10B981';
-    else if (stripCls.includes('from-amber') || stripCls.includes('bg-amber')) topAccentColor = 'F59E0B';
-    else if (stripCls.includes('from-purple') || stripCls.includes('bg-purple')) topAccentColor = 'A855F7';
-    else if (stripCls.includes('from-blue') || stripCls.includes('bg-blue')) topAccentColor = '3B82F6';
   }
 
   // 2. Themed fills
@@ -393,7 +379,7 @@ function extractContainerFillAndBorder(el: HTMLElement, isLightSlide: boolean): 
     borderLeftHex = resolvedColor;
   }
 
-  return { fill: fillHex, fillTransparency, topAccentColor, border: borderHex, borderBottom: borderBottomHex, borderTop: borderTopHex, borderLeft: borderLeftHex };
+  return { fill: fillHex, fillTransparency, border: borderHex, borderBottom: borderBottomHex, borderTop: borderTopHex, borderLeft: borderLeftHex };
 }
 
 /**
@@ -620,8 +606,10 @@ async function exportEditablePptx(slides: string[]) {
       containerCandidates.sort((a, b) => {
         const ra = a.getBoundingClientRect();
         const rb = b.getBoundingClientRect();
-        const aIsTrack = ra.height <= 4 || (a.className && a.className.includes('h-0.5'));
-        const bIsTrack = rb.height <= 4 || (b.className && b.className.includes('h-0.5'));
+        const aCls = a.className && typeof a.className === 'string' ? a.className : '';
+        const bCls = b.className && typeof b.className === 'string' ? b.className : '';
+        const aIsTrack = ra.height <= 4 || aCls.includes('h-0.5') || aCls.includes('h-[1px]') || aCls.includes('h-[2px]');
+        const bIsTrack = rb.height <= 4 || bCls.includes('h-0.5') || bCls.includes('h-[1px]') || bCls.includes('h-[2px]');
         if (aIsTrack && !bIsTrack) return -1;
         if (!aIsTrack && bIsTrack) return 1;
         return rb.width * rb.height - ra.width * ra.height;
@@ -630,7 +618,7 @@ async function exportEditablePptx(slides: string[]) {
       containerCandidates.forEach((el) => {
         const cls = el.className && typeof el.className === 'string' ? el.className : '';
         const style = window.getComputedStyle(el);
-        const { fill: fillColor, fillTransparency, topAccentColor, border: borderColor, borderBottom, borderTop, borderLeft } = extractContainerFillAndBorder(el as HTMLElement, isLightSlide);
+        const { fill: fillColor, fillTransparency, border: borderColor, borderBottom, borderTop, borderLeft } = extractContainerFillAndBorder(el as HTMLElement, isLightSlide);
         const radius = parseFloat(style.borderRadius) || 0;
         const rect = el.getBoundingClientRect();
         const sx = toPptX(rect.left);
@@ -646,19 +634,7 @@ async function exportEditablePptx(slides: string[]) {
             ? pptx.ShapeType.roundRect
             : pptx.ShapeType.rect;
 
-          // 1. Draw top accent crown behind card (if card has top color strip, e.g. Slide 2 KPI cards)
-          if (topAccentColor) {
-            slide.addShape(shapeType, {
-              x: sx,
-              y: Math.max(0.04, sy - 0.04),
-              w: sw,
-              h: sh,
-              rectRadius: Math.min(0.2, (radius / rootW) * 10),
-              fill: { color: topAccentColor },
-            });
-          }
-
-          // 2. Draw solid or semi-transparent vector card/pill with optional shadow
+          // 1. Draw solid or semi-transparent vector card/pill with optional shadow
           if (fillColor || borderColor) {
             const hasShadow = cls.includes('shadow') && !cls.includes('shadow-none');
             let shadowConfig: any = undefined;
@@ -698,7 +674,7 @@ async function exportEditablePptx(slides: string[]) {
             });
           }
 
-          // 3. Draw 1-sided dividing line at bottom
+          // 2. Draw 1-sided dividing line at bottom
           if (borderBottom) {
             slide.addShape(pptx.ShapeType.line, {
               x: sx,
@@ -709,7 +685,7 @@ async function exportEditablePptx(slides: string[]) {
             });
           }
 
-          // 4. Draw 1-sided dividing line at top
+          // 3. Draw 1-sided dividing line at top
           if (borderTop) {
             slide.addShape(pptx.ShapeType.line, {
               x: sx,
@@ -720,7 +696,7 @@ async function exportEditablePptx(slides: string[]) {
             });
           }
 
-          // 5. Draw callout left accent bar
+          // 4. Draw callout left accent bar
           if (borderLeft) {
             slide.addShape(pptx.ShapeType.rect, {
               x: sx,
@@ -745,7 +721,16 @@ async function exportEditablePptx(slides: string[]) {
           (style.includes('width:') && style.includes('%')) ||
           /w-\[\d+%\]/.test(cls);
         const r = el.getBoundingClientRect();
-        return hasWidthPercent && (el.tagName === 'DIV' || el.tagName === 'SPAN') && r.height <= 25;
+
+        // Exclude connecting lines and dividers from Layer 2 progress fills
+        const isConnectingLine =
+          cls.includes('h-0.5') ||
+          cls.includes('h-[1px]') ||
+          cls.includes('h-[2px]') ||
+          (cls.includes('top-1/2') && cls.includes('absolute')) ||
+          cls.includes('-translate-y-1/2');
+
+        return hasWidthPercent && (el.tagName === 'DIV' || el.tagName === 'SPAN') && r.height <= 25 && !isConnectingLine;
       });
 
       progressFills.forEach((fillEl) => {
