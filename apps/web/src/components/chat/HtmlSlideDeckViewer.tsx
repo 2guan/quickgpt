@@ -97,23 +97,23 @@ function parseRgba(colorStr: string): { r: number; g: number; b: number; a: numb
  * Universal High-Fidelity Slide Background Detector:
  * Mathematically detects custom Hex gradients, light themes, ocean cyan, and dark luxury themes.
  */
-function detectSlideBackground(classes = ''): { dataUrl: string; isLight: boolean; c1: string } {
-  const canvas = document.createElement('canvas');
-  canvas.width = 1920;
-  canvas.height = 1080;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return { dataUrl: '', isLight: false, c1: '#020617' };
-
+function detectSlideBackground(classes = ''): { dataUrl: string; isLight: boolean; c1: string; isSolid: boolean } {
   // 1. Direct Regex Extraction of Hex gradients
   const fromHex = classes.match(/from-\[#?([0-9a-fA-F]{6})\]/)?.[1];
   const viaHex = classes.match(/via-\[#?([0-9a-fA-F]{6})\]/)?.[1];
   const toHex = classes.match(/to-\[#?([0-9a-fA-F]{6})\]/)?.[1];
   const bgHex = classes.match(/bg-\[#?([0-9a-fA-F]{6})\]/)?.[1];
 
+  const hasGradient =
+    classes.includes('bg-gradient-') ||
+    classes.includes('from-') ||
+    (fromHex !== undefined && toHex !== undefined);
+
   let c1 = '#090A1A';
   let c2 = '#0E1128';
   let c3 = '#060712';
   let isLight = false;
+  let isSolid = false;
   let glow1 = 'rgba(99, 102, 241, 0.16)';
   let glow2 = 'rgba(6, 182, 212, 0.12)';
 
@@ -128,17 +128,14 @@ function detectSlideBackground(classes = ''): { dataUrl: string; isLight: boolea
     isLight = br > 175 && !classes.includes('text-white') && !classes.includes('text-slate-100');
     glow1 = 'rgba(255, 255, 255, 0.12)';
     glow2 = 'rgba(255, 255, 255, 0.08)';
-  } else if (bgHex) {
+  } else if (bgHex && !hasGradient) {
     c1 = '#' + bgHex.toUpperCase();
-    c2 = c1;
-    c3 = c1;
     const r = parseInt(bgHex.slice(0, 2), 16) || 0;
     const g = parseInt(bgHex.slice(2, 4), 16) || 0;
     const b = parseInt(bgHex.slice(4, 6), 16) || 0;
     const br = (r * 299 + g * 587 + b * 114) / 1000;
     isLight = br > 175 && !classes.includes('text-white') && !classes.includes('text-slate-100');
-    glow1 = isLight ? 'rgba(59, 130, 246, 0.06)' : 'rgba(99, 102, 241, 0.18)';
-    glow2 = isLight ? 'rgba(14, 165, 233, 0.04)' : 'rgba(45, 212, 191, 0.14)';
+    isSolid = true;
   } else {
     // 2. High-precision Light Slide Detection:
     const isExplicitDark =
@@ -181,7 +178,10 @@ function detectSlideBackground(classes = ''): { dataUrl: string; isLight: boolea
         classes.includes('text-stone-800'));
 
     if (isLight) {
-      if (classes.includes('stone') || classes.includes('amber') || classes.includes('orange')) {
+      if (!hasGradient && (classes.includes('bg-white') || classes.includes('bg-slate-50') || classes.includes('bg-gray-50'))) {
+        isSolid = true;
+        c1 = classes.includes('bg-white') ? '#FFFFFF' : '#F8FAFC';
+      } else if (classes.includes('stone') || classes.includes('amber') || classes.includes('orange')) {
         c1 = '#FAF8F5';
         c2 = '#F5F2EC';
         c3 = '#EFECE6';
@@ -229,28 +229,39 @@ function detectSlideBackground(classes = ''): { dataUrl: string; isLight: boolea
     }
   }
 
-  const grad = ctx.createLinearGradient(0, 0, 1920, 1080);
+  if (isSolid) {
+    return { dataUrl: '', isLight, c1, isSolid: true };
+  }
+
+  // Lightweight 1280x720 JPEG Canvas for smooth, low-byte ambient background
+  const canvas = document.createElement('canvas');
+  canvas.width = 1280;
+  canvas.height = 720;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return { dataUrl: '', isLight, c1, isSolid: true };
+
+  const grad = ctx.createLinearGradient(0, 0, 1280, 720);
   grad.addColorStop(0, c1);
   grad.addColorStop(0.5, c2);
   grad.addColorStop(1, c3);
   ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, 1920, 1080);
+  ctx.fillRect(0, 0, 1280, 720);
 
   // Top-right ambient glow
-  const g1 = ctx.createRadialGradient(1700, 120, 0, 1700, 120, 650);
+  const g1 = ctx.createRadialGradient(1150, 80, 0, 1150, 80, 450);
   g1.addColorStop(0, glow1);
   g1.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = g1;
-  ctx.fillRect(0, 0, 1920, 1080);
+  ctx.fillRect(0, 0, 1280, 720);
 
   // Bottom-left ambient glow
-  const g2 = ctx.createRadialGradient(200, 960, 0, 200, 960, 550);
+  const g2 = ctx.createRadialGradient(130, 640, 0, 130, 640, 380);
   g2.addColorStop(0, glow2);
   g2.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = g2;
-  ctx.fillRect(0, 0, 1920, 1080);
+  ctx.fillRect(0, 0, 1280, 720);
 
-  return { dataUrl: canvas.toDataURL('image/png'), isLight, c1 };
+  return { dataUrl: canvas.toDataURL('image/jpeg', 0.85), isLight, c1, isSolid: false };
 }
 
 interface ContainerStyle {
@@ -565,7 +576,11 @@ async function exportEditablePptx(slides: string[]) {
 
       const slide = pptx.addSlide();
       const bgInfo = detectSlideBackground(slideEl.className);
-      slide.background = { data: bgInfo.dataUrl };
+      if (bgInfo.isSolid || !bgInfo.dataUrl) {
+        slide.background = { color: bgInfo.c1.replace('#', '') };
+      } else {
+        slide.background = { data: bgInfo.dataUrl };
+      }
       const isLightSlide = bgInfo.isLight;
 
       const toPptX = (domX: number) => ((domX - rootRect.left) / rootW) * 10;
