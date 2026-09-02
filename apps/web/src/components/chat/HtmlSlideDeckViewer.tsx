@@ -1147,10 +1147,16 @@ async function exportEditablePptx(slides: string[]) {
         const gradFillXml = `<a:gradFill><a:gsLst>${gsListXml}</a:gsLst><a:lin ang="0"/></a:gradFill>`;
 
         for (const line of gt.lines) {
-          const escapedLine = line.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          const rRegex = new RegExp(`(<a:r>([\\s\\S]*?)<a:t>([\\s\\S]*?${escapedLine}[\\s\\S]*?)<\\/a:t><\\/a:r>)`, 'g');
-          xml = xml.replace(rRegex, (m, fullR) => {
-            return fullR.replace(/<a:solidFill>[\s\S]*?<\/a:solidFill>/, gradFillXml);
+          if (!line || line.length < 2) continue;
+          const rRegex = /<a:r\b[^>]*>[\s\S]*?<\/a:r>/g;
+          xml = xml.replace(rRegex, (rBlock) => {
+            const tMatch = rBlock.match(/<a:t\b[^>]*>([\s\S]*?)<\/a:t>/);
+            if (!tMatch) return rBlock;
+            const tText = tMatch[1].trim();
+            if (tText.includes(line) || line.includes(tText)) {
+              return rBlock.replace(/<a:solidFill>[\s\S]*?<\/a:solidFill>/, gradFillXml);
+            }
+            return rBlock;
           });
         }
       }
