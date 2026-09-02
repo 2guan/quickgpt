@@ -721,10 +721,26 @@ async function exportEditablePptx(slides: string[]) {
         const { fill: fillColor, fillTransparency, topAccentColor, border: borderColor, borderBottom, borderTop, borderLeft } = extractContainerFillAndBorder(el as HTMLElement, isLightSlide);
         const radius = parseFloat(style.borderRadius) || 0;
         const rect = el.getBoundingClientRect();
-        const sx = toPptX(rect.left);
-        const sy = toPptY(rect.top);
-        const sw = toPptW(rect.width);
-        const sh = toPptH(rect.height);
+        let sx = toPptX(rect.left);
+        let sy = toPptY(rect.top);
+        let sw = toPptW(rect.width);
+        let sh = toPptH(rect.height);
+
+        // Defensive clamping: ensure all shapes stay inside the 16:9 canvas (10.0 x 5.625 inches)
+        if (sx + sw > 9.85) {
+          if (sx < 9.85) {
+            sw = Math.max(0.05, 9.85 - sx);
+          } else {
+            sx = 9.85 - sw;
+          }
+        }
+        if (sy + sh > 5.55) {
+          if (sy < 5.55) {
+            sh = Math.max(0.05, 5.55 - sy);
+          } else {
+            sy = 5.55 - sh;
+          }
+        }
 
         if (sx >= -0.5 && sy >= -0.5 && sx <= 10.5 && sy <= 6.0 && sw > 0.01 && sh > 0.005) {
           const isCircle =
@@ -1076,6 +1092,22 @@ async function exportEditablePptx(slides: string[]) {
             if (isCentered) {
               pptX = toPptX(domCenterX) - pptW / 2;
             }
+          }
+        }
+
+        // Defensive clamping: ensure all text boxes stay inside the 16:9 canvas
+        if (pptX + pptW > 9.85) {
+          if (pptX < 9.85) {
+            pptW = Math.max(0.1, 9.85 - pptX);
+          } else {
+            pptX = 9.85 - pptW;
+          }
+        }
+        if (pptY + pptH > 5.55) {
+          if (pptY < 5.55) {
+            pptH = Math.max(0.1, 5.55 - pptY);
+          } else {
+            pptY = 5.55 - pptH;
           }
         }
 
