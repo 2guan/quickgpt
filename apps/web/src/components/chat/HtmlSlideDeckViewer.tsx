@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import pptxgen from 'pptxgenjs';
+import JSZip from 'jszip';
 import {
   Check,
   ChevronLeft,
@@ -97,7 +98,68 @@ function parseRgba(colorStr: string): { r: number; g: number; b: number; a: numb
  * Universal High-Fidelity Slide Background Detector:
  * Mathematically detects custom Hex gradients, light themes, ocean cyan, and dark luxury themes.
  */
-function detectSlideBackground(classes = ''): { dataUrl: string; isLight: boolean; c1: string; isSolid: boolean } {
+interface SlideBackgroundInfo {
+  isLight: boolean;
+  c1: string;
+  c2: string;
+  c3: string;
+  isSolid: boolean;
+  angleXml: number;
+}
+
+/**
+ * Extract gradient color stops for text with Tailwind gradient classes.
+ */
+function extractTextGradientStops(cls = ''): string[] | null {
+  const isGrad = (cls.includes('bg-clip-text') && cls.includes('text-transparent')) || cls.includes('bg-gradient-');
+  if (!isGrad) return null;
+
+  const fromHexMatch = cls.match(/from-\[#?([0-9a-fA-F]{6})\]/);
+  const viaHexMatch = cls.match(/via-\[#?([0-9a-fA-F]{6})\]/);
+  const toHexMatch = cls.match(/to-\[#?([0-9a-fA-F]{6})\]/);
+  if (fromHexMatch && toHexMatch) {
+    const s0 = fromHexMatch[1].toUpperCase();
+    const s1 = viaHexMatch ? viaHexMatch[1].toUpperCase() : undefined;
+    const s2 = toHexMatch[1].toUpperCase();
+    return s1 ? [s0, s1, s2] : [s0, s2];
+  }
+
+  if (cls.includes('from-white') && (cls.includes('to-cyan-200') || cls.includes('to-cyan-300') || cls.includes('to-blue-200') || cls.includes('via-slate-200') || cls.includes('to-indigo-200'))) {
+    return ['FFFFFF', 'E2E8F0', 'A5F3FC'];
+  }
+  if (cls.includes('from-blue-900') || (cls.includes('from-blue-800') && cls.includes('to-blue-500'))) {
+    return ['1E3A8A', '1D4ED8', '3B82F6'];
+  }
+  if (cls.includes('from-blue-600') && (cls.includes('to-cyan-500') || cls.includes('to-indigo-600'))) {
+    return ['2563EB', '3B82F6', '06B6D4'];
+  }
+  if (cls.includes('from-cyan-400') || cls.includes('from-cyan-500')) {
+    return ['22D3EE', '06B6D4', '3B82F6'];
+  }
+  if (cls.includes('from-indigo-300') || cls.includes('from-indigo-400') || cls.includes('from-indigo-500') || cls.includes('from-indigo-600')) {
+    return ['A5B4FC', '818CF8', '67E8F9'];
+  }
+  if (cls.includes('from-emerald-400') || cls.includes('from-emerald-500') || cls.includes('from-emerald-600')) {
+    return ['6EE7B7', '10B981', '06B6D4'];
+  }
+  if (cls.includes('from-amber-400') || cls.includes('from-amber-500') || cls.includes('from-amber-600')) {
+    return ['FDE68A', 'F59E0B', 'EA580C'];
+  }
+  if (cls.includes('from-purple-400') || cls.includes('from-purple-500') || cls.includes('from-purple-600')) {
+    return ['E9D5FF', 'C084FC', 'F43F5E'];
+  }
+  if (cls.includes('from-rose-400') || cls.includes('from-rose-500')) {
+    return ['FDA4AF', 'F43F5E', 'FB7185'];
+  }
+
+  return ['4F46E5', '06B6D4'];
+}
+
+/**
+ * Universal High-Fidelity Slide Background Detector:
+ * Mathematically detects custom Hex gradients, light themes, ocean cyan, and dark luxury themes.
+ */
+function detectSlideBackground(classes = ''): SlideBackgroundInfo {
   // 1. Direct Regex Extraction of Hex gradients
   const fromHex = classes.match(/from-\[#?([0-9a-fA-F]{6})\]/)?.[1];
   const viaHex = classes.match(/via-\[#?([0-9a-fA-F]{6})\]/)?.[1];
@@ -114,8 +176,15 @@ function detectSlideBackground(classes = ''): { dataUrl: string; isLight: boolea
   let c3 = '#060712';
   let isLight = false;
   let isSolid = false;
-  let glow1 = 'rgba(99, 102, 241, 0.16)';
-  let glow2 = 'rgba(6, 182, 212, 0.12)';
+  let angleXml = 3240000; // 54 degrees / diagonal
+
+  if (classes.includes('to-r') || classes.includes('bg-gradient-to-r')) {
+    angleXml = 0;
+  } else if (classes.includes('to-b') || classes.includes('bg-gradient-to-b')) {
+    angleXml = 5400000;
+  } else if (classes.includes('to-br') || classes.includes('bg-gradient-to-br')) {
+    angleXml = 3240000;
+  }
 
   if (fromHex && toHex) {
     c1 = '#' + fromHex.toUpperCase();
@@ -126,8 +195,6 @@ function detectSlideBackground(classes = ''): { dataUrl: string; isLight: boolea
     const b = parseInt(fromHex.slice(4, 6), 16) || 0;
     const br = (r * 299 + g * 587 + b * 114) / 1000;
     isLight = br > 175 && !classes.includes('text-white') && !classes.includes('text-slate-100');
-    glow1 = 'rgba(255, 255, 255, 0.12)';
-    glow2 = 'rgba(255, 255, 255, 0.08)';
   } else if (bgHex && !hasGradient) {
     c1 = '#' + bgHex.toUpperCase();
     c2 = c1;
@@ -183,86 +250,43 @@ function detectSlideBackground(classes = ''): { dataUrl: string; isLight: boolea
       if (!hasGradient && (classes.includes('bg-white') || classes.includes('bg-slate-50') || classes.includes('bg-gray-50'))) {
         isSolid = true;
         c1 = classes.includes('bg-white') ? '#FFFFFF' : '#F8FAFC';
+        c2 = c1;
+        c3 = c1;
       } else if (classes.includes('stone') || classes.includes('amber') || classes.includes('orange')) {
         c1 = '#FAF8F5';
         c2 = '#F5F2EC';
         c3 = '#EFECE6';
-        glow1 = 'rgba(217, 119, 6, 0.05)';
-        glow2 = 'rgba(180, 83, 9, 0.03)';
       } else if (classes.includes('teal') || classes.includes('emerald') || classes.includes('green')) {
         c1 = '#F0FDFA';
         c2 = '#E6FFFA';
         c3 = '#CCFBF1';
-        glow1 = 'rgba(20, 184, 166, 0.06)';
-        glow2 = 'rgba(6, 182, 212, 0.04)';
       } else if (classes.includes('blue') || classes.includes('cyan') || classes.includes('indigo')) {
         c1 = '#FFFFFF';
         c2 = '#F0F7FF';
         c3 = '#E0F2FE';
-        glow1 = 'rgba(59, 130, 246, 0.05)';
-        glow2 = 'rgba(14, 165, 233, 0.03)';
       } else {
         c1 = '#FFFFFF';
         c2 = '#F8FAFC';
         c3 = '#F1F5F9';
-        glow1 = 'rgba(59, 130, 246, 0.04)';
-        glow2 = 'rgba(14, 165, 233, 0.03)';
       }
     } else {
       if (classes.includes('amber') || classes.includes('orange') || classes.includes('stone') || classes.includes('yellow')) {
         c1 = '#0C0A09';
         c2 = '#22160D';
         c3 = '#141210';
-        glow1 = 'rgba(245, 158, 11, 0.22)';
-        glow2 = 'rgba(234, 88, 12, 0.16)';
       } else if (classes.includes('emerald') || classes.includes('green') || classes.includes('teal')) {
         c1 = '#021A15';
         c2 = '#052E24';
         c3 = '#011410';
-        glow1 = 'rgba(16, 185, 129, 0.20)';
-        glow2 = 'rgba(20, 184, 166, 0.14)';
       } else if (classes.includes('blue') || classes.includes('cyan') || classes.includes('sky')) {
         c1 = '#0F172A';
         c2 = '#0B132B';
         c3 = '#060B1E';
-        glow1 = 'rgba(59, 130, 246, 0.20)';
-        glow2 = 'rgba(14, 165, 233, 0.15)';
       }
     }
   }
 
-  if (isSolid) {
-    return { dataUrl: '', isLight, c1, isSolid: true };
-  }
-
-  const canvas = document.createElement('canvas');
-  canvas.width = 1920;
-  canvas.height = 1080;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return { dataUrl: '', isLight, c1, isSolid: true };
-
-  const grad = ctx.createLinearGradient(0, 0, 1920, 1080);
-  grad.addColorStop(0, c1);
-  grad.addColorStop(0.5, c2);
-  grad.addColorStop(1, c3);
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, 1920, 1080);
-
-  // Top-right ambient glow
-  const g1 = ctx.createRadialGradient(1700, 120, 0, 1700, 120, 650);
-  g1.addColorStop(0, glow1);
-  g1.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = g1;
-  ctx.fillRect(0, 0, 1920, 1080);
-
-  // Bottom-left ambient glow
-  const g2 = ctx.createRadialGradient(200, 960, 0, 200, 960, 550);
-  g2.addColorStop(0, glow2);
-  g2.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = g2;
-  ctx.fillRect(0, 0, 1920, 1080);
-
-  return { dataUrl: canvas.toDataURL('image/png'), isLight, c1, isSolid: false };
+  return { isLight, c1, c2, c3, isSolid, angleXml };
 }
 
 interface ContainerStyle {
@@ -576,6 +600,9 @@ async function exportEditablePptx(slides: string[]) {
   container.className = 'not-prose';
   document.body.appendChild(container);
 
+  const slideBgInfos: SlideBackgroundInfo[] = [];
+  const gradientTexts: Record<number, { textExcerpt: string; stops: string[] }[]> = {};
+
   try {
     for (let i = 0; i < slides.length; i++) {
       const slideHtml = slides[i];
@@ -594,11 +621,9 @@ async function exportEditablePptx(slides: string[]) {
 
       const slide = pptx.addSlide();
       const bgInfo = detectSlideBackground(slideEl.className);
-      if (bgInfo.isSolid || !bgInfo.dataUrl) {
-        slide.background = { color: bgInfo.c1.replace('#', '') };
-      } else {
-        slide.background = { data: bgInfo.dataUrl };
-      }
+      slideBgInfos[i] = bgInfo;
+      // Native solid color placeholder - 0 bytes image overhead
+      slide.background = { color: bgInfo.c1.replace('#', '') };
       const isLightSlide = bgInfo.isLight;
 
       const toPptX = (domX: number) => ((domX - rootRect.left) / rootW) * 10;
@@ -1042,6 +1067,16 @@ async function exportEditablePptx(slides: string[]) {
             margin: 0,
           });
 
+          // Check if this text element has a gradient
+          const gradStops = extractTextGradientStops(cls);
+          if (gradStops) {
+            if (!gradientTexts[i]) gradientTexts[i] = [];
+            gradientTexts[i].push({
+              textExcerpt: cleanText(text).slice(0, 35),
+              stops: gradStops,
+            });
+          }
+
           // Mark element and all descendants as visited
           visitedElements.add(el);
           el.querySelectorAll('*').forEach((child) => visitedElements.add(child));
@@ -1052,7 +1087,71 @@ async function exportEditablePptx(slides: string[]) {
     const titleMatch = slides[0]?.match(/<h1\b[^>]*>(.*?)<\/h1>/i);
     const rawTitle = titleMatch ? cleanText(titleMatch[1]) : 'Presentation';
     const fileName = `${rawTitle.slice(0, 25).replace(/[\\/:*?"<>|]/g, '_')}_QuickGPT.pptx`;
-    await pptx.writeFile({ fileName });
+
+    // Generate PPTX package buffer
+    const rawBuffer = await pptx.write({ outputType: 'uint8array', compression: true });
+    const zip = await JSZip.loadAsync(rawBuffer as Uint8Array);
+
+    // Post-process each slide XML for 100% native vector gradient background & gradient text
+    for (let sIdx = 0; sIdx < slides.length; sIdx++) {
+      const slidePath = `ppt/slides/slide${sIdx + 1}.xml`;
+      const slideFile = zip.file(slidePath);
+      if (!slideFile) continue;
+
+      let xml = await slideFile.async('string');
+      const bg = slideBgInfos[sIdx];
+
+      // 1. Inject Native DrawingML Gradient Background (0 bytes image overhead)
+      if (bg && !bg.isSolid) {
+        const s1 = bg.c1.replace('#', '');
+        const s2 = bg.c2.replace('#', '');
+        const s3 = bg.c3.replace('#', '');
+        const ang = bg.angleXml || 3240000;
+        const bgXml = `<p:bg><p:bgPr><a:gradFill><a:gsLst><a:gs pos="0"><a:srgbClr val="${s1}"/></a:gs><a:gs pos="50000"><a:srgbClr val="${s2}"/></a:gs><a:gs pos="100000"><a:srgbClr val="${s3}"/></a:gs></a:gsLst><a:lin ang="${ang}"/></a:gradFill><a:effectLst/></p:bgPr></p:bg>`;
+
+        if (xml.includes('<p:bg>')) {
+          xml = xml.replace(/<p:bg>[\s\S]*?<\/p:bg>/, bgXml);
+        } else {
+          xml = xml.replace('<p:spTree>', bgXml + '<p:spTree>');
+        }
+      }
+
+      // 2. Inject Native DrawingML Gradient Text for gradient titles/phrases
+      const gTexts = gradientTexts[sIdx] || [];
+      for (const gt of gTexts) {
+        if (!gt.stops || gt.stops.length === 0 || !gt.textExcerpt) continue;
+        const stops = gt.stops;
+        const gsListXml =
+          stops.length === 2
+            ? `<a:gs pos="0"><a:srgbClr val="${stops[0]}"/></a:gs><a:gs pos="100000"><a:srgbClr val="${stops[1]}"/></a:gs>`
+            : `<a:gs pos="0"><a:srgbClr val="${stops[0]}"/></a:gs><a:gs pos="50000"><a:srgbClr val="${stops[1]}"/></a:gs><a:gs pos="100000"><a:srgbClr val="${stops[2]}"/></a:gs>`;
+        const gradFillXml = `<a:gradFill><a:gsLst>${gsListXml}</a:gsLst><a:lin ang="0"/></a:gradFill>`;
+
+        const escapedExcerpt = gt.textExcerpt.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const rRegex = new RegExp(`(<a:r>([\\s\\S]*?)<a:t>([\\s\\S]*?${escapedExcerpt}[\\s\\S]*?)<\\/a:t><\\/a:r>)`, 'g');
+        xml = xml.replace(rRegex, (m, fullR) => {
+          return fullR.replace(/<a:solidFill>[\s\S]*?<\/a:solidFill>/, gradFillXml);
+        });
+      }
+
+      zip.file(slidePath, xml);
+    }
+
+    // Generate final compressed PPTX Blob
+    const finalBlob = await zip.generateAsync({
+      type: 'blob',
+      mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      compression: 'DEFLATE',
+    });
+
+    const url = URL.createObjectURL(finalBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   } finally {
     if (container.parentNode) {
       container.parentNode.removeChild(container);
