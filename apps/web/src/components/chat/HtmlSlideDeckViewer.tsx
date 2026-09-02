@@ -67,7 +67,7 @@ function parseHtmlSlides(raw: string, isStreaming = false): string[] {
 /** Helper to clean text for PowerPoint */
 function cleanText(text = ''): string {
   return text
-    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<br\s*\/?>/gi, '___BR___')
     .replace(/<[^>]+>/g, '')
     .replace(/<\/?[a-zA-Z0-9_-]+>?/g, '')
     .replace(/^[a-zA-Z0-9_-]+>\s*$/gm, '')
@@ -77,7 +77,8 @@ function cleanText(text = ''): string {
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
-    .replace(/[ \t]+/g, ' ')
+    .replace(/[ \t\r\n]+/g, ' ')
+    .replace(/___BR___/g, '\n')
     .trim();
 }
 
@@ -514,81 +515,59 @@ function getEffectiveTextColor(el: HTMLElement, isLightSlide: boolean): string {
     return isLightSlide ? '1E3A8A' : 'FFFFFF';
   }
 
-  // 2. Exact Tailwind text color class resolution for high contrast
-  if (cls.includes('text-blue-900')) return '1E3A8A';
-  if (cls.includes('text-blue-800')) return '1E40AF';
-  if (cls.includes('text-blue-700')) return '1D4ED8';
-  if (cls.includes('text-blue-600')) return '2563EB';
-  if (cls.includes('text-blue-500')) return '3B82F6';
-  if (cls.includes('text-blue-400')) return '60A5FA';
-  if (cls.includes('text-blue-300')) return '93C5FD';
-  if (cls.includes('text-blue-200')) return 'BFDBFE';
-
-  if (cls.includes('text-emerald-900')) return '064E3B';
-  if (cls.includes('text-emerald-800')) return '065F46';
-  if (cls.includes('text-emerald-700')) return '047857';
-  if (cls.includes('text-emerald-600')) return '059669';
-  if (cls.includes('text-emerald-500')) return '10B981';
-  if (cls.includes('text-emerald-400')) return '34D399';
-  if (cls.includes('text-emerald-300')) return '6EE7B7';
-  if (cls.includes('text-emerald-200')) return 'A7F3D0';
-
-  if (cls.includes('text-amber-900')) return '78350F';
-  if (cls.includes('text-amber-800')) return '92400E';
-  if (cls.includes('text-amber-700')) return 'B45309';
-  if (cls.includes('text-amber-600')) return 'D97706';
-  if (cls.includes('text-amber-500')) return 'F59E0B';
-  if (cls.includes('text-amber-400')) return 'FBBF24';
-  if (cls.includes('text-amber-300')) return 'FCD34D';
-  if (cls.includes('text-amber-200')) return 'FDE68A';
-
-  if (cls.includes('text-purple-900')) return '581C87';
-  if (cls.includes('text-purple-800')) return '6B21A8';
-  if (cls.includes('text-purple-700')) return '7E22CE';
-  if (cls.includes('text-purple-600')) return '9333EA';
-  if (cls.includes('text-purple-400')) return 'C084FC';
-  if (cls.includes('text-purple-300')) return 'D8B4FE';
-  if (cls.includes('text-purple-200')) return 'E9D5FF';
-
-  if (cls.includes('text-indigo-900')) return '312E81';
-  if (cls.includes('text-indigo-800')) return '3730A3';
-  if (cls.includes('text-indigo-700')) return '4338CA';
-  if (cls.includes('text-indigo-600')) return '4F46E5';
-  if (cls.includes('text-indigo-400')) return '818CF8';
-  if (cls.includes('text-indigo-300')) return 'A5B4FC';
-  if (cls.includes('text-indigo-200')) return 'C7D2FE';
-
-  if (cls.includes('text-cyan-400')) return '22D3EE';
-  if (cls.includes('text-cyan-300')) return '67E8F9';
-  if (cls.includes('text-cyan-200')) return 'A5F3FC';
-
-  if (cls.includes('text-teal-400')) return '2DD4BF';
-  if (cls.includes('text-teal-300')) return '5EEAD4';
-
-  if (cls.includes('text-rose-400')) return 'FB7185';
-  if (cls.includes('text-rose-300')) return 'FDA4AF';
-
-  if (cls.includes('text-slate-900')) return '0F172A';
-  if (cls.includes('text-slate-800')) return '1E293B';
-  if (cls.includes('text-slate-700')) return '334155';
-  if (cls.includes('text-slate-600')) return '475569';
-  if (cls.includes('text-slate-500')) return '64748B';
-  if (cls.includes('text-slate-400')) return '94A3B8';
-  if (cls.includes('text-slate-300')) return 'CBD5E1';
-  if (cls.includes('text-slate-200')) return 'E2E8F0';
-  if (cls.includes('text-slate-100')) return 'F1F5F9';
-  if (cls.includes('text-white')) return 'FFFFFF';
+  // 2. Direct check if element or any ancestor explicitly specifies text color class
+  const explicitTextEl = (el.matches('[class*="text-"]') ? el : el.closest('[class*="text-"]')) as HTMLElement | null;
+  if (explicitTextEl) {
+    const explicitCls = explicitTextEl.className;
+    if (typeof explicitCls === 'string') {
+      const match = explicitCls.match(/\btext-(?:\[#([0-9a-fA-F]{6})\]|([a-z]+-[0-9]+|white|black))\b/);
+      if (match) {
+        if (match[1]) return match[1].toUpperCase();
+        if (match[2] === 'white') return 'FFFFFF';
+        if (match[2] === 'black') return '000000';
+        const resolved = parseTailwindColorToken(`text-${match[2]}`);
+        if (resolved) return resolved;
+      }
+    }
+  }
 
   // 3. Computed DOM Color with Contrast Safety Fallback
+  const isInsideDarkContainer = (() => {
+    let curr: HTMLElement | null = el.parentElement;
+    while (curr && curr.tagName !== 'SECTION' && curr.tagName !== 'BODY') {
+      const pCls = curr.className && typeof curr.className === 'string' ? curr.className : '';
+      if (
+        pCls.includes('text-white') ||
+        pCls.includes('bg-slate-900') ||
+        pCls.includes('bg-slate-950') ||
+        pCls.includes('bg-black') ||
+        pCls.includes('bg-gradient-to') ||
+        /bg-(?:blue|indigo|emerald|amber|purple|cyan|teal|rose|violet|sky|slate|gray|zinc|neutral)-(?:500|600|700|800|900|950)/.test(pCls)
+      ) {
+        return true;
+      }
+      const bg = parseRgba(window.getComputedStyle(curr).backgroundColor);
+      if (bg && bg.a > 0.3) {
+        const lum = (0.299 * bg.r + 0.587 * bg.g + 0.114 * bg.b) / 255;
+        if (lum < 0.62) return true;
+      }
+      curr = curr.parentElement;
+    }
+    return false;
+  })();
+
   const parsed = parseRgba(style.color);
   if (parsed && parsed.a > 0.1) {
     const hex = parsed.hex;
+    if (isInsideDarkContainer) {
+      if (hex === '000000' || hex === '0F172A' || hex === '1E293B') {
+        return 'FFFFFF';
+      }
+      return hex;
+    }
+
     if (isLightSlide) {
       if (hex === 'FFFFFF' || hex === 'F8FAFC' || hex === 'F1F5F9') {
-        const isInsideDarkBadge = el.closest(
-          '.bg-blue-600, .bg-blue-700, .bg-blue-800, .bg-blue-900, .bg-emerald-600, .bg-emerald-700, .bg-amber-600, .bg-purple-600, .bg-purple-700, .bg-slate-900, .bg-slate-800, .bg-black, [class*="bg-indigo-600"], [class*="bg-teal-600"], [class*="bg-cyan-600"], [class*="bg-rose-600"]'
-        ) !== null;
-        if (isInsideDarkBadge) return 'FFFFFF';
         return '0F172A';
       }
       return hex;
@@ -602,7 +581,7 @@ function getEffectiveTextColor(el: HTMLElement, isLightSlide: boolean): string {
     }
   }
 
-  return isLightSlide ? '1E293B' : 'FFFFFF';
+  return isLightSlide ? (isInsideDarkContainer ? 'FFFFFF' : '1E293B') : 'FFFFFF';
 }
 
 /**
@@ -744,15 +723,16 @@ async function exportEditablePptx(slides: string[]) {
 
         if (sx >= -0.5 && sy >= -0.5 && sx <= 10.5 && sy <= 6.0 && sw > 0.01 && sh > 0.005) {
           const isCircle =
-            (radius >= rect.height / 2 - 3 && Math.abs(rect.width - rect.height) < 12) ||
-            (cls.includes('rounded-full') && Math.abs(rect.width - rect.height) < 12);
+            (radius >= rect.height / 2 - 4 && Math.abs(rect.width - rect.height) < 14) ||
+            (cls.includes('rounded-full') && Math.abs(rect.width - rect.height) < 14);
           const isEllipse =
             cls.includes('rounded-[100%]') ||
             (cls.includes('rounded-full') && !cls.includes('px-') && !cls.includes('py-') && rect.width > 100 && rect.height > 100) ||
             style.borderRadius.includes('50%');
           const isPill =
-            (cls.includes('rounded-full') || cls.includes('rounded-md') || cls.includes('rounded-lg')) &&
-            rect.width > rect.height * 1.3 &&
+            cls.includes('rounded-full') &&
+            rect.width > rect.height * 1.2 &&
+            rect.height <= 52 &&
             !isEllipse;
 
           const shapeType = isCircle || isEllipse
@@ -760,6 +740,20 @@ async function exportEditablePptx(slides: string[]) {
             : radius > 2 || isPill || cls.includes('rounded-')
             ? pptx.ShapeType.roundRect
             : pptx.ShapeType.rect;
+
+          const calcRectRadius = () => {
+            if (isCircle || isEllipse) return undefined;
+            if (isPill) return 0.5; // Only true rounded-full badges/pills
+            if (cls.includes('rounded-none')) return 0;
+            if (cls.includes('rounded-3xl')) return 0.08;
+            if (cls.includes('rounded-2xl')) return 0.06;
+            if (cls.includes('rounded-xl')) return 0.04;
+            if (cls.includes('rounded-lg')) return 0.03;
+            if (cls.includes('rounded-md')) return 0.02;
+            if (cls.includes('rounded')) return 0.015;
+            if (radius > 0) return Math.max(0.01, Math.min(0.08, radius / rect.height));
+            return 0.03;
+          };
 
           const isDashed = cls.includes('border-dashed') || style.borderStyle === 'dashed';
           const isDotted = cls.includes('border-dotted') || style.borderStyle === 'dotted';
@@ -778,7 +772,7 @@ async function exportEditablePptx(slides: string[]) {
               y: Math.max(0.04, sy - 0.04),
               w: sw,
               h: sh,
-              rectRadius: isCircle || isEllipse ? undefined : isPill ? 0.5 : Math.min(0.2, (radius / rootW) * 10),
+              rectRadius: calcRectRadius(),
               fill: { color: topAccentColor },
             });
           }
@@ -811,7 +805,7 @@ async function exportEditablePptx(slides: string[]) {
               y: sy,
               w: sw,
               h: sh,
-              rectRadius: isCircle || isEllipse ? undefined : isPill ? 0.5 : Math.min(0.2, (radius / rootW) * 10),
+              rectRadius: calcRectRadius(),
               fill: fillColor
                 ? {
                     color: fillColor,
@@ -944,50 +938,97 @@ async function exportEditablePptx(slides: string[]) {
         table.querySelectorAll('*').forEach((el) => visitedElements.add(el));
 
         const tRect = table.getBoundingClientRect();
-        const headers = Array.from(table.querySelectorAll('th')).map((th) => cleanText(th.textContent || ''));
-        const rows = Array.from(table.querySelectorAll('tbody tr')).map((tr) =>
-          Array.from(tr.querySelectorAll('td')).map((td) => {
-            const colorParsed = getEffectiveTextColor(td, isLightSlide);
-            return {
-              text: cleanText(td.textContent || ''),
-              color: colorParsed,
-            };
-          })
-        );
+        const thList = Array.from(table.querySelectorAll('thead th, tr:first-child th'));
+        const trList = Array.from(table.querySelectorAll('tbody tr'));
 
-        if (headers.length > 0 && rows.length > 0) {
-          const tableData = [
-            headers.map((h) => ({
-              text: h,
+        // Calculate column widths from actual DOM headers
+        const colW = thList.map((th) => {
+          const w = th.getBoundingClientRect().width;
+          return Math.max(0.4, toPptW(w));
+        });
+
+        const headerRow = thList.map((th) => {
+          const thEl = th as HTMLElement;
+          const cls = thEl.className && typeof thEl.className === 'string' ? thEl.className : '';
+          const colorParsed = getEffectiveTextColor(thEl, isLightSlide);
+          const align = cls.includes('text-left')
+            ? ('left' as const)
+            : cls.includes('text-right')
+            ? ('right' as const)
+            : ('center' as const);
+
+          const bgParsed = extractContainerFillAndBorder(thEl, isLightSlide);
+          const headerFill = bgParsed.fill || (isLightSlide ? 'F1F5F9' : '1E293B');
+
+          return {
+            text: cleanText(thEl.textContent || ''),
+            options: {
+              fill: { color: headerFill },
+              color: colorParsed,
+              bold: true,
+              fontFace: 'Microsoft YaHei',
+              fontSize: 8.5,
+              align,
+              valign: 'middle' as const,
+              margin: [2, 4, 2, 4] as [number, number, number, number],
+            },
+          };
+        });
+
+        const bodyRows = trList.map((tr, rIdx) => {
+          const trEl = tr as HTMLElement;
+          const trCls = trEl.className && typeof trEl.className === 'string' ? trEl.className : '';
+          const trBg = trCls.includes('bg-') ? extractContainerFillAndBorder(trEl, isLightSlide).fill : null;
+
+          return Array.from(trEl.querySelectorAll('td')).map((td) => {
+            const tdEl = td as HTMLElement;
+            const cls = tdEl.className && typeof tdEl.className === 'string' ? tdEl.className : '';
+            const colorParsed = getEffectiveTextColor(tdEl, isLightSlide);
+            const isBold =
+              cls.includes('font-bold') ||
+              cls.includes('font-semibold') ||
+              tdEl.querySelector('strong, b') !== null ||
+              parseInt(window.getComputedStyle(tdEl).fontWeight, 10) >= 600;
+
+            const align = cls.includes('text-left')
+              ? ('left' as const)
+              : cls.includes('text-right')
+              ? ('right' as const)
+              : cls.includes('text-center')
+              ? ('center' as const)
+              : cleanText(tdEl.textContent || '').length <= 4
+              ? ('center' as const)
+              : ('left' as const);
+
+            const tdBg = cls.includes('bg-') ? extractContainerFillAndBorder(tdEl, isLightSlide).fill : null;
+            const cellFill = tdBg || trBg || (isLightSlide ? (rIdx % 2 === 0 ? 'FFFFFF' : 'F8FAFC') : (rIdx % 2 === 0 ? '141210' : '1C1917'));
+
+            return {
+              text: cleanText(tdEl.textContent || ''),
               options: {
-                fill: { color: isLightSlide ? 'E2E8F0' : '241D17' },
-                color: isLightSlide ? '1E293B' : 'FDE68A',
-                bold: true,
+                fill: { color: cellFill },
+                color: colorParsed,
+                bold: isBold,
                 fontFace: 'Microsoft YaHei',
-                fontSize: 8.5,
-                align: 'left' as const,
+                fontSize: 8,
+                align,
+                valign: 'middle' as const,
+                margin: [2, 4, 2, 4] as [number, number, number, number],
               },
-            })),
-            ...rows.map((row, rIdx) =>
-              row.map((cell) => ({
-                text: cell.text,
-                options: {
-                  fill: { color: isLightSlide ? (rIdx % 2 === 0 ? 'F8FAFC' : 'FFFFFF') : (rIdx % 2 === 0 ? '1C1917' : '141210') },
-                  color: cell.color,
-                  fontFace: 'Microsoft YaHei',
-                  fontSize: 8,
-                  align: 'left' as const,
-                },
-              }))
-            ),
-          ];
+            };
+          });
+        });
+
+        if (headerRow.length > 0 || bodyRows.length > 0) {
+          const tableData = headerRow.length > 0 ? [headerRow, ...bodyRows] : bodyRows;
 
           slide.addTable(tableData, {
-            x: Math.max(0.2, toPptX(tRect.left)),
-            y: Math.max(0.2, toPptY(tRect.top)),
-            w: Math.min(9.6, toPptW(tRect.width)),
-            h: Math.min(5.2, toPptH(tRect.height)),
-            border: { type: 'solid', pt: 0.5, color: isLightSlide ? 'CBD5E1' : '3C3836' },
+            x: Math.max(0.1, toPptX(tRect.left)),
+            y: Math.max(0.1, toPptY(tRect.top)),
+            w: Math.min(9.8, toPptW(tRect.width)),
+            h: Math.min(5.4, toPptH(tRect.height)),
+            colW: colW.length > 0 ? colW : undefined,
+            border: { type: 'solid', pt: 0.5, color: isLightSlide ? 'E2E8F0' : '334155' },
           });
         }
       });
@@ -1037,6 +1078,11 @@ async function exportEditablePptx(slides: string[]) {
         const parentCls = el.parentElement?.className && typeof el.parentElement.className === 'string' ? el.parentElement.className : '';
         const style = window.getComputedStyle(el);
 
+        const isCalloutOrBox =
+          (cls.includes('bg-') || cls.includes('border') || cls.includes('rounded-')) &&
+          (cls.includes('p-') || cls.includes('px-') || cls.includes('py-')) &&
+          domH >= 24;
+
         const isBadgeOrPill =
           (cls.includes('rounded-full') ||
             cls.includes('rounded-md') ||
@@ -1070,7 +1116,7 @@ async function exportEditablePptx(slides: string[]) {
         if (isMultiLine) {
           // Constrain width to container's computed width with slight breathing room, ensure wrap is true
           pptW = Math.max(pptW * 1.02, 0.4);
-          pptH = Math.max(pptH * 1.18, 0.28);
+          pptH = Math.max(pptH * (isCalloutOrBox ? 1.02 : 1.15), 0.28);
           if (isCentered && !isBadgeOrPill) {
             pptX = toPptX(domCenterX) - pptW / 2;
           }
@@ -1144,8 +1190,8 @@ async function exportEditablePptx(slides: string[]) {
             fontFace: 'Microsoft YaHei',
             wrap: isMultiLine,
             shrinkText: true,
-            valign: isHeading || isBadgeOrPill || !isMultiLine ? 'middle' : 'top',
-            margin: 0,
+            valign: isHeading || isBadgeOrPill || isCalloutOrBox || !isMultiLine || domH < 75 ? 'middle' : 'top',
+            margin: isCalloutOrBox ? [2, 6, 2, 6] : 0,
           });
 
           // Check if this text element has a gradient (Strictly bg-clip-text + text-transparent)
