@@ -130,6 +130,8 @@ function detectSlideBackground(classes = ''): { dataUrl: string; isLight: boolea
     glow2 = 'rgba(255, 255, 255, 0.08)';
   } else if (bgHex && !hasGradient) {
     c1 = '#' + bgHex.toUpperCase();
+    c2 = c1;
+    c3 = c1;
     const r = parseInt(bgHex.slice(0, 2), 16) || 0;
     const g = parseInt(bgHex.slice(2, 4), 16) || 0;
     const b = parseInt(bgHex.slice(4, 6), 16) || 0;
@@ -233,35 +235,34 @@ function detectSlideBackground(classes = ''): { dataUrl: string; isLight: boolea
     return { dataUrl: '', isLight, c1, isSolid: true };
   }
 
-  // Lightweight 1280x720 JPEG Canvas for smooth, low-byte ambient background
   const canvas = document.createElement('canvas');
-  canvas.width = 1280;
-  canvas.height = 720;
+  canvas.width = 1920;
+  canvas.height = 1080;
   const ctx = canvas.getContext('2d');
   if (!ctx) return { dataUrl: '', isLight, c1, isSolid: true };
 
-  const grad = ctx.createLinearGradient(0, 0, 1280, 720);
+  const grad = ctx.createLinearGradient(0, 0, 1920, 1080);
   grad.addColorStop(0, c1);
   grad.addColorStop(0.5, c2);
   grad.addColorStop(1, c3);
   ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, 1280, 720);
+  ctx.fillRect(0, 0, 1920, 1080);
 
   // Top-right ambient glow
-  const g1 = ctx.createRadialGradient(1150, 80, 0, 1150, 80, 450);
+  const g1 = ctx.createRadialGradient(1700, 120, 0, 1700, 120, 650);
   g1.addColorStop(0, glow1);
   g1.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = g1;
-  ctx.fillRect(0, 0, 1280, 720);
+  ctx.fillRect(0, 0, 1920, 1080);
 
   // Bottom-left ambient glow
-  const g2 = ctx.createRadialGradient(130, 640, 0, 130, 640, 380);
+  const g2 = ctx.createRadialGradient(200, 960, 0, 200, 960, 550);
   g2.addColorStop(0, glow2);
   g2.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = g2;
-  ctx.fillRect(0, 0, 1280, 720);
+  ctx.fillRect(0, 0, 1920, 1080);
 
-  return { dataUrl: canvas.toDataURL('image/jpeg', 0.85), isLight, c1, isSolid: false };
+  return { dataUrl: canvas.toDataURL('image/png'), isLight, c1, isSolid: false };
 }
 
 interface ContainerStyle {
