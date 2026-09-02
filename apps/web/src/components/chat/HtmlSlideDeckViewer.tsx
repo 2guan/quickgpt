@@ -268,6 +268,7 @@ function detectSlideBackground(classes = ''): { dataUrl: string; isLight: boolea
 interface ContainerStyle {
   fill?: string;
   fillTransparency?: number;
+  topAccentColor?: string;
   border?: string;
   borderBottom?: string;
   borderTop?: string;
@@ -285,6 +286,7 @@ function extractContainerFillAndBorder(el: HTMLElement, isLightSlide: boolean): 
 
   let fillHex: string | undefined = undefined;
   let fillTransparency: number | undefined = undefined;
+  let topAccentColor: string | undefined = undefined;
   let borderHex: string | undefined = undefined;
   let borderBottomHex: string | undefined = undefined;
   let borderTopHex: string | undefined = undefined;
@@ -305,6 +307,21 @@ function extractContainerFillAndBorder(el: HTMLElement, isLightSlide: boolean): 
   const bgHexMatch = cls.match(/bg-\[#?([0-9a-fA-F]{6})\]/);
   if (bgHexMatch) {
     fillHex = bgHexMatch[1].toUpperCase();
+  }
+
+  // Check for top accent strip inside this card (e.g. Slide 2 KPI cards with absolute top-0 left-0 right-0 h-1)
+  const topStripEl = el.querySelector(
+    ':scope > div.absolute.top-0.left-0, :scope > div.absolute.top-0[class*="right-0"], :scope > div.absolute.top-0[class*="w-full"]'
+  );
+  if (topStripEl) {
+    const stripCls = topStripEl.className && typeof topStripEl.className === 'string' ? topStripEl.className : '';
+    if (stripCls.includes('from-indigo') || stripCls.includes('bg-indigo') || stripCls.includes('to-indigo')) topAccentColor = '6366F1';
+    else if (stripCls.includes('from-cyan') || stripCls.includes('bg-cyan') || stripCls.includes('to-cyan')) topAccentColor = '06B6D4';
+    else if (stripCls.includes('from-emerald') || stripCls.includes('bg-emerald') || stripCls.includes('to-emerald')) topAccentColor = '10B981';
+    else if (stripCls.includes('from-amber') || stripCls.includes('bg-amber') || stripCls.includes('to-amber')) topAccentColor = 'F59E0B';
+    else if (stripCls.includes('from-purple') || stripCls.includes('bg-purple') || stripCls.includes('to-purple')) topAccentColor = 'A855F7';
+    else if (stripCls.includes('from-rose') || stripCls.includes('bg-rose') || stripCls.includes('to-rose')) topAccentColor = 'F43F5E';
+    else if (stripCls.includes('from-blue') || stripCls.includes('bg-blue') || stripCls.includes('to-blue')) topAccentColor = '3B82F6';
   }
 
   // Check SVG fill or polygon fill ONLY IF el itself is an SVG element
@@ -405,7 +422,7 @@ function extractContainerFillAndBorder(el: HTMLElement, isLightSlide: boolean): 
     borderLeftHex = resolvedColor;
   }
 
-  return { fill: fillHex, fillTransparency, border: borderHex, borderBottom: borderBottomHex, borderTop: borderTopHex, borderLeft: borderLeftHex };
+  return { fill: fillHex, fillTransparency, topAccentColor, border: borderHex, borderBottom: borderBottomHex, borderTop: borderTopHex, borderLeft: borderLeftHex };
 }
 
 /**
@@ -648,7 +665,7 @@ async function exportEditablePptx(slides: string[]) {
       containerCandidates.forEach((el) => {
         const cls = el.className && typeof el.className === 'string' ? el.className : '';
         const style = window.getComputedStyle(el);
-        const { fill: fillColor, fillTransparency, border: borderColor, borderBottom, borderTop, borderLeft } = extractContainerFillAndBorder(el as HTMLElement, isLightSlide);
+        const { fill: fillColor, fillTransparency, topAccentColor, border: borderColor, borderBottom, borderTop, borderLeft } = extractContainerFillAndBorder(el as HTMLElement, isLightSlide);
         const radius = parseFloat(style.borderRadius) || 0;
         const rect = el.getBoundingClientRect();
         const sx = toPptX(rect.left);
@@ -664,7 +681,19 @@ async function exportEditablePptx(slides: string[]) {
             ? pptx.ShapeType.roundRect
             : pptx.ShapeType.rect;
 
-          // 1. Draw solid or semi-transparent vector card/pill with optional shadow
+          // 1. Draw top accent crown behind card (same size as card, shifted upward by 0.04 inches)
+          if (topAccentColor && fillColor) {
+            slide.addShape(shapeType, {
+              x: sx,
+              y: Math.max(0.04, sy - 0.04),
+              w: sw,
+              h: sh,
+              rectRadius: isCircle ? undefined : Math.min(0.2, (radius / rootW) * 10),
+              fill: { color: topAccentColor },
+            });
+          }
+
+          // 2. Draw solid or semi-transparent vector card/pill with optional shadow on top
           if (fillColor || borderColor) {
             const hasShadow = cls.includes('shadow') && !cls.includes('shadow-none');
             let shadowConfig: any = undefined;
