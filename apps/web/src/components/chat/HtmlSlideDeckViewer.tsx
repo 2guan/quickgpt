@@ -109,29 +109,36 @@ interface SlideBackgroundInfo {
 
 /**
  * Extract gradient color stops for text with Tailwind gradient classes.
- * Strictly requires BOTH bg-clip-text AND text-transparent to prevent false positives on normal text.
+ * Accurately detects HTML gradient text while guarding normal badges, pills, and plain text.
  */
 function extractTextGradientStops(el: HTMLElement): string[] | null {
   const cls = el.className && typeof el.className === 'string' ? el.className : '';
-  const style = window.getComputedStyle(el);
+  const parentCls = el.parentElement?.className && typeof el.parentElement.className === 'string' ? el.parentElement.className : '';
+  const grandParentCls = el.parentElement?.parentElement?.className && typeof el.parentElement.parentElement.className === 'string' ? el.parentElement.parentElement.className : '';
+  const combinedCls = `${cls} ${parentCls} ${grandParentCls}`;
 
-  const isClipText =
-    cls.includes('bg-clip-text') ||
-    style.webkitBackgroundClip === 'text' ||
-    style.backgroundClip === 'text';
-
-  const isTransparentText =
-    cls.includes('text-transparent') ||
-    style.color === 'rgba(0, 0, 0, 0)' ||
-    style.color === 'transparent';
-
-  if (!isClipText || !isTransparentText) {
+  // Guard: If it's a badge / pill / small icon box without explicit bg-clip-text, don't treat text as gradient text
+  if (cls.includes('w-') && cls.includes('h-') && (cls.includes('rounded-lg') || cls.includes('rounded-full')) && !cls.includes('bg-clip-text')) {
+    return null;
+  }
+  if (cls.includes('px-') && cls.includes('py-') && cls.includes('rounded') && !cls.includes('bg-clip-text')) {
     return null;
   }
 
-  const fromHexMatch = cls.match(/from-\[#?([0-9a-fA-F]{6})\]/);
-  const viaHexMatch = cls.match(/via-\[#?([0-9a-fA-F]{6})\]/);
-  const toHexMatch = cls.match(/to-\[#?([0-9a-fA-F]{6})\]/);
+  // Check if this element or its wrapper has gradient text styling
+  const isGradText =
+    combinedCls.includes('bg-clip-text') ||
+    combinedCls.includes('text-transparent') ||
+    (el.tagName === 'H1' && (combinedCls.includes('bg-gradient-') || combinedCls.includes('from-')));
+
+  if (!isGradText) {
+    return null;
+  }
+
+  // 1. Direct Regex Extraction of Hex gradients
+  const fromHexMatch = combinedCls.match(/from-\[#?([0-9a-fA-F]{6})\]/);
+  const viaHexMatch = combinedCls.match(/via-\[#?([0-9a-fA-F]{6})\]/);
+  const toHexMatch = combinedCls.match(/to-\[#?([0-9a-fA-F]{6})\]/);
   if (fromHexMatch && toHexMatch) {
     const s0 = fromHexMatch[1].toUpperCase();
     const s1 = viaHexMatch ? viaHexMatch[1].toUpperCase() : undefined;
@@ -139,35 +146,43 @@ function extractTextGradientStops(el: HTMLElement): string[] | null {
     return s1 ? [s0, s1, s2] : [s0, s2];
   }
 
-  if (cls.includes('from-white') && (cls.includes('to-cyan-200') || cls.includes('to-cyan-300') || cls.includes('to-blue-200') || cls.includes('via-indigo-100') || cls.includes('via-slate-200') || cls.includes('to-indigo-200'))) {
-    return ['FFFFFF', 'E0E7FF', 'A5F3FC'];
+  // 2. Comprehensive Named Tailwind Gradients
+  if (combinedCls.includes('from-white')) {
+    if (combinedCls.includes('to-cyan-200') || combinedCls.includes('to-cyan-300') || combinedCls.includes('to-blue-200') || combinedCls.includes('via-indigo-100') || combinedCls.includes('via-indigo-200') || combinedCls.includes('via-slate-200') || combinedCls.includes('to-indigo-200')) {
+      return ['FFFFFF', 'E0E7FF', 'A5F3FC'];
+    }
+    return ['FFFFFF', 'E2E8F0', 'CBD5E1'];
   }
-  if (cls.includes('from-blue-900') || (cls.includes('from-blue-800') && cls.includes('to-blue-500'))) {
+  if (combinedCls.includes('from-blue-900') || combinedCls.includes('from-blue-800') || combinedCls.includes('from-blue-700')) {
     return ['1E3A8A', '1D4ED8', '3B82F6'];
   }
-  if (cls.includes('from-blue-600') && (cls.includes('to-cyan-500') || cls.includes('to-indigo-600'))) {
+  if (combinedCls.includes('from-blue-600') || combinedCls.includes('from-blue-500')) {
     return ['2563EB', '3B82F6', '06B6D4'];
   }
-  if (cls.includes('from-cyan-400') || cls.includes('from-cyan-500')) {
+  if (combinedCls.includes('from-cyan-400') || combinedCls.includes('from-cyan-500') || combinedCls.includes('from-cyan-300')) {
     return ['22D3EE', '06B6D4', '3B82F6'];
   }
-  if (cls.includes('from-indigo-300') || cls.includes('from-indigo-400') || cls.includes('from-indigo-500') || cls.includes('from-indigo-600')) {
+  if (combinedCls.includes('from-indigo-300') || combinedCls.includes('from-indigo-400') || combinedCls.includes('from-indigo-500') || combinedCls.includes('from-indigo-600')) {
     return ['A5B4FC', '818CF8', '67E8F9'];
   }
-  if (cls.includes('from-emerald-400') || cls.includes('from-emerald-500') || cls.includes('from-emerald-600')) {
+  if (combinedCls.includes('from-emerald-400') || combinedCls.includes('from-emerald-500') || combinedCls.includes('from-emerald-600') || combinedCls.includes('from-emerald-300')) {
     return ['6EE7B7', '10B981', '06B6D4'];
   }
-  if (cls.includes('from-amber-400') || cls.includes('from-amber-500') || cls.includes('from-amber-600')) {
+  if (combinedCls.includes('from-amber-400') || combinedCls.includes('from-amber-500') || combinedCls.includes('from-amber-600') || combinedCls.includes('from-amber-300')) {
     return ['FDE68A', 'F59E0B', 'EA580C'];
   }
-  if (cls.includes('from-purple-400') || cls.includes('from-purple-500') || cls.includes('from-purple-600')) {
+  if (combinedCls.includes('from-purple-400') || combinedCls.includes('from-purple-500') || combinedCls.includes('from-purple-600') || combinedCls.includes('from-purple-300')) {
     return ['E9D5FF', 'C084FC', 'F43F5E'];
   }
-  if (cls.includes('from-rose-400') || cls.includes('from-rose-500')) {
+  if (combinedCls.includes('from-rose-400') || combinedCls.includes('from-rose-500') || combinedCls.includes('from-rose-600')) {
     return ['FDA4AF', 'F43F5E', 'FB7185'];
   }
 
-  return ['4F46E5', '06B6D4'];
+  if (combinedCls.includes('bg-gradient-') || combinedCls.includes('from-')) {
+    return ['4F46E5', '06B6D4'];
+  }
+
+  return null;
 }
 
 /**
@@ -1143,7 +1158,7 @@ async function exportEditablePptx(slides: string[]) {
           stops.length === 2
             ? `<a:gs pos="0"><a:srgbClr val="${stops[0]}"/></a:gs><a:gs pos="100000"><a:srgbClr val="${stops[1]}"/></a:gs>`
             : `<a:gs pos="0"><a:srgbClr val="${stops[0]}"/></a:gs><a:gs pos="50000"><a:srgbClr val="${stops[1]}"/></a:gs><a:gs pos="100000"><a:srgbClr val="${stops[2]}"/></a:gs>`;
-        const gradFillXml = `<a:gradFill><a:gsLst>${gsListXml}</a:gsLst><a:lin ang="0"/></a:gradFill>`;
+        const gradFillXml = `<a:gradFill flip="none" rotWithShape="1"><a:gsLst>${gsListXml}</a:gsLst><a:lin ang="0" scaled="1"/></a:gradFill>`;
 
         xml = xml.replace(
           new RegExp(`<a:solidFill><a:srgbClr val="${item.token}"/></a:solidFill>`, 'g'),
