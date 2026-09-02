@@ -919,44 +919,97 @@ function exportStandaloneHtml(slides: string[], title = '演示文稿') {
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
     body { background-color: #020617; color: #f8fafc; margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif; overflow: hidden; }
-    .slide-wrapper { width: 960px; height: 540px; transform-origin: center center; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) scale(var(--scale, 1)); }
+    .slide-wrapper { width: 960px; height: 540px; transform-origin: center center; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) scale(var(--scale, 1)); transition: transform 0.15s ease-out; }
     .slide { width: 960px !important; height: 540px !important; }
+    
+    /* Fullscreen Mode Overrides */
+    body.is-fullscreen #topHeader,
+    body.is-fullscreen #bottomFooter {
+      display: none !important;
+    }
+    body.is-fullscreen #exitFullscreenBtn {
+      display: flex !important;
+    }
+    body.is-fullscreen #deck {
+      border-radius: 0 !important;
+      box-shadow: none !important;
+    }
   </style>
 </head>
-<body class="flex flex-col h-screen w-screen justify-between select-none">
-  <header class="p-3 flex justify-between items-center text-xs text-slate-400 border-b border-slate-800 bg-slate-900/80">
-    <span class="font-bold text-slate-200">${title}</span>
-    <div class="flex gap-2">
-      <button id="prevBtn" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 rounded text-white cursor-pointer">上一页 (←)</button>
-      <span id="pageIndicator" class="px-2 py-1">1 / ${slides.length}</span>
-      <button id="nextBtn" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 rounded text-white cursor-pointer">下一页 (→)</button>
+<body class="flex flex-col h-screen w-screen justify-between select-none bg-slate-950">
+  <!-- Top Navigation Header -->
+  <header id="topHeader" class="p-3 flex justify-between items-center text-xs text-slate-400 border-b border-slate-800 bg-slate-900/90 z-20">
+    <div class="flex items-center gap-2 min-w-0">
+      <span class="font-bold text-slate-200 truncate max-w-md">${title}</span>
+    </div>
+    <div class="flex items-center gap-2">
+      <button id="prevBtn" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 active:scale-95 rounded text-white cursor-pointer transition flex items-center gap-1">
+        <span>←</span> 上一页
+      </button>
+      <span id="pageIndicator" class="px-2.5 py-1 text-slate-300 font-mono font-medium">1 / ${slides.length}</span>
+      <button id="nextBtn" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 active:scale-95 rounded text-white cursor-pointer transition flex items-center gap-1">
+        下一页 <span>→</span>
+      </button>
+      <button id="fullscreenBtn" class="ml-2 px-3 py-1 bg-purple-600 hover:bg-purple-500 active:scale-95 rounded text-white cursor-pointer font-medium flex items-center gap-1.5 transition shadow-sm">
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+        全屏放映
+      </button>
     </div>
   </header>
 
-  <main class="flex-1 relative overflow-hidden flex items-center justify-center">
+  <!-- Main Slide Presentation Viewport -->
+  <main class="flex-1 relative overflow-hidden flex items-center justify-center w-full h-full">
     <div id="deck" class="slide-wrapper shadow-2xl rounded-2xl overflow-hidden">
       ${slides.map((s, idx) => `<div class="slide-page ${idx === 0 ? 'block' : 'hidden'}" data-index="${idx}">${s}</div>`).join('\n')}
     </div>
   </main>
 
-  <footer class="p-2 text-center text-[11px] text-slate-500 bg-slate-900/60 border-t border-slate-800">
-    使用键盘 ← / → 或空格键翻页 · 支持 F11 全屏放映
+  <!-- Bottom Helper Footer -->
+  <footer id="bottomFooter" class="p-2 text-center text-[11px] text-slate-500 bg-slate-900/60 border-t border-slate-800 z-20">
+    使用键盘 ← / → 或空格键翻页 · 按 F 键或点击全屏按钮开启无干扰放映
   </footer>
+
+  <!-- Floating Exit Fullscreen Button (Semi-transparent X in bottom right) -->
+  <button id="exitFullscreenBtn" class="fixed bottom-5 right-5 z-50 hidden opacity-40 hover:opacity-100 bg-slate-900/80 hover:bg-slate-900 text-white backdrop-blur-md border border-white/20 p-2.5 rounded-full cursor-pointer shadow-2xl transition-all duration-200 hover:scale-105 group" title="退出全屏 (ESC / F)">
+    <svg class="w-5 h-5 text-slate-300 group-hover:text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="18" y1="6" x2="6" y2="18"></line>
+      <line x1="6" y1="6" x2="18" y2="18"></line>
+    </svg>
+  </button>
 
   <script>
     let current = 0;
     const total = ${slides.length};
     const pages = document.querySelectorAll('.slide-page');
     const indicator = document.getElementById('pageIndicator');
+    const deck = document.getElementById('deck');
+
+    function isFsActive() {
+      return !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
+    }
 
     function updateScale() {
-      const w = window.innerWidth - 32;
-      const h = window.innerHeight - 90;
-      const scale = Math.min(w / 960, h / 540, 1.8);
-      document.getElementById('deck').style.setProperty('--scale', scale);
+      const fs = isFsActive();
+      document.body.classList.toggle('is-fullscreen', fs);
+
+      let w, h;
+      if (fs) {
+        w = window.innerWidth;
+        h = window.innerHeight;
+      } else {
+        w = window.innerWidth - 32;
+        h = window.innerHeight - 90;
+      }
+
+      const scale = Math.min(w / 960, h / 540);
+      deck.style.setProperty('--scale', scale);
     }
+
     window.addEventListener('resize', updateScale);
-    updateScale();
+    document.addEventListener('fullscreenchange', updateScale);
+    document.addEventListener('webkitfullscreenchange', updateScale);
+    document.addEventListener('mozfullscreenchange', updateScale);
+    document.addEventListener('MSFullscreenChange', updateScale);
 
     function showPage(idx) {
       if (idx < 0 || idx >= total) return;
@@ -968,13 +1021,53 @@ function exportStandaloneHtml(slides: string[], title = '演示文稿') {
       indicator.textContent = (current + 1) + ' / ' + total;
     }
 
+    function toggleFullscreen() {
+      if (!isFsActive()) {
+        const el = document.documentElement;
+        if (el.requestFullscreen) {
+          el.requestFullscreen().catch(() => {});
+        } else if (el.webkitRequestFullscreen) {
+          el.webkitRequestFullscreen();
+        } else if (el.msRequestFullscreen) {
+          el.msRequestFullscreen();
+        }
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen().catch(() => {});
+        } else if (document.webkitExitFullscreen) {
+          document.webkitExitFullscreen();
+        } else if (document.msExitFullscreen) {
+          document.msExitFullscreen();
+        }
+      }
+    }
+
     document.getElementById('prevBtn').onclick = () => showPage(current - 1);
     document.getElementById('nextBtn').onclick = () => showPage(current + 1);
+    document.getElementById('fullscreenBtn').onclick = toggleFullscreen;
+    document.getElementById('exitFullscreenBtn').onclick = toggleFullscreen;
 
     window.addEventListener('keydown', (e) => {
-      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') showPage(current + 1);
-      if (e.key === 'ArrowLeft' || e.key === 'PageUp') showPage(current - 1);
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+        e.preventDefault();
+        showPage(current + 1);
+      }
+      if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+        e.preventDefault();
+        showPage(current - 1);
+      }
+      if (e.key === 'f' || e.key === 'F') {
+        toggleFullscreen();
+      }
+      if (e.key === 'Home') {
+        showPage(0);
+      }
+      if (e.key === 'End') {
+        showPage(total - 1);
+      }
     });
+
+    updateScale();
   </script>
 </body>
 </html>`;
