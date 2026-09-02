@@ -561,18 +561,17 @@ export async function handleStreamChat({
       <span class="px-3 py-0.5 text-xs font-semibold rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">2026 战略规划</span>
       <span class="text-xs text-slate-400 font-mono tracking-widest">ENTERPRISE ARCHITECTURE</span>
     </div>
-    <span class="text-xs px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30">绝密 / 核心管理层</span>
+    <span class="text-xs px-2.5 py-0.5 rounded-md bg-blue-500/10 text-blue-300 border border-blue-500/20">核心技术方案</span>
   </div>
   <div class="my-auto py-2">
     <h1 class="text-4xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-100 to-blue-200">企业级多智能体协同架构与落地实践</h1>
     <p class="mt-3 text-sm text-slate-300 max-w-2xl leading-relaxed">从认知大模型走向全自动任务编排：生产级 Agent 的技术攻坚、安全防护与商业化价值变现</p>
-    <div class="flex items-center gap-4 mt-6">
-      <div class="flex items-center gap-2 px-3 py-1 rounded bg-[#132238] border border-blue-500/20 text-xs">
-        <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-        <span>已进入生产集群全面验证</span>
+    <div class="flex items-center gap-3 mt-6">
+      <div class="px-3 py-1 rounded bg-[#132238] border border-blue-500/20 text-xs text-slate-300">
+        生产集群全面验证
       </div>
-      <div class="flex items-center gap-2 px-3 py-1 rounded bg-[#132238] border border-blue-500/20 text-xs text-slate-300">
-        <span>全域吞吐提升 <strong>3.4x</strong></span>
+      <div class="px-3 py-1 rounded bg-[#132238] border border-blue-500/20 text-xs text-slate-300">
+        全域吞吐提升 <strong class="text-white">3.4x</strong>
       </div>
     </div>
   </div>
