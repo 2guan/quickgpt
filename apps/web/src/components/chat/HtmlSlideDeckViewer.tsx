@@ -1136,7 +1136,7 @@ async function exportEditablePptx(slides: string[]) {
         } else {
           // Single-line elements (headings, badges, tags, buttons, short metric values)
           if (isHeading && !isBadgeOrPill) {
-            pptW = Math.max(pptW * 1.18, styleEl.tagName === 'H1' ? 7.5 : styleEl.tagName === 'H2' ? 6.0 : 3.5);
+            pptW = Math.max(pptW * 1.15, text.length * 0.12, 0.4);
             if (isCentered) {
               pptX = toPptX(domCenterX) - pptW / 2;
             }
@@ -1236,17 +1236,25 @@ async function exportEditablePptx(slides: string[]) {
         const htmlEl = el as HTMLElement;
         const isContainerWithIndependentChildren = hasIndependentChildren(htmlEl);
         if (isContainerWithIndependentChildren) {
-          // Process direct text nodes of this container (e.g. text right beside an icon/badge)
+          const cStyle = window.getComputedStyle(htmlEl);
+          const gap = parseFloat(cStyle.columnGap || cStyle.gap) || 6;
+          const containerRect = htmlEl.getBoundingClientRect();
+
+          let lastChildRight = containerRect.left;
+
           Array.from(htmlEl.childNodes).forEach((node) => {
-            if (node.nodeType === Node.TEXT_NODE) {
+            if (node.nodeType === Node.ELEMENT_NODE) {
+              const elRect = (node as HTMLElement).getBoundingClientRect();
+              if (elRect.width > 0) {
+                lastChildRight = Math.max(lastChildRight, elRect.right);
+              }
+            } else if (node.nodeType === Node.TEXT_NODE) {
               const directText = cleanText(node.textContent || '');
               if (directText.length > 0) {
-                const range = document.createRange();
-                range.selectNodeContents(node);
-                const r = range.getBoundingClientRect();
-                if (r.width > 0 && r.height > 0) {
-                  emitTextFrame(htmlEl, directText, r, htmlEl);
-                }
+                const textLeft = lastChildRight > containerRect.left ? lastChildRight + gap : containerRect.left;
+                const textWidth = Math.max(30, containerRect.right - textLeft);
+                const computedRect = new DOMRect(textLeft, containerRect.top, textWidth, containerRect.height);
+                emitTextFrame(htmlEl, directText, computedRect, htmlEl);
               }
             }
           });
